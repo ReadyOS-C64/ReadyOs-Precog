@@ -30,6 +30,7 @@ CFLAGS = -t c64 -I$(LIB_DIR)
 
 # Flags for apps (load at $1000 using custom config)
 APP_CFLAGS = -t c64 -I$(LIB_DIR) -C $(CFG_DIR)/ready_app.cfg
+TASKLIST_CFLAGS = $(APP_CFLAGS) -Os
 LAUNCHER_CFG_VERBOSE ?= 0
 LAUNCHER_CFLAGS = $(APP_CFLAGS) -DLAUNCHER_CFG_VERBOSE=$(LAUNCHER_CFG_VERBOSE)
 
@@ -181,7 +182,7 @@ LIB_CALCPLUS = $(TUI_BASE_NAV) $(LIB_REU_DMA) $(LIB_CLIP_COPY_PASTE_COUNT) $(RES
 LIB_HEXVIEW = $(TUI_BASE_NAV_MISC) $(LIB_REU_DMA) $(LIB_CLIP_COPY) $(RESUME_STATE_SRC)
 LIB_CLIPMGR = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(LIB_REU_DMA_STATS) $(LIB_CLIP_PASTE_COUNT) $(CLIP_ADMIN_SRC) $(RESUME_STATE_SRC)
 LIB_REUVIEWER = $(TUI_BASE_NAV_MISC) $(LIB_REU_DMA_STATS) $(RESUME_STATE_SRC)
-LIB_TASKLIST = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(LIB_REU_DMA) $(LIB_CLIP_COPY_PASTE_COUNT)
+LIB_TASKLIST = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(LIB_REU_DMA) $(LIB_CLIP_COPY_PASTE_COUNT) $(RESUME_STATE_SRC)
 LIB_GAME2048 = $(TUI_BASE_NAV) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 LIB_CAL26 = $(TUI_BASE_INPUT_NAV_MISC) $(LIB_REU_DMA) $(LIB_CLIP_COPY_PASTE_COUNT) $(RESUME_STATE_SRC)
 LIB_DIZZY = $(TUI_BASE_INPUT_NAV) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
@@ -245,7 +246,7 @@ $(REUVIEWER): $(APPS_DIR)/reuviewer/reuviewer.c $(LIB_REUVIEWER)
 
 # Task List app (loads at $1000)
 $(TASKLIST): $(APPS_DIR)/tasklist/tasklist.c $(LIB_TASKLIST)
-	$(CC) $(APP_CFLAGS) -m $(OBJ_DIR)/tasklist.map -o $@ $^
+	$(CC) $(TASKLIST_CFLAGS) -m $(OBJ_DIR)/tasklist.map -o $@ $^
 
 # 2048 game app (loads at $1000)
 $(GAME2048): $(APPS_DIR)/game2048/game2048.c $(LIB_GAME2048)
@@ -410,12 +411,14 @@ clean:
 # Verify all generated binaries and memory layout constraints
 verify: all
 	python3 verify.py
+	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/verify_resume_contract.py
 	python3 $(BUILD_SUPPORT_DIR)/verify_memory_map.py
 
 # Full rebuild + deep verification
 fullcheck: clean all
 	python3 verify.py
+	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/verify_resume_contract.py
 	python3 $(BUILD_SUPPORT_DIR)/verify_memory_map.py
 
@@ -433,6 +436,9 @@ readyshell-parse-smoke-host:
 		$(READYSHELL_CORE_DIR)/rs_errors.c \
 		-o /tmp/readyshell_parse_smoke
 	/tmp/readyshell_parse_smoke
+
+tasklist-smoke-host:
+	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
 
 # Run Ready OS (boot loader)
 run: $(DISK1) $(DISK2)
@@ -453,6 +459,7 @@ help:
 	@echo "                (includes hard memory-map gate)"
 	@echo "  verify-resume - Run warm-resume contract verification"
 	@echo "  fullcheck   - Clean rebuild and deep binary verification"
+	@echo "  tasklist-smoke-host - Run Tasklist host-side smoke checks"
 	@echo "  seed-cal26  - Seed CAL26 REL files on readyos.d71 with sample events"
 	@echo "  launcher-verbose - Rebuild launcher with verbose config diagnostics"
 	@echo "  run         - Run Ready OS in VICE"
@@ -491,4 +498,4 @@ probe-rel:
 launcher-verbose:
 	$(MAKE) LAUNCHER_CFG_VERBOSE=1 $(LAUNCHER)
 
-.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-parse-smoke-host FORCE
+.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-parse-smoke-host tasklist-smoke-host FORCE

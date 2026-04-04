@@ -13,6 +13,7 @@
 
 #include "../../lib/clipboard.h"
 #include "../../lib/reu_mgr.h"
+#include "../../lib/resume_state.h"
 
 /*---------------------------------------------------------------------------
  * Constants
@@ -69,13 +70,7 @@
 #define CHECK_DONE   24    /* 'X' screen code */
 #define CHECK_ACTIVE 32    /* space */
 
-#define SHIM_CURRENT_BANK ((unsigned char*)0xC834)
-#define TASKLIST_RESUME_OFF      0xB600
-#define TASKLIST_RESUME_HDR_SIZE 8
-#define TASKLIST_RESUME_MAGIC0   'T'
-#define TASKLIST_RESUME_MAGIC1   'S'
-#define TASKLIST_RESUME_MAGIC2   'K'
-#define TASKLIST_RESUME_MAGIC3   '1'
+#define SHIM_CURRENT_BANK (*(volatile unsigned char*)0xC834)
 
 /*---------------------------------------------------------------------------
  * Data Structures
@@ -115,31 +110,41 @@ static unsigned char modified;
 static unsigned char running;
 
 static unsigned char resume_ready;
-static unsigned char resume_bank;
-static unsigned char resume_hdr[TASKLIST_RESUME_HDR_SIZE];
 
-typedef struct {
-    unsigned int addr;
-    unsigned int len;
-} TasklistResumeSeg;
-
-static const TasklistResumeSeg tasklist_resume_segments[] = {
-    { (unsigned int)&task_count, sizeof(task_count) },
-    { (unsigned int)task_text, sizeof(task_text) },
-    { (unsigned int)task_flags, sizeof(task_flags) },
-    { (unsigned int)note_offset, sizeof(note_offset) },
-    { (unsigned int)note_length, sizeof(note_length) },
-    { (unsigned int)note_pool, sizeof(note_pool) },
-    { (unsigned int)&note_pool_used, sizeof(note_pool_used) },
-    { (unsigned int)search_buf, sizeof(search_buf) },
-    { (unsigned int)&search_active, sizeof(search_active) },
-    { (unsigned int)&cursor_pos, sizeof(cursor_pos) },
-    { (unsigned int)&scroll_y, sizeof(scroll_y) },
-    { (unsigned int)filename, sizeof(filename) },
-    { (unsigned int)&modified, sizeof(modified) },
+static ResumeWriteSegment tasklist_resume_write_segments[] = {
+    { &task_count, sizeof(task_count) },
+    { task_text, sizeof(task_text) },
+    { task_flags, sizeof(task_flags) },
+    { note_offset, sizeof(note_offset) },
+    { note_length, sizeof(note_length) },
+    { note_pool, sizeof(note_pool) },
+    { &note_pool_used, sizeof(note_pool_used) },
+    { search_buf, sizeof(search_buf) },
+    { &search_active, sizeof(search_active) },
+    { &cursor_pos, sizeof(cursor_pos) },
+    { &scroll_y, sizeof(scroll_y) },
+    { filename, sizeof(filename) },
+    { &modified, sizeof(modified) },
 };
 
-#define TASKLIST_RESUME_SEG_COUNT ((unsigned char)(sizeof(tasklist_resume_segments) / sizeof(tasklist_resume_segments[0])))
+static ResumeReadSegment tasklist_resume_read_segments[] = {
+    { &task_count, sizeof(task_count) },
+    { task_text, sizeof(task_text) },
+    { task_flags, sizeof(task_flags) },
+    { note_offset, sizeof(note_offset) },
+    { note_length, sizeof(note_length) },
+    { note_pool, sizeof(note_pool) },
+    { &note_pool_used, sizeof(note_pool_used) },
+    { search_buf, sizeof(search_buf) },
+    { &search_active, sizeof(search_active) },
+    { &cursor_pos, sizeof(cursor_pos) },
+    { &scroll_y, sizeof(scroll_y) },
+    { filename, sizeof(filename) },
+    { &modified, sizeof(modified) },
+};
+
+#define TASKLIST_RESUME_SEG_COUNT \
+    ((unsigned char)(sizeof(tasklist_resume_read_segments) / sizeof(tasklist_resume_read_segments[0])))
 
 /* Indent colors (cycle through 8 levels) */
 static const unsigned char indent_colors[] = {
@@ -197,6 +202,7 @@ static unsigned char file_load(const char *name);
 static unsigned char file_save(const char *name);
 static void show_message(const char *msg, unsigned char color);
 static unsigned char show_confirm(const char *msg);
+static void show_help_popup(void);
 static unsigned char resume_restore_state(void);
 static void resume_save_state(void);
 
@@ -243,6 +249,34 @@ static unsigned char str_contains(const char *haystack, const char *needle) {
     return 0;
 }
 
+static unsigned char note_contains(unsigned char task_idx, const char *needle) {
+    unsigned int start, off, end;
+    unsigned char ni, nlen;
+
+    if (!has_note(task_idx) || note_offset[task_idx] == 0xFFFF || note_length[task_idx] == 0) {
+        return 0;
+    }
+
+    nlen = (unsigned char)strlen(needle);
+    if (nlen == 0) return 1;
+
+    off = note_offset[task_idx];
+    if (off >= NOTE_POOL_SIZE) return 0;
+
+    end = off + note_length[task_idx];
+    if (end > NOTE_POOL_SIZE) end = NOTE_POOL_SIZE;
+    if ((unsigned int)nlen > (end - off)) return 0;
+
+    for (start = off; start + nlen <= end; ++start) {
+        for (ni = 0; ni < nlen; ++ni) {
+            if (to_lower(note_pool[start + ni]) != to_lower(needle[ni])) break;
+        }
+        if (ni == nlen) return 1;
+    }
+
+    return 0;
+}
+
 /* Ensure cursor stays in bounds */
 static void clamp_cursor(void) {
     if (view_count == 0) {
@@ -259,48 +293,6 @@ static void clamp_cursor(void) {
     if (cursor_pos >= scroll_y + LIST_HEIGHT) {
         scroll_y = cursor_pos - LIST_HEIGHT + 1;
     }
-}
-
-static unsigned int resume_payload_len(void) {
-    unsigned char i;
-    unsigned int total = 0;
-    for (i = 0; i < TASKLIST_RESUME_SEG_COUNT; ++i) {
-        total = (unsigned int)(total + tasklist_resume_segments[i].len);
-    }
-    return total;
-}
-
-static void resume_stash_segments(void) {
-    unsigned char i;
-    unsigned int off;
-
-    off = (unsigned int)(TASKLIST_RESUME_OFF + TASKLIST_RESUME_HDR_SIZE);
-    for (i = 0; i < TASKLIST_RESUME_SEG_COUNT; ++i) {
-        reu_dma_stash(tasklist_resume_segments[i].addr, resume_bank, off,
-                      tasklist_resume_segments[i].len);
-        off = (unsigned int)(off + tasklist_resume_segments[i].len);
-    }
-}
-
-static void resume_fetch_segments(void) {
-    unsigned char i;
-    unsigned int off;
-
-    off = (unsigned int)(TASKLIST_RESUME_OFF + TASKLIST_RESUME_HDR_SIZE);
-    for (i = 0; i < TASKLIST_RESUME_SEG_COUNT; ++i) {
-        reu_dma_fetch(tasklist_resume_segments[i].addr, resume_bank, off,
-                      tasklist_resume_segments[i].len);
-        off = (unsigned int)(off + tasklist_resume_segments[i].len);
-    }
-}
-
-static void resume_invalidate_state(void) {
-    unsigned char i;
-    for (i = 0; i < TASKLIST_RESUME_HDR_SIZE; ++i) {
-        resume_hdr[i] = 0;
-    }
-    reu_dma_stash((unsigned int)resume_hdr, resume_bank,
-                  TASKLIST_RESUME_OFF, TASKLIST_RESUME_HDR_SIZE);
 }
 
 static unsigned char resume_validate_state(void) {
@@ -364,36 +356,17 @@ static void resume_rebuild_runtime_view(void) {
 }
 
 static unsigned char resume_restore_state(void) {
-    unsigned int payload_len;
-    unsigned int stored_len;
+    unsigned int payload_len = 0;
 
     if (!resume_ready) {
         return 0;
     }
-    payload_len = resume_payload_len();
-    if (payload_len == 0 ||
-        payload_len > (0x10000U - TASKLIST_RESUME_OFF - TASKLIST_RESUME_HDR_SIZE)) {
+    if (!resume_load_segments(tasklist_resume_read_segments, TASKLIST_RESUME_SEG_COUNT, &payload_len)) {
         return 0;
     }
 
-    reu_dma_fetch((unsigned int)resume_hdr, resume_bank,
-                  TASKLIST_RESUME_OFF, TASKLIST_RESUME_HDR_SIZE);
-    if (resume_hdr[0] != TASKLIST_RESUME_MAGIC0 ||
-        resume_hdr[1] != TASKLIST_RESUME_MAGIC1 ||
-        resume_hdr[2] != TASKLIST_RESUME_MAGIC2 ||
-        resume_hdr[3] != TASKLIST_RESUME_MAGIC3) {
-        return 0;
-    }
-
-    stored_len = (unsigned int)resume_hdr[4]
-               | ((unsigned int)resume_hdr[5] << 8);
-    if (stored_len != payload_len) {
-        return 0;
-    }
-
-    resume_fetch_segments();
     if (!resume_validate_state()) {
-        resume_invalidate_state();
+        resume_invalidate();
         return 0;
     }
     resume_rebuild_runtime_view();
@@ -401,8 +374,6 @@ static unsigned char resume_restore_state(void) {
 }
 
 static void resume_save_state(void) {
-    unsigned int payload_len;
-
     if (!resume_ready) {
         return;
     }
@@ -410,26 +381,7 @@ static void resume_save_state(void) {
     filename[15] = 0;
     modified = modified ? 1 : 0;
     search_active = search_active ? 1 : 0;
-
-    payload_len = resume_payload_len();
-    if (payload_len == 0 ||
-        payload_len > (0x10000U - TASKLIST_RESUME_OFF - TASKLIST_RESUME_HDR_SIZE)) {
-        return;
-    }
-
-    resume_stash_segments();
-
-    resume_hdr[0] = TASKLIST_RESUME_MAGIC0;
-    resume_hdr[1] = TASKLIST_RESUME_MAGIC1;
-    resume_hdr[2] = TASKLIST_RESUME_MAGIC2;
-    resume_hdr[3] = TASKLIST_RESUME_MAGIC3;
-    resume_hdr[4] = (unsigned char)(payload_len & 0xFF);
-    resume_hdr[5] = (unsigned char)(payload_len >> 8);
-    resume_hdr[6] = 0;
-    resume_hdr[7] = 0;
-
-    reu_dma_stash((unsigned int)resume_hdr, resume_bank,
-                  TASKLIST_RESUME_OFF, TASKLIST_RESUME_HDR_SIZE);
+    (void)resume_save_segments(tasklist_resume_write_segments, TASKLIST_RESUME_SEG_COUNT);
 }
 
 /*---------------------------------------------------------------------------
@@ -515,16 +467,16 @@ static void apply_filter(void) {
         unsigned char all_match = 1;
         for (w = 0; w < word_count; ++w) {
             if (is_hashtag[w]) {
-                /* Match hashtag: look for #word in task text */
+                /* Match hashtag in task text or note text */
                 static char htag[MAX_SEARCH_LEN + 2];
                 htag[0] = '#';
                 strcpy(&htag[1], words[w]);
-                if (!str_contains(task_text[i], htag)) {
+                if (!str_contains(task_text[i], htag) && !note_contains(i, htag)) {
                     all_match = 0;
                     break;
                 }
             } else {
-                if (!str_contains(task_text[i], words[w])) {
+                if (!str_contains(task_text[i], words[w]) && !note_contains(i, words[w])) {
                     all_match = 0;
                     break;
                 }
@@ -816,9 +768,9 @@ static void draw_status(void) {
 }
 
 static void draw_help(void) {
-    tui_puts(0, HELP_Y1, "]:IN [:OUT SP:DONE E:EDIT N:NOTE",
+    tui_puts(0, HELP_Y1, "]:IN [:OUT SP:DONE E:EDIT N:NOTE /:S",
              TUI_COLOR_GRAY3);
-    tui_puts(0, HELP_Y2, "F1:CPY F3:PST F5:SAV F6:SA F7:OPN /:S",
+    tui_puts(0, HELP_Y2, "F1:CPY F3:PST F5:SAV F6:SA F7:OPN F8:H",
              TUI_COLOR_GRAY3);
 }
 
@@ -1934,6 +1886,37 @@ static unsigned char show_confirm(const char *msg) {
     }
 }
 
+static void show_help_popup(void) {
+    TuiRect win;
+    unsigned char key;
+
+    win.x = 1;
+    win.y = 4;
+    win.w = 38;
+    win.h = 16;
+    tui_window_title(&win, "TASKS HELP", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
+
+    tui_puts(3, 6, "READYOS TASKS", TUI_COLOR_WHITE);
+    tui_puts(3, 7, "+/-:PAGE UP/DN", TUI_COLOR_GRAY3);
+    tui_puts(3, 8, "RET:NEW   DEL:DELETE", TUI_COLOR_GRAY3);
+    tui_puts(3, 9, "]:IN      [:OUT", TUI_COLOR_GRAY3);
+    tui_puts(3, 10, "SP:DONE   E:EDIT", TUI_COLOR_GRAY3);
+    tui_puts(3, 11, "N:NOTE    /:SEARCH", TUI_COLOR_GRAY3);
+    tui_puts(3, 12, "F1:COPY   F3:PASTE", TUI_COLOR_GRAY3);
+    tui_puts(3, 13, "F5:SAVE   F6:SAVE AS", TUI_COLOR_GRAY3);
+    tui_puts(3, 14, "F7:OPEN   F8:HELP", TUI_COLOR_GRAY3);
+    tui_puts(3, 15, "F2/F4:APPS ^B:LAUNCHER", TUI_COLOR_GRAY3);
+    tui_puts(3, 17, "RET/F8/STOP:CLOSE", TUI_COLOR_CYAN);
+
+    while (1) {
+        key = tui_getkey();
+        if (key == TUI_KEY_F8 || key == TUI_KEY_RETURN ||
+            key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
+            return;
+        }
+    }
+}
+
 /*---------------------------------------------------------------------------
  * Initialization
  *---------------------------------------------------------------------------*/
@@ -1946,9 +1929,9 @@ static void tasklist_init(void) {
     reu_mgr_init();
 
     resume_ready = 0;
-    bank = *SHIM_CURRENT_BANK;
+    bank = SHIM_CURRENT_BANK;
     if (bank >= 1 && bank <= 15) {
-        resume_bank = bank;
+        resume_init_for_app(bank, bank, RESUME_SCHEMA_V1);
         resume_ready = 1;
     }
 
@@ -2000,7 +1983,7 @@ static void tasklist_loop(void) {
 
         /* App switching */
         if (key == TUI_KEY_NEXT_APP) {
-            unsigned char current = *((unsigned char*)0xC834);
+            unsigned char current = SHIM_CURRENT_BANK;
             unsigned char next = tui_get_next_app(current);
             if (next != 0) {
                 resume_save_state();
@@ -2009,7 +1992,7 @@ static void tasklist_loop(void) {
             continue;
         }
         if (key == TUI_KEY_PREV_APP) {
-            unsigned char current = *((unsigned char*)0xC834);
+            unsigned char current = SHIM_CURRENT_BANK;
             unsigned char prev = tui_get_prev_app(current);
             if (prev != 0) {
                 resume_save_state();
@@ -2075,7 +2058,6 @@ static void tasklist_loop(void) {
                         draw_task_line(cursor_pos);
                         draw_task_line(cursor_pos + 1);
                     }
-                    draw_header();
                 }
                 continue;
 
@@ -2090,7 +2072,6 @@ static void tasklist_loop(void) {
                         draw_task_line(cursor_pos);
                         draw_task_line(cursor_pos - 1);
                     }
-                    draw_header();
                 }
                 continue;
 
@@ -2099,7 +2080,6 @@ static void tasklist_loop(void) {
                 cursor_pos = 0;
                 scroll_y = 0;
                 draw_visible_tasks();
-                draw_header();
                 continue;
 
             case TUI_KEY_RETURN:
@@ -2169,7 +2149,6 @@ static void tasklist_loop(void) {
                     }
                     clamp_cursor();
                     draw_visible_tasks();
-                    draw_header();
                 }
                 continue;
 
@@ -2185,8 +2164,12 @@ static void tasklist_loop(void) {
                     }
                     clamp_cursor();
                     draw_visible_tasks();
-                    draw_header();
                 }
+                continue;
+
+            case TUI_KEY_F8:
+                show_help_popup();
+                tasklist_draw();
                 continue;
 
             case TUI_KEY_F1:
