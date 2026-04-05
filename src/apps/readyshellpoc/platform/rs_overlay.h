@@ -15,7 +15,6 @@ int rs_overlay_prepare_exec(void);
 int rs_overlay_prepare_script(void);
 int rs_overlay_active(void);
 int rs_overlay_is_phase_ready(unsigned char phase);
-int rs_overlay_cached_in_reu(void);
 unsigned char rs_overlay_last_rc(void);
 void rs_overlay_debug_mark(unsigned char code);
 

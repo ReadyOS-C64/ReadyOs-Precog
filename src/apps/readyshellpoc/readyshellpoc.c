@@ -70,7 +70,6 @@ typedef struct {
     RSVMPlatform platform;
     RSError err;
     unsigned char resume_ready;
-    unsigned char overlay_ready;
     unsigned char cursor_y;
     unsigned char cursor_x;
     unsigned int off;
@@ -86,7 +85,6 @@ typedef struct {
 #define g_platform (RS_RUNTIME->platform)
 #define g_err (RS_RUNTIME->err)
 #define resume_ready (RS_RUNTIME->resume_ready)
-#define overlay_ready (RS_RUNTIME->overlay_ready)
 #define g_cursor_y (RS_RUNTIME->cursor_y)
 #define g_cursor_x (RS_RUNTIME->cursor_x)
 #define g_off (RS_RUNTIME->off)
@@ -476,7 +474,7 @@ static void shell_draw_chrome(void) {
 
     clear_screen_color(C_BLUE, C_WHITE);
     draw_window(0, TITLE_Y, 40, 3, C_LIGHTBLUE);
-    draw_text(8, 0, "READYSHELL POC", C_YELLOW);
+    draw_text(13, 0, "READYSHELL POC", C_YELLOW);
     draw_text(4, 1, "READYOS LIMITED PROOF OF CONCEPT", C_CYAN);
 
     for (row = BODY_TOP; row <= BODY_BOTTOM; ++row) {
@@ -760,7 +758,6 @@ int main(void) {
 
     g_line[0] = 0;
     resume_ready = 0;
-    overlay_ready = 0;
     bank = SHIM_CURRENT_BANK;
     if (bank >= 1 && bank <= 15) {
         resume_init_for_app(bank, bank, RESUME_SCHEMA_V1);
@@ -790,14 +787,8 @@ int main(void) {
     rs_overlay_debug_mark('M');
 
     if (rs_overlay_boot_with_progress(shell_overlay_progress, 0) == 0) {
-        overlay_ready = 1;
         rs_overlay_debug_mark('K');
         shell_newline();
-        if (rs_overlay_cached_in_reu()) {
-            shell_write_line("Overlay cache: REU");
-        } else {
-            shell_write_line("Overlay cache: disk");
-        }
     } else {
         rs_overlay_debug_mark('k');
         shell_write_line("overlay load failed: need rsovl1/2/3");
@@ -827,29 +818,11 @@ int main(void) {
             continue;
         }
 
-        if (!overlay_ready) {
-            rs_overlay_debug_mark('O');
-            if (rs_overlay_boot_with_progress(shell_overlay_progress, 0) == 0) {
-                overlay_ready = 1;
-                rs_overlay_debug_mark('o');
-                shell_newline();
-            } else {
-                rs_overlay_debug_mark('!');
-                shell_write_text_color("ERR: OVERLAY LOAD RC=", C_LIGHTRED);
-                shell_print_u16((unsigned short)rs_overlay_last_rc());
-                shell_newline();
-                continue;
-            }
-        }
-
         rs_error_init(&g_err);
         rs_overlay_debug_mark('V');
         if (rs_vm_exec_source(&g_vm, g_line, &g_err) != 0) {
             rs_overlay_debug_mark('X');
             shell_print_error(&g_err);
-            if (g_err.message && strncmp(g_err.message, "overlay ", 8u) == 0) {
-                overlay_ready = 0;
-            }
         } else {
             rs_overlay_debug_mark('v');
         }

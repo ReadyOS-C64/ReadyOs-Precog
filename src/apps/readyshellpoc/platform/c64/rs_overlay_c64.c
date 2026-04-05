@@ -28,6 +28,8 @@
 #define RS_OVL_RC_REU_EXEC   0xE5u
 #define RS_OVL_RC_REU_SCRIPT 0xE7u
 #define RS_OVL_RC_NO_SCRIPT  0xE8u
+#define RS_OVL_RC_REU_REQUIRED 0xE9u
+#define RS_OVL_RC_REU_CACHE    0xEAu
 
 static unsigned short g_overlay1_size = 0u;
 static unsigned short g_overlay2_size = 0u;
@@ -281,8 +283,6 @@ static int rs_overlay_load3_disk(void) {
 int rs_overlay_boot_with_progress(RSOverlayProgressFn progress, void* user) {
   unsigned overlay_size;
   int reu_ok;
-  int cache_ok;
-  int cache_started;
 
   /* Clear any stale logical files/channels left by autostart. */
   cbm_k_clall();
@@ -308,14 +308,17 @@ int rs_overlay_boot_with_progress(RSOverlayProgressFn progress, void* user) {
     return -1;
   }
   g_overlay3_size = (unsigned short)overlay_size;
+  g_overlay_loaded = 0;
   g_overlay3_loaded = 0;
   rs_overlay_clear_phase();
   g_overlay_cached_reu = 0;
 
   reu_ok = rs_reu_available();
-  cache_ok = reu_ok;
-  cache_started = 0;
   rs_overlay_dbg_put(reu_ok ? 'Q' : 'q');
+  if (!reu_ok) {
+    g_overlay_last_rc = RS_OVL_RC_REU_REQUIRED;
+    return -1;
+  }
 
   /* Keep C64 filenames short and lowercase on disk images. */
   rs_overlay_progress_tick(progress, user, 2u);
@@ -324,18 +327,14 @@ int rs_overlay_boot_with_progress(RSOverlayProgressFn progress, void* user) {
     rs_overlay_clear_phase();
     return -1;
   }
-  if (cache_ok) {
-    if (!cache_started) {
-      rs_overlay_progress_tick(progress, user, 5u);
-      rs_overlay_dbg_put('C');
-      cache_started = 1;
-    }
-    if (rs_overlay_cache_to_reu(RS_REU_OVERLAY1_OFF, _OVERLAY1_LOAD__, g_overlay1_size) != 0 ||
-        rs_overlay_verify_reu(RS_REU_OVERLAY1_OFF, _OVERLAY1_LOAD__, g_overlay1_size) != 0) {
-      cache_ok = 0;
-      rs_overlay_dbg_put('!');
-      rs_overlay_dbg_put('Y');
-    }
+  rs_overlay_progress_tick(progress, user, 5u);
+  rs_overlay_dbg_put('C');
+  if (rs_overlay_cache_to_reu(RS_REU_OVERLAY1_OFF, _OVERLAY1_LOAD__, g_overlay1_size) != 0 ||
+      rs_overlay_verify_reu(RS_REU_OVERLAY1_OFF, _OVERLAY1_LOAD__, g_overlay1_size) != 0) {
+    g_overlay_last_rc = RS_OVL_RC_REU_CACHE;
+    rs_overlay_dbg_put('!');
+    rs_overlay_dbg_put('Y');
+    return -1;
   }
   rs_overlay_progress_tick(progress, user, 3u);
   if (rs_overlay_load2_disk() != 0) {
@@ -343,18 +342,12 @@ int rs_overlay_boot_with_progress(RSOverlayProgressFn progress, void* user) {
     rs_overlay_clear_phase();
     return -1;
   }
-  if (cache_ok) {
-    if (!cache_started) {
-      rs_overlay_progress_tick(progress, user, 5u);
-      rs_overlay_dbg_put('C');
-      cache_started = 1;
-    }
-    if (rs_overlay_cache_to_reu(RS_REU_OVERLAY2_OFF, _OVERLAY2_LOAD__, g_overlay2_size) != 0 ||
-        rs_overlay_verify_reu(RS_REU_OVERLAY2_OFF, _OVERLAY2_LOAD__, g_overlay2_size) != 0) {
-      cache_ok = 0;
-      rs_overlay_dbg_put('!');
-      rs_overlay_dbg_put('Y');
-    }
+  if (rs_overlay_cache_to_reu(RS_REU_OVERLAY2_OFF, _OVERLAY2_LOAD__, g_overlay2_size) != 0 ||
+      rs_overlay_verify_reu(RS_REU_OVERLAY2_OFF, _OVERLAY2_LOAD__, g_overlay2_size) != 0) {
+    g_overlay_last_rc = RS_OVL_RC_REU_CACHE;
+    rs_overlay_dbg_put('!');
+    rs_overlay_dbg_put('Y');
+    return -1;
   }
   rs_overlay_set_phase(RS_OVERLAY_PHASE_EXEC);
   rs_overlay_progress_tick(progress, user, 4u);
@@ -363,25 +356,17 @@ int rs_overlay_boot_with_progress(RSOverlayProgressFn progress, void* user) {
   } else {
     g_overlay3_loaded = 1;
     rs_overlay_set_phase(RS_OVERLAY_PHASE_SCRIPT);
-    if (cache_ok) {
-      if (!cache_started) {
-        rs_overlay_progress_tick(progress, user, 5u);
-        rs_overlay_dbg_put('C');
-        cache_started = 1;
-      }
-      if (rs_overlay_cache_to_reu(RS_REU_OVERLAY3_OFF, _OVERLAY3_LOAD__, g_overlay3_size) != 0 ||
-          rs_overlay_verify_reu(RS_REU_OVERLAY3_OFF, _OVERLAY3_LOAD__, g_overlay3_size) != 0) {
-        cache_ok = 0;
-        rs_overlay_dbg_put('!');
-        rs_overlay_dbg_put('Y');
-      }
+    if (rs_overlay_cache_to_reu(RS_REU_OVERLAY3_OFF, _OVERLAY3_LOAD__, g_overlay3_size) != 0 ||
+        rs_overlay_verify_reu(RS_REU_OVERLAY3_OFF, _OVERLAY3_LOAD__, g_overlay3_size) != 0) {
+      g_overlay_last_rc = RS_OVL_RC_REU_CACHE;
+      rs_overlay_dbg_put('!');
+      rs_overlay_dbg_put('Y');
+      return -1;
     }
   }
   g_overlay_loaded = 1;
-  if (cache_ok) {
-    g_overlay_cached_reu = 1;
-    rs_overlay_dbg_put('c');
-  }
+  g_overlay_cached_reu = 1;
+  rs_overlay_dbg_put('c');
   rs_overlay_progress_tick(progress, user, 6u);
   return 0;
 }
@@ -398,26 +383,21 @@ int rs_overlay_prepare_parse(void) {
     rs_overlay_dbg_put('!');
     return -1;
   }
-  if (g_overlay_cached_reu) {
-    rs_overlay_dbg_put('R');
-    if (rs_overlay_read_from_reu(RS_REU_OVERLAY1_OFF, _OVERLAY1_LOAD__, g_overlay1_size) == 0) {
-      rs_overlay_set_phase(RS_OVERLAY_PHASE_PARSE);
-      rs_overlay_dbg_put('p');
-      return 0;
-    }
-    g_overlay_last_rc = RS_OVL_RC_REU_PARSE;
-    rs_overlay_dbg_put('!');
-    return -1;
-  }
-  rs_overlay_dbg_put('D');
-  if (rs_overlay_load1_disk() != 0) {
+  if (!g_overlay_cached_reu) {
+    g_overlay_last_rc = RS_OVL_RC_REU_REQUIRED;
     rs_overlay_clear_phase();
     rs_overlay_dbg_put('!');
     return -1;
   }
-  rs_overlay_set_phase(RS_OVERLAY_PHASE_PARSE);
-  rs_overlay_dbg_put('d');
-  return 0;
+  rs_overlay_dbg_put('R');
+  if (rs_overlay_read_from_reu(RS_REU_OVERLAY1_OFF, _OVERLAY1_LOAD__, g_overlay1_size) == 0) {
+    rs_overlay_set_phase(RS_OVERLAY_PHASE_PARSE);
+    rs_overlay_dbg_put('p');
+    return 0;
+  }
+  g_overlay_last_rc = RS_OVL_RC_REU_PARSE;
+  rs_overlay_dbg_put('!');
+  return -1;
 }
 
 int rs_overlay_prepare_exec(void) {
@@ -428,36 +408,30 @@ int rs_overlay_prepare_exec(void) {
     rs_overlay_dbg_put('!');
     return -1;
   }
-  if (g_overlay_cached_reu) {
-    rs_overlay_dbg_put('R');
-    if (rs_overlay_read_from_reu(RS_REU_OVERLAY2_OFF, _OVERLAY2_LOAD__, g_overlay2_size) == 0) {
-      rs_overlay_set_phase(RS_OVERLAY_PHASE_EXEC);
-      rs_overlay_dbg_put('e');
-      return 0;
-    }
-    g_overlay_last_rc = RS_OVL_RC_REU_EXEC;
-    rs_overlay_dbg_put('!');
-    return -1;
-  }
-  rs_overlay_dbg_put('D');
-  if (rs_overlay_load2_disk() != 0) {
+  if (!g_overlay_cached_reu) {
+    g_overlay_last_rc = RS_OVL_RC_REU_REQUIRED;
     rs_overlay_clear_phase();
     rs_overlay_dbg_put('!');
     return -1;
   }
-  rs_overlay_set_phase(RS_OVERLAY_PHASE_EXEC);
-  rs_overlay_dbg_put('d');
-  return 0;
+  rs_overlay_dbg_put('R');
+  if (rs_overlay_read_from_reu(RS_REU_OVERLAY2_OFF, _OVERLAY2_LOAD__, g_overlay2_size) == 0) {
+    rs_overlay_set_phase(RS_OVERLAY_PHASE_EXEC);
+    rs_overlay_dbg_put('e');
+    return 0;
+  }
+  g_overlay_last_rc = RS_OVL_RC_REU_EXEC;
+  rs_overlay_dbg_put('!');
+  return -1;
 }
 
 int rs_overlay_prepare_script(void) {
   rs_overlay_dbg_put('S');
   if (!g_overlay_loaded) {
-    if (rs_overlay_boot() != 0) {
-      rs_overlay_clear_phase();
-      rs_overlay_dbg_put('!');
-      return -1;
-    }
+    g_overlay_last_rc = RS_OVL_RC_NOT_BOOTED;
+    rs_overlay_clear_phase();
+    rs_overlay_dbg_put('!');
+    return -1;
   }
   if (!g_overlay3_loaded) {
     g_overlay_last_rc = RS_OVL_RC_NO_SCRIPT;
@@ -465,26 +439,21 @@ int rs_overlay_prepare_script(void) {
     rs_overlay_dbg_put('!');
     return -1;
   }
-  if (g_overlay_cached_reu) {
-    rs_overlay_dbg_put('R');
-    if (rs_overlay_read_from_reu(RS_REU_OVERLAY3_OFF, _OVERLAY3_LOAD__, g_overlay3_size) == 0) {
-      rs_overlay_set_phase(RS_OVERLAY_PHASE_SCRIPT);
-      rs_overlay_dbg_put('s');
-      return 0;
-    }
-    g_overlay_last_rc = RS_OVL_RC_REU_SCRIPT;
-    rs_overlay_dbg_put('!');
-    return -1;
-  }
-  rs_overlay_dbg_put('D');
-  if (rs_overlay_load3_disk() != 0) {
+  if (!g_overlay_cached_reu) {
+    g_overlay_last_rc = RS_OVL_RC_REU_REQUIRED;
     rs_overlay_clear_phase();
     rs_overlay_dbg_put('!');
     return -1;
   }
-  rs_overlay_set_phase(RS_OVERLAY_PHASE_SCRIPT);
-  rs_overlay_dbg_put('d');
-  return 0;
+  rs_overlay_dbg_put('R');
+  if (rs_overlay_read_from_reu(RS_REU_OVERLAY3_OFF, _OVERLAY3_LOAD__, g_overlay3_size) == 0) {
+    rs_overlay_set_phase(RS_OVERLAY_PHASE_SCRIPT);
+    rs_overlay_dbg_put('s');
+    return 0;
+  }
+  g_overlay_last_rc = RS_OVL_RC_REU_SCRIPT;
+  rs_overlay_dbg_put('!');
+  return -1;
 }
 
 int rs_overlay_active(void) {
@@ -499,10 +468,6 @@ int rs_overlay_is_phase_ready(unsigned char phase) {
     return 0;
   }
   return g_overlay_active_phase == phase;
-}
-
-int rs_overlay_cached_in_reu(void) {
-  return g_overlay_cached_reu;
 }
 
 unsigned char rs_overlay_last_rc(void) {
@@ -540,10 +505,6 @@ int rs_overlay_active(void) {
 int rs_overlay_is_phase_ready(unsigned char phase) {
   (void)phase;
   return 1;
-}
-
-int rs_overlay_cached_in_reu(void) {
-  return 0;
 }
 
 unsigned char rs_overlay_last_rc(void) {
