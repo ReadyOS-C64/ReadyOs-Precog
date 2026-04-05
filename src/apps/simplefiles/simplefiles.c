@@ -34,10 +34,11 @@
 
 #define HEADER_Y     0
 #define PANE_TITLE_Y 3
-#define LIST_START_Y 4
-#define LIST_HEIGHT  16
-#define DETAIL_Y     20
-#define STATUS_Y     21
+#define PANE_INFO_Y  4
+#define LIST_START_Y 5
+#define LIST_HEIGHT  15
+#define STATUS_Y     20
+#define DETAIL_Y     21
 #define INFO_Y       22
 #define HELP_Y1      23
 #define HELP_Y2      24
@@ -63,6 +64,7 @@ typedef struct {
     unsigned char selected;
     unsigned char scroll;
     unsigned int free_blocks;
+    char title[FILE_BROWSER_TITLE_LEN];
     FileBrowserEntry entries[MAX_PANE_ENTRIES];
 } FilePane;
 
@@ -120,6 +122,7 @@ static void reload_matching_drives(unsigned char drive, const char *prefer_name)
 static void draw_browser(void);
 static void draw_header(void);
 static void draw_pane_title(unsigned char pane_index);
+static void draw_pane_info(unsigned char pane_index);
 static void draw_pane_row(unsigned char pane_index, unsigned char row);
 static void draw_pane(unsigned char pane_index);
 static void draw_detail(void);
@@ -379,6 +382,7 @@ static void pane_load(unsigned char pane_index, const char *prefer_name) {
     pane->load_error = 0;
     pane->count = 0;
     pane->free_blocks = 0;
+    pane->title[0] = 0;
 
     if (!pane->available) {
         pane->selected = 0;
@@ -390,7 +394,8 @@ static void pane_load(unsigned char pane_index, const char *prefer_name) {
                                     pane->entries,
                                     MAX_PANE_ENTRIES,
                                     &pane->count,
-                                    &pane->free_blocks) != FILE_BROWSER_RC_OK) {
+                                    &pane->free_blocks,
+                                    pane->title) != FILE_BROWSER_RC_OK) {
         pane->load_error = 1;
         pane->count = 0;
         pane->selected = 0;
@@ -422,6 +427,18 @@ static void reload_matching_drives(unsigned char drive, const char *prefer_name)
         if (panes[pane_index].drive == drive) {
             pane_load(pane_index, prefer_name);
         }
+    }
+}
+
+static const char *detail_type_text(unsigned char type) {
+    switch (type) {
+        case CBM_T_SEQ: return "SEQ";
+        case CBM_T_PRG: return "PRG";
+        case CBM_T_USR: return "USR";
+        case CBM_T_REL: return "REL";
+        case CBM_T_DIR: return "DIR";
+        case CBM_T_DEL: return "DEL";
+        default: return "???";
     }
 }
 
@@ -485,7 +502,9 @@ static void draw_pane_title(unsigned char pane_index) {
     unsigned char x;
     unsigned char w;
     char line[21];
-    char count_buf[5];
+    char free_buf[5];
+    char free_short[4];
+    char count_ch;
     unsigned char pos;
     unsigned char color;
 
@@ -512,19 +531,49 @@ static void draw_pane_title(unsigned char pane_index) {
     } else if (pane->load_error) {
         memcpy(&line[9], "ERR", 3);
     } else {
-        format_block_value(pane->free_blocks, count_buf);
+        format_block_value(pane->free_blocks, free_buf);
         line[8] = '#';
-        if (pane->count >= 10u) {
-            line[9] = '0' + (pane->count / 10u);
-            line[10] = '0' + (pane->count % 10u);
+        count_ch = (pane->count >= 10u) ? (unsigned char)('0' + (pane->count / 10u)) : ' ';
+        line[9] = count_ch;
+        line[10] = (char)('0' + (pane->count % 10u));
+        memcpy(&line[12], "FREE", 4);
+        if (pane->free_blocks > 999u) {
+            memcpy(free_short, "+++", 3);
         } else {
-            line[10] = '0' + pane->count;
+            memcpy(free_short, &free_buf[1], 3);
         }
-        memcpy(&line[w - 5u], count_buf, 4);
-        line[w - 1u] = 'F';
+        free_short[3] = 0;
+        memcpy(&line[w - 3u], free_short, 3);
     }
 
     tui_puts_n(x, PANE_TITLE_Y, line, w, color);
+}
+
+static void draw_pane_info(unsigned char pane_index) {
+    FilePane *pane;
+    unsigned char x;
+    unsigned char w;
+    unsigned char i;
+    unsigned char color;
+    char line[21];
+
+    pane = &panes[pane_index];
+    x = (pane_index == PANE_LEFT) ? LEFT_X : RIGHT_X;
+    w = (pane_index == PANE_LEFT) ? LEFT_W : RIGHT_W;
+    color = TUI_COLOR_YELLOW;
+
+    for (i = 0; i < w; ++i) {
+        line[i] = ' ';
+    }
+    line[w] = 0;
+
+    if (pane->available && !pane->load_error && pane->title[0] != 0) {
+        for (i = 0; i < (unsigned char)(w - 1u) && pane->title[i] != 0; ++i) {
+            line[i] = pane->title[i];
+        }
+    }
+
+    tui_puts_n(x, PANE_INFO_Y, line, w, color);
 }
 
 static void draw_pane_row(unsigned char pane_index, unsigned char row) {
@@ -581,6 +630,7 @@ static void draw_pane(unsigned char pane_index) {
     unsigned char row;
 
     draw_pane_title(pane_index);
+    draw_pane_info(pane_index);
     for (row = 0; row < LIST_HEIGHT; ++row) {
         draw_pane_row(pane_index, row);
     }
@@ -597,7 +647,11 @@ static void draw_divider(void) {
 static void draw_detail(void) {
     FilePane *pane;
     FileBrowserEntry *entry;
+    const char *type_text;
+    char line[41];
     char size_buf[5];
+    unsigned char i;
+    unsigned char pos;
 
     pane = active_file_pane();
     entry = pane_selected_entry(pane);
@@ -610,12 +664,32 @@ static void draw_detail(void) {
         return;
     }
 
-    tui_puts_n(0, DETAIL_Y, "D:", 2, TUI_COLOR_GRAY3);
-    tui_print_uint(2, DETAIL_Y, pane->drive, TUI_COLOR_WHITE);
-    tui_putc(5, DETAIL_Y, tui_ascii_to_screen(file_browser_type_marker(entry->type)), TUI_COLOR_CYAN);
-    tui_puts_n(7, DETAIL_Y, entry->name, 24, TUI_COLOR_WHITE);
-
     format_size_field(entry, size_buf, 4);
+    type_text = detail_type_text(entry->type);
+
+    for (i = 0; i < 40u; ++i) {
+        line[i] = ' ';
+    }
+    line[40] = 0;
+
+    memcpy(line, size_buf, 4);
+    line[4] = ' ';
+    line[5] = '"';
+    pos = 6u;
+    for (i = 0; i < 16u && entry->name[i] != 0; ++i) {
+        line[pos++] = entry->name[i];
+    }
+    while (pos < 22u) {
+        line[pos++] = ' ';
+    }
+    line[22] = '"';
+    line[23] = ' ';
+    line[24] = type_text[0];
+    line[25] = type_text[1];
+    line[26] = type_text[2];
+
+    tui_puts_n(0, DETAIL_Y, line, 40, TUI_COLOR_YELLOW);
+
     tui_puts_n(0, INFO_Y, "OPS:", 4, TUI_COLOR_GRAY3);
     tui_puts_n(5, INFO_Y,
                file_browser_is_copyable(entry) ? "CPY " : "--- ",
@@ -625,8 +699,6 @@ static void draw_detail(void) {
                file_browser_is_viewable(entry) ? "SEQ VIEW" : "NO VIEW ",
                8,
                file_browser_is_viewable(entry) ? TUI_COLOR_CYAN : TUI_COLOR_GRAY2);
-    tui_puts_n(22, INFO_Y, "BLKS:", 5, TUI_COLOR_GRAY3);
-    tui_puts_n(28, INFO_Y, size_buf, 4, TUI_COLOR_WHITE);
 }
 
 static void draw_status(void) {

@@ -109,6 +109,32 @@ static unsigned char file_browser_upchar(unsigned char ch) {
     return ch;
 }
 
+static unsigned char file_browser_text_has(const char *text, const char *token) {
+    unsigned char i;
+    unsigned char j;
+
+    if (text == 0 || token == 0 || token[0] == 0) {
+        return 0u;
+    }
+
+    for (i = 0; text[i] != 0; ++i) {
+        j = 0u;
+        while (token[j] != 0 && text[i + j] == token[j]) {
+            ++j;
+        }
+        if (token[j] == 0) {
+            return 1u;
+        }
+    }
+
+    return 0u;
+}
+
+static unsigned char file_browser_is_blocks_free_line(const char *text) {
+    return (unsigned char)(file_browser_text_has(text, "BLOCKS") &&
+                           file_browser_text_has(text, "FREE"));
+}
+
 static unsigned char file_browser_type_from_text(const char *type_text) {
     unsigned char a;
     unsigned char b;
@@ -294,7 +320,8 @@ unsigned char file_browser_read_directory(unsigned char device,
                                           FileBrowserEntry *entries,
                                           unsigned char max_entries,
                                           unsigned char *out_count,
-                                          unsigned int *out_blocks_free) {
+                                          unsigned int *out_blocks_free,
+                                          char *out_title) {
     unsigned char ptr[2];
     unsigned char num[2];
     unsigned char ch;
@@ -304,7 +331,9 @@ unsigned char file_browser_read_directory(unsigned char device,
     unsigned char name_pos;
     unsigned char type_pos;
     unsigned char past_space;
+    unsigned char text_pos;
     char type_text[4];
+    char line_text[16];
     unsigned int blocks;
     int n;
 
@@ -314,6 +343,9 @@ unsigned char file_browser_read_directory(unsigned char device,
     }
     if (out_blocks_free != 0) {
         *out_blocks_free = 0;
+    }
+    if (out_title != 0) {
+        out_title[0] = 0;
     }
 
     file_browser_cleanup_io();
@@ -347,6 +379,8 @@ unsigned char file_browser_read_directory(unsigned char device,
 
         in_quotes = 0u;
         name_pos = 0u;
+        text_pos = 0u;
+        line_text[0] = 0;
         while (1) {
             n = cbm_read(FILE_BROWSER_LFN_DIR, &ch, 1u);
             if (n < 1 || ch == 0u) {
@@ -359,10 +393,21 @@ unsigned char file_browser_read_directory(unsigned char device,
                 in_quotes = 1u;
                 continue;
             }
-            if (in_quotes && !first_line &&
-                count < max_entries && entries != 0 &&
-                name_pos + 1u < FILE_BROWSER_NAME_LEN) {
-                entries[count].name[name_pos++] = (char)ch;
+            if (!in_quotes && !first_line &&
+                ch != ' ' && ch != 0xA0u &&
+                text_pos + 1u < sizeof(line_text)) {
+                line_text[text_pos++] = (char)file_browser_upchar(ch);
+                line_text[text_pos] = 0;
+            }
+            if (in_quotes &&
+                ((first_line && out_title != 0) ||
+                 (!first_line && count < max_entries && entries != 0)) &&
+                name_pos + 1u < FILE_BROWSER_TITLE_LEN) {
+                if (first_line) {
+                    out_title[name_pos++] = (char)ch;
+                } else {
+                    entries[count].name[name_pos++] = (char)ch;
+                }
             }
         }
 
@@ -379,6 +424,10 @@ unsigned char file_browser_read_directory(unsigned char device,
                 if (n < 1 || ch == 0u) {
                     break;
                 }
+                if (ch != ' ' && ch != 0xA0u && text_pos + 1u < sizeof(line_text)) {
+                    line_text[text_pos++] = (char)file_browser_upchar(ch);
+                    line_text[text_pos] = 0;
+                }
                 if (!past_space) {
                     if (ch != ' ' && ch != 0xA0u) {
                         past_space = 1u;
@@ -392,7 +441,15 @@ unsigned char file_browser_read_directory(unsigned char device,
             }
         }
 
-        if (!first_line && count < max_entries && entries != 0) {
+        if (first_line) {
+            if (out_title != 0) {
+                out_title[name_pos] = 0;
+            }
+        } else if (name_pos == 0u) {
+            if (out_blocks_free != 0 && file_browser_is_blocks_free_line(line_text)) {
+                *out_blocks_free = blocks;
+            }
+        } else if (name_pos > 0u && count < max_entries && entries != 0) {
             entries[count].name[name_pos] = 0;
             entries[count].size = blocks;
             entries[count].type = file_browser_type_from_text(type_text);

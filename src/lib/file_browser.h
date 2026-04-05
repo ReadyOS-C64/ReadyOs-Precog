@@ -8,6 +8,7 @@
 #include <cbm_filetype.h>
 
 #define FILE_BROWSER_NAME_LEN 17
+#define FILE_BROWSER_TITLE_LEN 17
 
 #define FILE_BROWSER_RC_OK            0
 #define FILE_BROWSER_RC_IO            1
@@ -28,7 +29,8 @@ unsigned char file_browser_read_directory(unsigned char device,
                                           FileBrowserEntry *entries,
                                           unsigned char max_entries,
                                           unsigned char *out_count,
-                                          unsigned int *out_blocks_free);
+                                          unsigned int *out_blocks_free,
+                                          char *out_title);
 unsigned char file_browser_read_status(unsigned char device,
                                        unsigned char *code_out,
                                        char *msg_out,
