@@ -104,6 +104,7 @@ static unsigned char status_color;
 static SimpleFilesResumeV1 resume_blob;
 
 static void set_status(const char *msg, unsigned char color);
+static void clear_transient_status(void);
 static unsigned char normalize_drive_8_9(unsigned char drive);
 static void format_drive_mask(char *out);
 static void format_block_value(unsigned int value, char *out);
@@ -189,6 +190,14 @@ static void set_status(const char *msg, unsigned char color) {
     strncpy(status_msg, msg, sizeof(status_msg) - 1u);
     status_msg[sizeof(status_msg) - 1u] = 0;
     status_color = color;
+}
+
+static void clear_transient_status(void) {
+    if (strcmp(status_msg, "READY") == 0) {
+        return;
+    }
+    set_status("READY", TUI_COLOR_LIGHTGREEN);
+    draw_status();
 }
 
 static unsigned char normalize_drive_8_9(unsigned char drive) {
@@ -494,7 +503,6 @@ static void draw_header(void) {
     format_drive_mask(mask_text);
     tui_puts_n(1, HEADER_Y + 1, "DRIVES:", 7, TUI_COLOR_WHITE);
     tui_puts_n(9, HEADER_Y + 1, mask_text, 14, TUI_COLOR_CYAN);
-    tui_puts_n(24, HEADER_Y + 1, "RET:SEQ VIEW", 12, TUI_COLOR_GRAY3);
 }
 
 static void draw_pane_title(unsigned char pane_index) {
@@ -503,8 +511,6 @@ static void draw_pane_title(unsigned char pane_index) {
     unsigned char w;
     char line[21];
     char free_buf[5];
-    char free_short[4];
-    char count_ch;
     unsigned char pos;
     unsigned char color;
 
@@ -519,31 +525,33 @@ static void draw_pane_title(unsigned char pane_index) {
     line[w] = 0;
 
     line[0] = (pane_index == active_pane) ? '>' : ' ';
-    line[1] = (pane_index == PANE_LEFT) ? 'L' : 'R';
-    line[2] = ' ';
-    line[3] = 'D';
-    line[4] = ':';
-    line[5] = '0' + (pane->drive / 10u);
-    line[6] = '0' + (pane->drive % 10u);
+    line[1] = '0' + (pane->drive / 10u);
+    line[2] = '0' + (pane->drive % 10u);
+    line[3] = ' ';
 
     if (!pane->available) {
-        memcpy(&line[9], "OFF", 3);
+        memcpy(&line[4], "OFF", 3);
     } else if (pane->load_error) {
-        memcpy(&line[9], "ERR", 3);
+        memcpy(&line[4], "ERR", 3);
     } else {
         format_block_value(pane->free_blocks, free_buf);
-        line[8] = '#';
-        count_ch = (pane->count >= 10u) ? (unsigned char)('0' + (pane->count / 10u)) : ' ';
-        line[9] = count_ch;
-        line[10] = (char)('0' + (pane->count % 10u));
-        memcpy(&line[12], "FREE", 4);
-        if (pane->free_blocks > 999u) {
-            memcpy(free_short, "+++", 3);
+        pos = 4u;
+        if (pane->count >= 10u) {
+            line[pos++] = (char)('0' + (pane->count / 10u));
         } else {
-            memcpy(free_short, &free_buf[1], 3);
+            line[pos++] = ' ';
         }
-        free_short[3] = 0;
-        memcpy(&line[w - 3u], free_short, 3);
+        line[pos++] = (char)('0' + (pane->count % 10u));
+        line[pos++] = ' ';
+        if (pane->count == 1u) {
+            memcpy(&line[pos], "FILE", 4);
+            pos = (unsigned char)(pos + 4u);
+        } else {
+            memcpy(&line[pos], "FILES", 5);
+            pos = (unsigned char)(pos + 5u);
+        }
+        memcpy(&line[w - 5u], free_buf, 4);
+        line[w - 1u] = 'F';
     }
 
     tui_puts_n(x, PANE_TITLE_Y, line, w, color);
@@ -709,8 +717,8 @@ static void draw_status(void) {
 static void draw_help(void) {
     tui_clear_line(HELP_Y1, 0, 40, TUI_COLOR_GRAY3);
     tui_clear_line(HELP_Y2, 0, 40, TUI_COLOR_GRAY3);
-    tui_puts_n(0, HELP_Y1, "ARROWS MOVE F3:DRV F5:REF F8:HELP", 39, TUI_COLOR_GRAY3);
-    tui_puts_n(0, HELP_Y2, "C:COPY N:AS D:DUP S:SWAP ^B:HOME", 39, TUI_COLOR_GRAY3);
+    tui_puts_n(0, HELP_Y1, "F3:DRV F5:REFRESH F8:HELP RET:VIEW", 39, TUI_COLOR_GRAY3);
+    tui_puts_n(0, HELP_Y2, "C:COPY N:AS D:DUP S:SWAP", 39, TUI_COLOR_GRAY3);
 }
 
 static void draw_browser(void) {
@@ -847,6 +855,7 @@ static void browser_switch_active(unsigned char next_active) {
         return;
     }
 
+    clear_transient_status();
     old_active = active_pane;
     active_pane = next_active;
     draw_pane_title(old_active);
@@ -875,6 +884,7 @@ static void browser_move_vertical(unsigned char move_down) {
     unsigned char new_row;
 
     pane = active_file_pane();
+    clear_transient_status();
     if (pane->count == 0u) {
         return;
     }
@@ -908,6 +918,7 @@ static void browser_page_move(unsigned char move_down) {
     unsigned char jump;
 
     pane = active_file_pane();
+    clear_transient_status();
     if (pane->count == 0u) {
         return;
     }
@@ -959,6 +970,7 @@ static void browser_cycle_drive(void) {
 static void browser_swap_drives(void) {
     unsigned char tmp;
 
+    clear_transient_status();
     tmp = panes[PANE_LEFT].drive;
     panes[PANE_LEFT].drive = panes[PANE_RIGHT].drive;
     panes[PANE_RIGHT].drive = tmp;
@@ -1553,6 +1565,7 @@ static void enter_viewer(FilePane *pane, const FileBrowserEntry *entry) {
 }
 
 static void leave_viewer(void) {
+    set_status("READY", TUI_COLOR_LIGHTGREEN);
     app_mode = MODE_BROWSER;
     draw_browser();
 }
@@ -1577,7 +1590,7 @@ static void show_help_popup(void) {
         tui_puts(3, 6, "READYOS SIMPLE FILES", TUI_COLOR_WHITE);
         tui_puts(3, 7, "LT/RT:ACTIVE PANE  UP/DN:MOVE", TUI_COLOR_GRAY3);
         tui_puts(3, 8, "CTRL+N/CTRL+P:PAGE", TUI_COLOR_GRAY3);
-        tui_puts(3, 9, "RET:VIEW SEQ  F3:TOGGLE 8/9", TUI_COLOR_GRAY3);
+        tui_puts(3, 9, "RET:VIEW  F3:TOGGLE 8/9", TUI_COLOR_GRAY3);
         tui_puts(3, 10, "C:COPY TO DRIVE", TUI_COLOR_GRAY3);
         tui_puts(3, 11, "N:COPY AS  D:DUP VIA OTHER DRIVE", TUI_COLOR_GRAY3);
         tui_puts(3, 12, "R:RENAME  DEL:SCRATCH", TUI_COLOR_GRAY3);
@@ -1709,6 +1722,7 @@ static void handle_browser_key(unsigned char key) {
             browser_move_vertical(1);
             break;
         case TUI_KEY_HOME:
+            clear_transient_status();
             active_file_pane()->selected = 0;
             active_file_pane()->scroll = 0;
             draw_pane(active_pane);
@@ -1733,6 +1747,7 @@ static void handle_browser_key(unsigned char key) {
             browser_refresh_all();
             break;
         case KEY_HELP:
+            clear_transient_status();
             show_help_popup();
             break;
         default:
@@ -1773,6 +1788,7 @@ static void handle_viewer_key(unsigned char key) {
             viewer_page_up();
             break;
         case KEY_HELP:
+            clear_transient_status();
             show_help_popup();
             break;
         case TUI_KEY_RUNSTOP:
