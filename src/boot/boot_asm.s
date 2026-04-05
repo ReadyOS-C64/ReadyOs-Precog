@@ -953,7 +953,11 @@ jt_fetch_bank   = $C815     ; Helper: fetch from bank in A
 ; $C835: last_saved
 ; $C836: reu_bitmap_lo (banks 0-7)
 ; $C837: reu_bitmap_hi (banks 8-15)
-; $C838-$C83F: reserved
+; $C838: log_index - debug byte ring head
+; $C839: storage_drive - shim-global default storage drive for D8/D9 app dialogs
+;        This persists across app switches and is shared by apps that use the
+;        common file-dialog default-drive contract.
+; $C83A-$C83F: reserved
 
 .byte $00                   ; $C820: target_bank
 .byte $08                   ; $C821: filename_len
@@ -966,7 +970,8 @@ jt_fetch_bank   = $C815     ; Helper: fetch from bank in A
 .byte $00                   ; $C836: reu_bitmap_lo
 .byte $00                   ; $C837: reu_bitmap_hi
 .byte $00                   ; $C838: log_index (for debug buffer)
-.byte $00,$00,$00,$00,$00,$00,$00  ; $C839-$C83F: reserved
+.byte $08                   ; $C839: storage_drive (default drive 8)
+.byte $00,$00,$00,$00,$00,$00  ; $C83A-$C83F: reserved
 
 ;-----------------------------------------------------------------------------
 ; $C840: load_disk - Load app from disk and run (32 bytes)

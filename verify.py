@@ -482,6 +482,7 @@ def main():
     all_ok &= check("current_bank", shim[0x34] == 0x00, f"${shim[0x34]:02X} (expect $00)")
     all_ok &= check("reu_bitmap_lo", shim[0x36] == 0x00, f"${shim[0x36]:02X} (expect $00)")
     all_ok &= check("reu_bitmap_hi", shim[0x37] == 0x00, f"${shim[0x37]:02X} (expect $00)")
+    all_ok &= check("storage_drive", shim[0x39] == 0x08, f"${shim[0x39]:02X} (expect $08)")
 
     # --- Routine Alignment ---
     print("\n=== Routine Alignment ===")

@@ -14,6 +14,7 @@
 #include "../../lib/clipboard.h"
 #include "../../lib/reu_mgr.h"
 #include "../../lib/resume_state.h"
+#include "../../lib/storage_device.h"
 
 /*---------------------------------------------------------------------------
  * Constants
@@ -753,6 +754,12 @@ static void draw_visible_tasks(void) {
     }
 }
 
+static void draw_drive_status(void) {
+    tui_puts(31, STATUS_Y, "D:", TUI_COLOR_GRAY3);
+    tui_puts_n(33, STATUS_Y, "", 2, TUI_COLOR_CYAN);
+    tui_print_uint(33, STATUS_Y, storage_device_get_default(), TUI_COLOR_CYAN);
+}
+
 static void draw_status(void) {
     /* Modified indicator */
     if (modified) {
@@ -765,6 +772,7 @@ static void draw_status(void) {
     tui_puts_n(15, STATUS_Y, "", 25, TUI_COLOR_GRAY3);
     tui_print_uint(15, STATUS_Y, task_count, TUI_COLOR_GRAY3);
     tui_puts(19, STATUS_Y, "ITEMS", TUI_COLOR_GRAY3);
+    draw_drive_status();
 }
 
 static void draw_help(void) {
@@ -1283,7 +1291,7 @@ static void read_directory(void) {
 
     shared.file.dir_count = 0;
 
-    if (cbm_open(LFN_DIR, 8, 0, "$") != 0) {
+    if (cbm_open(LFN_DIR, storage_device_get_default(), 0, "$") != 0) {
         return;
     }
 
@@ -1365,54 +1373,69 @@ static unsigned char show_open_dialog(void) {
     TuiMenu menu;
     unsigned char key;
     unsigned char result;
-
-    tui_clear(TUI_COLOR_BLUE);
-
-    win.x = 0;
-    win.y = 0;
-    win.w = 40;
-    win.h = 24;
-    tui_window_title(&win, "OPEN FILE", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
-
-    tui_puts(10, 11, "READING DISK...", TUI_COLOR_YELLOW);
-
-    read_directory();
-
-    tui_clear_line(11, 1, 38, TUI_COLOR_WHITE);
-
-    if (shared.file.dir_count == 0) {
-        tui_puts(6, 10, "NO FILES FOUND ON DISK", TUI_COLOR_LIGHTRED);
-        tui_puts(6, 14, "PRESS ANY KEY", TUI_COLOR_GRAY3);
-        tui_getkey();
-        return 255;
-    }
-
-    tui_print_uint(1, 22, shared.file.dir_count, TUI_COLOR_GRAY3);
-    tui_puts(4, 22, "FILE(S) ON DISK", TUI_COLOR_GRAY3);
-    tui_puts(1, 24, "UP/DN:SELECT RET:OPEN STOP:CANCEL", TUI_COLOR_GRAY3);
-
-    tui_menu_init(&menu, 1, 2, 38, 18, shared.file.dir_ptrs, shared.file.dir_count);
-    menu.item_color = TUI_COLOR_WHITE;
-    menu.sel_color = TUI_COLOR_CYAN;
-    tui_menu_draw(&menu);
+    unsigned char menu_ready;
 
     while (1) {
-        key = tui_getkey();
+        tui_clear(TUI_COLOR_BLUE);
 
-        if (key == TUI_KEY_RETURN) {
-            return menu.selected;
+        win.x = 0;
+        win.y = 0;
+        win.w = 40;
+        win.h = 24;
+        tui_window_title(&win, "OPEN FILE", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
+
+        tui_puts(10, 11, "READING DISK...", TUI_COLOR_YELLOW);
+        read_directory();
+        tui_clear_line(11, 1, 38, TUI_COLOR_WHITE);
+
+        tui_clear_line(22, 1, 38, TUI_COLOR_GRAY3);
+        tui_puts(1, 22, "DRIVE:", TUI_COLOR_GRAY3);
+        tui_print_uint(8, 22, storage_device_get_default(), TUI_COLOR_CYAN);
+
+        menu_ready = 0;
+        if (shared.file.dir_count == 0) {
+            tui_puts(7, 10, "NO FILES FOUND ON DISK", TUI_COLOR_LIGHTRED);
+            tui_puts(1, 24, "F3:DRV RET:OPEN STOP:CANCEL", TUI_COLOR_GRAY3);
+        } else {
+            tui_print_uint(12, 22, shared.file.dir_count, TUI_COLOR_GRAY3);
+            tui_puts(15, 22, "FILE(S)", TUI_COLOR_GRAY3);
+            tui_puts(1, 24, "UP/DN SEL F3:DRV RET:OPEN STOP", TUI_COLOR_GRAY3);
+
+            tui_menu_init(&menu, 1, 2, 38, 18, shared.file.dir_ptrs, shared.file.dir_count);
+            menu.item_color = TUI_COLOR_WHITE;
+            menu.sel_color = TUI_COLOR_CYAN;
+            tui_menu_draw(&menu);
+            menu_ready = 1;
         }
 
-        if (key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
-            return 255;
-        }
+        while (1) {
+            key = tui_getkey();
 
-        result = tui_menu_input(&menu, key);
-        if (result != 255) {
-            return result;
-        }
+            if (key == TUI_KEY_F3) {
+                storage_device_set_default(
+                    storage_device_toggle_8_9(storage_device_get_default()));
+                break;
+            }
 
-        tui_menu_draw(&menu);
+            if (key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
+                return 255;
+            }
+
+            if (!menu_ready) {
+                continue;
+            }
+
+            if (key == TUI_KEY_RETURN) {
+                return menu.selected;
+            }
+
+            result = tui_menu_input(&menu, key);
+            if (result != 255) {
+                return result;
+            }
+
+            tui_menu_draw(&menu);
+        }
     }
 }
 
@@ -1439,10 +1462,20 @@ static unsigned char show_save_dialog(void) {
     }
 
     tui_input_draw(&input);
-    tui_puts(7, 13, "RET:SAVE  STOP:CANCEL", TUI_COLOR_GRAY3);
+    tui_puts(7, 12, "DRIVE:", TUI_COLOR_GRAY3);
+    tui_print_uint(14, 12, storage_device_get_default(), TUI_COLOR_CYAN);
+    tui_puts(7, 13, "F3:DRV RET:SAVE STOP:CANCEL", TUI_COLOR_GRAY3);
 
     while (1) {
         key = tui_getkey();
+
+        if (key == TUI_KEY_F3) {
+            storage_device_set_default(
+                storage_device_toggle_8_9(storage_device_get_default()));
+            tui_puts_n(14, 12, "", 2, TUI_COLOR_CYAN);
+            tui_print_uint(14, 12, storage_device_get_default(), TUI_COLOR_CYAN);
+            continue;
+        }
 
         if (key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
             return 0;
@@ -1476,7 +1509,7 @@ static unsigned char file_load(const char *name) {
     strcpy(open_str, name);
     strcat(open_str, ",s,r");
 
-    if (cbm_open(LFN_FILE, 8, 2, open_str) != 0) {
+    if (cbm_open(LFN_FILE, storage_device_get_default(), 2, open_str) != 0) {
         return 1;
     }
 
@@ -1649,14 +1682,14 @@ static unsigned char file_save(const char *name) {
     /* Scratch existing file */
     strcpy(cmd_str, "s:");
     strcat(cmd_str, name);
-    cbm_open(LFN_CMD, 8, 15, cmd_str);
+    cbm_open(LFN_CMD, storage_device_get_default(), 15, cmd_str);
     cbm_close(LFN_CMD);
 
     /* Open for write */
     strcpy(open_str, name);
     strcat(open_str, ",s,w");
 
-    if (cbm_open(LFN_FILE, 8, 2, open_str) != 0) {
+    if (cbm_open(LFN_FILE, storage_device_get_default(), 2, open_str) != 0) {
         return 1;
     }
 
@@ -1905,7 +1938,8 @@ static void show_help_popup(void) {
     tui_puts(3, 12, "F1:COPY   F3:PASTE", TUI_COLOR_GRAY3);
     tui_puts(3, 13, "F5:SAVE   F6:SAVE AS", TUI_COLOR_GRAY3);
     tui_puts(3, 14, "F7:OPEN   F8:HELP", TUI_COLOR_GRAY3);
-    tui_puts(3, 15, "F2/F4:APPS ^B:LAUNCHER", TUI_COLOR_GRAY3);
+    tui_puts(3, 15, "FILE DLG: F3 TOGGLE D8/D9", TUI_COLOR_GRAY3);
+    tui_puts(3, 16, "F2/F4:APPS ^B:LAUNCHER", TUI_COLOR_GRAY3);
     tui_puts(3, 17, "RET/F8/STOP:CLOSE", TUI_COLOR_CYAN);
 
     while (1) {
