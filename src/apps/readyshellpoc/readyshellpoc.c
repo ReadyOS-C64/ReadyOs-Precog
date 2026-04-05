@@ -476,7 +476,7 @@ static void shell_draw_chrome(void) {
 
     clear_screen_color(C_BLUE, C_WHITE);
     draw_window(0, TITLE_Y, 40, 3, C_LIGHTBLUE);
-    draw_text(8, 0, "READYSHELL POC 0.1.1", C_YELLOW);
+    draw_text(8, 0, "READYSHELL POC", C_YELLOW);
     draw_text(4, 1, "READYOS LIMITED PROOF OF CONCEPT", C_CYAN);
 
     for (row = BODY_TOP; row <= BODY_BOTTOM; ++row) {
@@ -785,7 +785,7 @@ int main(void) {
     rs_vm_set_writer(&g_vm, shell_writer, 0);
 
     shell_draw_chrome();
-    shell_write_line("ReadyShell POC 0.1.2");
+    shell_write_line("Demo. Limited memory. May crash.");
     shell_write_line("Type HELP for usage.");
     rs_overlay_debug_mark('M');
 
