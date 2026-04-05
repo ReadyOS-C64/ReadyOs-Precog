@@ -144,6 +144,7 @@ static void draw_cursor(void);
 static void undraw_cursor(void);
 static void draw_line(unsigned char line_idx);
 static void draw_lines_from(unsigned char start_line);
+static void redraw_line_range(unsigned char start_line, unsigned char end_line);
 static void clamp_view_state(void);
 static unsigned char max_scroll_y(void);
 static unsigned char line_length(unsigned char line_idx);
@@ -152,7 +153,22 @@ static void begin_selection(void);
 static unsigned char selection_has_text(void);
 static void selection_bounds(unsigned char *start_y, unsigned char *start_x,
                              unsigned char *end_y, unsigned char *end_x);
-static unsigned char selection_covers(unsigned char line_idx, unsigned char col);
+static unsigned char selection_line_span_for(unsigned char line_idx,
+                                             unsigned char cursor_x_pos,
+                                             unsigned char cursor_y_pos,
+                                             unsigned char anchor_x,
+                                             unsigned char anchor_y,
+                                             unsigned char *start_col,
+                                             unsigned char *end_col);
+static unsigned char selection_line_span(unsigned char line_idx,
+                                         unsigned char *start_col,
+                                         unsigned char *end_col);
+static void selection_visual_range_for(unsigned char cursor_x_pos,
+                                       unsigned char cursor_y_pos,
+                                       unsigned char *start_y,
+                                       unsigned char *end_y);
+static void redraw_selection_transition(unsigned char old_cursor_x,
+                                        unsigned char old_cursor_y);
 static void move_page_down(void);
 static void move_page_up(void);
 static void handle_char(unsigned char ch);
@@ -327,35 +343,107 @@ static void selection_bounds(unsigned char *start_y, unsigned char *start_x,
     }
 }
 
-static unsigned char selection_covers(unsigned char line_idx, unsigned char col) {
+static unsigned char selection_line_span_for(unsigned char line_idx,
+                                             unsigned char cursor_x_pos,
+                                             unsigned char cursor_y_pos,
+                                             unsigned char anchor_x,
+                                             unsigned char anchor_y,
+                                             unsigned char *start_col,
+                                             unsigned char *end_col) {
     unsigned char start_y;
     unsigned char start_x;
     unsigned char end_y;
     unsigned char end_x;
+    unsigned char len;
 
-    if (!selection_has_text()) {
+    if (anchor_x == cursor_x_pos && anchor_y == cursor_y_pos) {
         return 0;
     }
 
-    selection_bounds(&start_y, &start_x, &end_y, &end_x);
+    if (anchor_y < cursor_y_pos ||
+        (anchor_y == cursor_y_pos && anchor_x <= cursor_x_pos)) {
+        start_y = anchor_y;
+        start_x = anchor_x;
+        end_y = cursor_y_pos;
+        end_x = cursor_x_pos;
+    } else {
+        start_y = cursor_y_pos;
+        start_x = cursor_x_pos;
+        end_y = anchor_y;
+        end_x = anchor_x;
+    }
 
     if (line_idx < start_y || line_idx > end_y) {
         return 0;
     }
 
     if (start_y == end_y) {
-        return (unsigned char)(col >= start_x && col < end_x);
+        *start_col = start_x;
+        *end_col = end_x;
+        return (unsigned char)(*end_col > *start_col);
     }
 
+    len = line_length(line_idx);
     if (line_idx == start_y) {
-        return (unsigned char)(col >= start_x);
+        *start_col = start_x;
+        *end_col = len;
+        return (unsigned char)(*end_col > *start_col);
     }
 
     if (line_idx == end_y) {
-        return (unsigned char)(col < end_x);
+        *start_col = 0;
+        *end_col = end_x;
+        return (unsigned char)(*end_col > *start_col);
     }
 
-    return 1;
+    *start_col = 0;
+    *end_col = len;
+    return (unsigned char)(*end_col > *start_col);
+}
+
+static unsigned char selection_line_span(unsigned char line_idx,
+                                         unsigned char *start_col,
+                                         unsigned char *end_col) {
+    if (!has_selection) {
+        return 0;
+    }
+    return selection_line_span_for(line_idx, cursor_x, cursor_y,
+                                   sel_anchor_x, sel_anchor_y,
+                                   start_col, end_col);
+}
+
+static void selection_visual_range_for(unsigned char cursor_x_pos,
+                                       unsigned char cursor_y_pos,
+                                       unsigned char *start_y,
+                                       unsigned char *end_y) {
+    if (sel_anchor_x == cursor_x_pos && sel_anchor_y == cursor_y_pos) {
+        *start_y = cursor_y_pos;
+        *end_y = cursor_y_pos;
+    } else if (sel_anchor_y < cursor_y_pos ||
+               (sel_anchor_y == cursor_y_pos && sel_anchor_x <= cursor_x_pos)) {
+        *start_y = sel_anchor_y;
+        *end_y = cursor_y_pos;
+    } else {
+        *start_y = cursor_y_pos;
+        *end_y = sel_anchor_y;
+    }
+}
+
+static void redraw_selection_transition(unsigned char old_cursor_x,
+                                        unsigned char old_cursor_y) {
+    unsigned char old_start_y;
+    unsigned char old_end_y;
+    unsigned char new_start_y;
+    unsigned char new_end_y;
+    unsigned char redraw_start;
+    unsigned char redraw_end;
+
+    selection_visual_range_for(old_cursor_x, old_cursor_y, &old_start_y, &old_end_y);
+    selection_visual_range_for(cursor_x, cursor_y, &new_start_y, &new_end_y);
+
+    redraw_start = (old_start_y < new_start_y) ? old_start_y : new_start_y;
+    redraw_end = (old_end_y > new_end_y) ? old_end_y : new_end_y;
+    redraw_line_range(redraw_start, redraw_end);
 }
 
 /*---------------------------------------------------------------------------
@@ -395,6 +483,9 @@ static void draw_line(unsigned char line_idx) {
     unsigned char col;
     unsigned int text_offset;
     unsigned char ch;
+    unsigned char highlight_start;
+    unsigned char highlight_end;
+    unsigned char has_highlight;
 
     if (line_idx < scroll_y || line_idx >= scroll_y + EDIT_HEIGHT) return;
     screen_y = EDIT_START_Y + (line_idx - scroll_y);
@@ -416,10 +507,17 @@ static void draw_line(unsigned char line_idx) {
         if (len > LINE_DISPLAY) {
             len = LINE_DISPLAY;
         }
+        has_highlight = selection_line_span(line_idx, &highlight_start, &highlight_end);
+        if (highlight_start > LINE_DISPLAY) {
+            highlight_start = LINE_DISPLAY;
+        }
+        if (highlight_end > LINE_DISPLAY) {
+            highlight_end = LINE_DISPLAY;
+        }
         text_offset = (unsigned int)screen_y * 40 + TEXT_X;
         for (col = 0; col < len; ++col) {
             ch = tui_ascii_to_screen((unsigned char)text_buffer[line_idx][col]);
-            if (selection_covers(line_idx, col)) {
+            if (has_highlight && col >= highlight_start && col < highlight_end) {
                 ch |= 0x80;
             }
             TUI_SCREEN[text_offset + col] = ch;
@@ -437,6 +535,21 @@ static void draw_lines_from(unsigned char start_line) {
     }
 }
 
+static void redraw_line_range(unsigned char start_line, unsigned char end_line) {
+    unsigned char idx;
+
+    if (end_line < start_line) {
+        return;
+    }
+
+    for (idx = start_line; idx <= end_line; ++idx) {
+        draw_line(idx);
+        if (idx == end_line) {
+            break;
+        }
+    }
+}
+
 static void draw_text(void) {
     unsigned char line_idx;
 
@@ -447,7 +560,7 @@ static void draw_text(void) {
 }
 
 static void draw_status(void) {
-    tui_puts_n(1, STATUS_Y, "", 19, TUI_COLOR_WHITE);
+    tui_puts_n(1, STATUS_Y, "", 30, TUI_COLOR_WHITE);
     if (modified) {
         tui_puts_n(1, STATUS_Y, "*MODIFIED*", 12, TUI_COLOR_LIGHTRED);
     }
@@ -468,13 +581,16 @@ static void draw_help(void) {
 static void undraw_cursor(void) {
     unsigned char screen_x, screen_y;
     unsigned int offset;
+    unsigned char highlight_start;
+    unsigned char highlight_end;
     screen_x = TEXT_X + cursor_x;
     screen_y = EDIT_START_Y + (cursor_y - scroll_y);
     if (screen_x >= 40) screen_x = 39;
     if (screen_y < EDIT_START_Y || screen_y >= EDIT_START_Y + EDIT_HEIGHT) return;
     offset = (unsigned int)screen_y * 40 + screen_x;
     TUI_SCREEN[offset] &= 0x7F;  /* Clear cursor reverse bit */
-    if (selection_covers(cursor_y, cursor_x)) {
+    if (selection_line_span(cursor_y, &highlight_start, &highlight_end) &&
+        cursor_x >= highlight_start && cursor_x < highlight_end) {
         TUI_SCREEN[offset] |= 0x80;
     }
 }
@@ -907,7 +1023,6 @@ static void copy_to_clipboard(void) {
         if (out_len > 0) {
             clip_copy(CLIP_TYPE_TEXT, clip_text_buf, out_len);
         }
-        clear_selection();
         return;
     }
 
@@ -1416,6 +1531,10 @@ static void editor_loop(void) {
     unsigned char key;
     unsigned char old_scroll;
     unsigned char joined_line;
+    unsigned char old_cursor_x;
+    unsigned char old_cursor_y;
+    unsigned char old_start_y;
+    unsigned char old_end_y;
 
     editor_draw();
 
@@ -1461,15 +1580,17 @@ static void editor_loop(void) {
                     break;
 
                 case KEY_COPY:
+                    selection_visual_range_for(cursor_x, cursor_y, &old_start_y, &old_end_y);
                     copy_to_clipboard();
                     clear_selection();
-                    draw_text();
+                    redraw_line_range(old_start_y, old_end_y);
                     editor_refresh();
                     break;
 
                 case KEY_SELECT:
+                    selection_visual_range_for(cursor_x, cursor_y, &old_start_y, &old_end_y);
                     clear_selection();
-                    draw_text();
+                    redraw_line_range(old_start_y, old_end_y);
                     editor_refresh();
                     break;
 
@@ -1483,8 +1604,11 @@ static void editor_loop(void) {
                 case TUI_KEY_LEFT:
                 case TUI_KEY_RIGHT:
                 case TUI_KEY_HOME:
+                    old_cursor_x = cursor_x;
+                    old_cursor_y = cursor_y;
+                    undraw_cursor();
                     handle_cursor_selection(key);
-                    draw_text();
+                    redraw_selection_transition(old_cursor_x, old_cursor_y);
                     editor_refresh();
                     break;
 
