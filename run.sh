@@ -19,6 +19,7 @@
 #   dizzy     - Run dizzy.prg directly (no REU switching)
 #   readme    - Run readme.prg directly (no REU switching)
 #   showcfg   - Run BASIC APPS.CFG inspector (drive 8)
+#   xfilechk  - Run standalone IEC file-operation harness on dedicated D71s
 #   monitor   - Start with monitor open at boot
 #   readyshell-mon - Normal boot + remote monitor endpoints/logging for live readyshell diagnosis
 #   noreu     - Run boot without REU (error-path testing)
@@ -90,6 +91,10 @@ CAL26_PRG="cal26.prg"
 DIZZY_PRG="dizzy.prg"
 README_PRG="readme.prg"
 SHOWCFG_PRG="showcfg.prg"
+XFILECHK_BOOT_PRG="xfilechk_boot.prg"
+XFILECHK_PRG="xfilechk.prg"
+XFILECHK_DISK_FILE_1="xfilechk.d71"
+XFILECHK_DISK_FILE_2="xfilechk_2.d71"
 
 # Dynamic build version (base + rolling suffix A..Z)
 VERSION_BASE="0.1.6"
@@ -145,6 +150,8 @@ BUILD_MANAGED_PRGS=(
     "clipmgr"
     "reuviewer"
     "tasklist"
+    "simplefiles"
+    "simplecells"
     "game2048"
     "cal26"
     "dizzy"
@@ -234,6 +241,7 @@ show_help() {
     echo "  dizzy     Run dizzy.prg directly (standalone, no REU switching)"
     echo "  readme    Run readme.prg directly (standalone, no REU switching)"
     echo "  showcfg   Run BASIC APPS.CFG inspector (drive 8)"
+    echo "  xfilechk  Run standalone IEC file-operation harness on dedicated D71s"
     echo "  monitor   Start with VICE monitor open immediately"
     echo "  readyshell-mon  Normal boot + remote monitor sockets/logs for readyshell debugging"
     echo "  noreu     Run boot without REU (for testing error handling)"
@@ -257,6 +265,7 @@ show_help() {
     echo "  ./run.sh --parse-trace-debug 1 debug"
     echo "  ./run.sh --parse-trace-debug 1 readyshell-mon"
     echo "  ./run.sh --skipbuild --parse-trace-debug 1 readyshell-mon"
+    echo "  ./run.sh xfilechk"
     echo "  ./run.sh --interactive"
     echo ""
     echo "Disks:"
@@ -934,6 +943,38 @@ EOF
             -9 "$DISK_FILE_2" \
             -autostartprgmode 1 \
             "$SHOWCFG_PRG"
+        ;;
+
+    xfilechk)
+        update_dynamic_version
+        echo "Build version: ${RUN_VERSION_TEXT}"
+        if [ "$SKIP_BUILD" -eq 1 ]; then
+            echo "Skipping build (--skipbuild): using existing standalone IEC harness artifacts."
+            echo ""
+        else
+            echo "Building standalone IEC harness disks..."
+            make -B BUILD_SUPPORT_DIR="$BUILD_SUPPORT_DIR" \
+                "$XFILECHK_BOOT_PRG" \
+                "$XFILECHK_PRG" \
+                "$XFILECHK_DISK_FILE_1" \
+                "$XFILECHK_DISK_FILE_2"
+            echo ""
+        fi
+        check_prg "$XFILECHK_BOOT_PRG"
+        check_prg "$XFILECHK_PRG"
+        check_disk "$XFILECHK_DISK_FILE_1"
+        check_disk "$XFILECHK_DISK_FILE_2"
+        DISK_FILE_1="$XFILECHK_DISK_FILE_1"
+        DISK_FILE_2="$XFILECHK_DISK_FILE_2"
+        print_info "Standalone IEC Harness" "$XFILECHK_BOOT_PRG"
+        echo "Running xfilechk on dedicated D71 fixtures"
+        echo "Drive 8: $XFILECHK_DISK_FILE_1"
+        echo "Drive 9: $XFILECHK_DISK_FILE_2"
+        echo ""
+        $VICE "${VICE_OPTS[@]}" \
+            -8 "$XFILECHK_DISK_FILE_1" \
+            -9 "$XFILECHK_DISK_FILE_2" \
+            -autostart "$XFILECHK_BOOT_PRG"
         ;;
 
     monitor)

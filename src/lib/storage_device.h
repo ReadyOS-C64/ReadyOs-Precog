@@ -20,5 +20,8 @@
 unsigned char storage_device_get_default(void);
 void storage_device_set_default(unsigned char drive);
 unsigned char storage_device_toggle_8_9(unsigned char drive);
+unsigned char storage_device_is_valid_8_11(unsigned char drive);
+unsigned char storage_device_normalize_8_11(unsigned char drive,
+                                            unsigned char fallback);
 
 #endif /* STORAGE_DEVICE_H */

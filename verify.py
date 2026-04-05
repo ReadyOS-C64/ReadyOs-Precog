@@ -29,6 +29,8 @@ APP_PRGS = [
     ("clipmgr", "clipmgr.prg"),
     ("reuviewer", "reuviewer.prg"),
     ("tasklist", "tasklist.prg"),
+    ("simplefiles", "simplefiles.prg"),
+    ("simplecells", "simplecells.prg"),
     ("game2048", "game2048.prg"),
     ("cal26", "cal26.prg"),
     ("dizzy", "dizzy.prg"),

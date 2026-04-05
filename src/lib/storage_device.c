@@ -11,6 +11,21 @@ static unsigned char storage_device_normalize(unsigned char drive) {
     return STORAGE_DEVICE_DRIVE_8;
 }
 
+unsigned char storage_device_is_valid_8_11(unsigned char drive) {
+    return (unsigned char)(drive >= 8 && drive <= 11);
+}
+
+unsigned char storage_device_normalize_8_11(unsigned char drive,
+                                            unsigned char fallback) {
+    if (storage_device_is_valid_8_11(drive)) {
+        return drive;
+    }
+    if (storage_device_is_valid_8_11(fallback)) {
+        return fallback;
+    }
+    return STORAGE_DEVICE_DRIVE_8;
+}
+
 unsigned char storage_device_get_default(void) {
     unsigned char drive;
 

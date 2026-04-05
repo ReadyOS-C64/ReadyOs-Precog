@@ -23,6 +23,8 @@ MANAGED_PRGS=(
   "clipmgr"
   "reuviewer"
   "tasklist"
+  "simplefiles"
+  "simplecells"
   "game2048"
   "cal26"
   "dizzy"

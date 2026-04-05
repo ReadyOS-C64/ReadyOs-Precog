@@ -32,6 +32,7 @@ CFLAGS = -t c64 -I$(LIB_DIR)
 APP_CFLAGS = -t c64 -I$(LIB_DIR) -C $(CFG_DIR)/ready_app.cfg
 EDITOR_CFLAGS = $(APP_CFLAGS) -Os
 TASKLIST_CFLAGS = $(APP_CFLAGS) -Os
+SIMPLECELLS_CFLAGS = -t c64 -I$(LIB_DIR) -C $(CFG_DIR)/ready_app_simplecells.cfg
 LAUNCHER_CFG_VERBOSE ?= 0
 LAUNCHER_CFLAGS = $(APP_CFLAGS) -DLAUNCHER_CFG_VERBOSE=$(LAUNCHER_CFG_VERBOSE)
 
@@ -48,6 +49,8 @@ HEXVIEW = hexview.prg
 CLIPMGR = clipmgr.prg
 REUVIEWER = reuviewer.prg
 TASKLIST = tasklist.prg
+SIMPLEFILES = simplefiles.prg
+SIMPLECELLS = simplecells.prg
 GAME2048 = game2048.prg
 CAL26 = cal26.prg
 DIZZY = dizzy.prg
@@ -58,8 +61,11 @@ VERSION_ASM_INC = $(GEN_DIR)/msg_version.inc
 README_DATA_C = $(GEN_DIR)/readme_pages.c
 README_DATA_H = $(GEN_DIR)/readme_pages.h
 XRELCHK = xrelchk.prg
+XFILECHK_BOOT = xfilechk_boot.prg
+XFILECHK = xfilechk.prg
 XRELCHK_CASE ?= 0
 XRELCHK_STOP_AFTER ?= 0
+XFILECHK_CASE ?= 0
 XREL_DATA_SA ?= 2
 XREL_POS_SEND_MODE ?= 1
 XREL_POS_CMD_MODE ?= 1
@@ -70,11 +76,17 @@ XREL_POS_POS_MODE ?= 0
 XREL_POS_CR_MODE ?= 1
 DISK1 = readyos.d71
 DISK2 = readyos_2.d71
+XFILECHK_DISK1 = xfilechk.d71
+XFILECHK_DISK2 = xfilechk_2.d71
 DISK = $(DISK1)
 CATALOG_SRC = cfg/apps_catalog.txt
 CATALOG_SEQ = $(OBJ_DIR)/apps_cfg_petscii.seq
 EDITOR_HELP_SRC = cfg/editor_help.txt
 EDITOR_HELP_SEQ = $(OBJ_DIR)/editor_help.seq
+XFILECHK_SRC8_TXT = cfg/xfilechk_src8.txt
+XFILECHK_SRC8_SEQ = $(OBJ_DIR)/xfilechk_src8.seq
+XFILECHK_TESTA_TXT = cfg/xfilechk_testa.txt
+XFILECHK_TESTA_SEQ = $(OBJ_DIR)/xfilechk_testa.seq
 REL_SEED_D71 ?=
 REL_SEED_D71_CANDIDATES := readyos0-1-5.d71 ../readyos0-1-5.d71 ../../readyos0-1-5.d71
 ifeq ($(strip $(REL_SEED_D71)),)
@@ -93,6 +105,7 @@ REU_ALLOC_SRC = $(LIB_DIR)/reu_mgr_alloc.c
 REU_DMA_SRC = $(LIB_DIR)/reu_mgr_dma.c
 REU_STATS_SRC = $(LIB_DIR)/reu_mgr_stats.c
 STORAGE_DEVICE_SRC = $(LIB_DIR)/storage_device.c
+FILE_BROWSER_SRC = $(LIB_DIR)/file_browser.c
 CLIP_COPY_SRC = $(LIB_DIR)/clipboard_copy.c
 CLIP_PASTE_SRC = $(LIB_DIR)/clipboard_paste.c
 CLIP_COUNT_SRC = $(LIB_DIR)/clipboard_count.c
@@ -187,6 +200,8 @@ LIB_HEXVIEW = $(TUI_BASE_NAV_MISC) $(LIB_REU_DMA) $(LIB_CLIP_COPY) $(RESUME_STAT
 LIB_CLIPMGR = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(LIB_REU_DMA_STATS) $(LIB_CLIP_PASTE_COUNT) $(CLIP_ADMIN_SRC) $(RESUME_STATE_SRC)
 LIB_REUVIEWER = $(TUI_BASE_NAV_MISC) $(LIB_REU_DMA_STATS) $(RESUME_STATE_SRC)
 LIB_TASKLIST = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(LIB_REU_DMA) $(LIB_CLIP_COPY_PASTE_COUNT) $(RESUME_STATE_SRC) $(STORAGE_DEVICE_SRC)
+LIB_SIMPLEFILES = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(REU_DMA_SRC) $(RESUME_STATE_SRC) $(STORAGE_DEVICE_SRC) $(FILE_BROWSER_SRC)
+LIB_SIMPLECELLS = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(LIB_REU_DMA) $(RESUME_STATE_SRC) $(STORAGE_DEVICE_SRC)
 LIB_GAME2048 = $(TUI_BASE_NAV) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 LIB_CAL26 = $(TUI_BASE_INPUT_NAV_MISC) $(LIB_REU_DMA) $(LIB_CLIP_COPY_PASTE_COUNT) $(RESUME_STATE_SRC)
 LIB_DIZZY = $(TUI_BASE_INPUT_NAV) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
@@ -194,7 +209,7 @@ LIB_README = $(TUI_BASE_NAV_MISC) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 LIB_READYSHELL = $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 
 # Default target
-all: $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(GAME2048) $(CAL26) $(DIZZY) $(READMEAPP) $(READYSHELL) $(DISK1) $(DISK2)
+all: $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(CAL26) $(DIZZY) $(READMEAPP) $(READYSHELL) $(DISK1) $(DISK2)
 	@echo ""
 	@echo "=== Build complete ==="
 	@ls -la *.prg $(DISK1) $(DISK2)
@@ -212,6 +227,10 @@ $(PREBOOT): $(BOOT_DIR)/preboot.bas
 $(SETD71): $(BOOT_DIR)/setd71.bas
 	$(PETCAT) -w2 -o $@ $<
 
+# C64 BASIC harness boot for standalone IEC file checks
+$(XFILECHK_BOOT): $(BOOT_DIR)/xfilechk_boot.bas
+	$(PETCAT) -w2 -o $@ $<
+
 # C64 BASIC apps.cfg inspector (read-only diagnostics)
 $(SHOWCFG): $(BOOT_DIR)/showcfg.bas
 	$(PETCAT) -w2 -o $@ $<
@@ -223,6 +242,12 @@ $(CATALOG_SEQ): $(CATALOG_SRC) $(BUILD_SUPPORT_DIR)/build_apps_catalog_petscii.p
 # Build plain-text lowercase PETASCII SEQ payloads
 $(EDITOR_HELP_SEQ): $(EDITOR_HELP_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(EDITOR_HELP_SRC) --output $@
+
+$(XFILECHK_SRC8_SEQ): $(XFILECHK_SRC8_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(XFILECHK_SRC8_TXT) --output $@
+
+$(XFILECHK_TESTA_SEQ): $(XFILECHK_TESTA_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(XFILECHK_TESTA_TXT) --output $@
 
 # Test REU program (standalone)
 $(TEST_REU): $(SRC_DIR)/test_reu.c
@@ -255,6 +280,14 @@ $(REUVIEWER): $(APPS_DIR)/reuviewer/reuviewer.c $(LIB_REUVIEWER)
 # Task List app (loads at $1000)
 $(TASKLIST): $(APPS_DIR)/tasklist/tasklist.c $(LIB_TASKLIST)
 	$(CC) $(TASKLIST_CFLAGS) -m $(OBJ_DIR)/tasklist.map -o $@ $^
+
+# Simple Files app (loads at $1000)
+$(SIMPLEFILES): $(APPS_DIR)/simplefiles/simplefiles.c $(LIB_SIMPLEFILES)
+	$(CC) $(APP_CFLAGS) -m $(OBJ_DIR)/simplefiles.map -o $@ $^
+
+# Simple Cells app (loads at $1000)
+$(SIMPLECELLS): $(APPS_DIR)/simplecells/simplecells.c $(APPS_DIR)/calcplus/rom_float.s $(LIB_SIMPLECELLS)
+	$(CC) $(SIMPLECELLS_CFLAGS) -m $(OBJ_DIR)/simplecells.map -o $@ $^
 
 # 2048 game app (loads at $1000)
 $(GAME2048): $(APPS_DIR)/game2048/game2048.c $(LIB_GAME2048)
@@ -329,6 +362,22 @@ $(XRELCHK): $(APPS_DIR)/xrelchk/xrelchk.c
 		-D XREL_POS_CR_MODE=$(XREL_POS_CR_MODE) \
 		-m $(OBJ_DIR)/xrelchk.map -o $@ $<
 
+# Standalone IEC file-operation harness ($0801)
+$(XFILECHK): $(APPS_DIR)/xfilechk/xfilechk.c
+	$(CC) $(CFLAGS) \
+		-D XFILECHK_CASE=$(XFILECHK_CASE) \
+		-m $(OBJ_DIR)/xfilechk.map -o $@ $<
+
+$(XFILECHK_DISK1): FORCE $(XFILECHK_BOOT) $(XFILECHK) $(XFILECHK_SRC8_SEQ)
+	$(C1541) -format "xfilechk8,ro" d71 $@ \
+		-write $(XFILECHK_BOOT) xfilechkboot \
+		-write $(XFILECHK) xfilechk \
+		-write $(XFILECHK_SRC8_SEQ) "src8,s"
+
+$(XFILECHK_DISK2): FORCE $(XFILECHK_TESTA_SEQ)
+	$(C1541) -format "xfilechk9,ro" d71 $@ \
+		-write $(XFILECHK_TESTA_SEQ) "testa,s"
+
 # Create disk 1 (drive 8): boot chain + launcher + utilities + cal26 + dizzy + readyshell + catalog
 ifeq ($(READYOS_USE_PWSH),1)
 $(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ)
@@ -376,10 +425,10 @@ endif
 
 # Create disk 2 (drive 9): remaining apps
 ifeq ($(READYOS_USE_PWSH),1)
-$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(GAME2048) $(READMEAPP)
+$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(READMEAPP)
 	$(PWSH) -NoLogo -NoProfile -File $(BUILD_SUPPORT_DIR)/rebuild_disk.ps1 -Mode disk2 -DiskPath $@ -BuildSupportDir $(BUILD_SUPPORT_DIR)
 else
-$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(GAME2048) $(READMEAPP)
+$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(READMEAPP)
 	@set -e; \
 	PRESERVE_DIR=$$(mktemp -d /tmp/readyos2_preserve.XXXXXX); \
 	if [ -f $@ ]; then \
@@ -392,6 +441,8 @@ $(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKL
 		-write $(CLIPMGR) clipmgr \
 		-write $(REUVIEWER) reuviewer \
 		-write $(TASKLIST) tasklist \
+		-write $(SIMPLEFILES) simplefiles \
+		-write $(SIMPLECELLS) simplecells \
 		-write $(GAME2048) game2048 \
 		-write $(READMEAPP) readme; \
 	if [ -s $$PRESERVE_DIR/manifest.tsv ]; then \
@@ -423,6 +474,7 @@ verify: all
 	python3 verify.py
 	python3 $(BUILD_SUPPORT_DIR)/editor_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
+	python3 $(BUILD_SUPPORT_DIR)/simplefiles_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/verify_resume_contract.py
 	python3 $(BUILD_SUPPORT_DIR)/verify_memory_map.py
 
@@ -480,6 +532,9 @@ help:
 	@echo "  launcher-verbose - Rebuild launcher with verbose config diagnostics"
 	@echo "  run         - Run Ready OS in VICE"
 	@echo "  run-test    - Run REU test in VICE"
+	@echo "  $(XFILECHK) - Build standalone IEC file-operation harness"
+	@echo "  $(XFILECHK_DISK1) - Build standalone IEC harness boot/program disk"
+	@echo "  $(XFILECHK_DISK2) - Build standalone IEC harness fixture disk"
 	@echo ""
 	@echo "Programs built:"
 	@echo "  preboot.prg  - BASIC preboot (sets D71 mode, runs boot)"
@@ -497,8 +552,11 @@ help:
 	@echo "  dizzy.prg    - Kanban task board app (loads at \$$1000)"
 	@echo "  readme.prg   - Project README app (loads at \$$1000)"
 	@echo "  readyshell.prg - ReadyShell app (loads at \$$1000, overlays rsovl1/2/3 on disk 1)"
+	@echo "  xfilechk.prg - Standalone IEC file-operation harness (loads at \$$0801)"
 	@echo "  readyos.d71   - Disk 1 (boot/launcher/showcfg/cal26/dizzy/readyshell/rsovl1-3/apps.cfg/editor help)"
-	@echo "  readyos_2.d71 - Disk 2 (editor/calcplus/hexview/clipmgr/reuviewer/tasklist/2048/readme)"
+	@echo "  readyos_2.d71 - Disk 2 (editor/calcplus/hexview/clipmgr/reuviewer/tasklist/simplefiles/simplecells/2048/readme)"
+	@echo "  xfilechk.d71  - Standalone harness drive 8 disk (boot+harness+src fixture)"
+	@echo "  xfilechk_2.d71- Standalone harness drive 9 disk (test fixture)"
 
 FORCE:
 
