@@ -164,8 +164,8 @@ Current overlay roles:
 - `rsovl3` for script control work
 
 Current limitation:
-- when switching away and back, overlays are reloaded from disk
-  each time instead of staying hot across app switches
+- the current build can crash on the third entry after repeated
+  app switching, so treat it as a fragile demo
 
 ---
 

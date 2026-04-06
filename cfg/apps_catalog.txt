@@ -37,5 +37,5 @@ fizzy inspired kanban app
 9:readme:read.me
 readyos, ultimate buddy, precog poc os
 
-8:readyshell:ready shell
+8:readyshell:ready shell (demo)
 command shell poc scaffold
