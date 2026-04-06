@@ -26,6 +26,7 @@ MANAGED_PRGS=(
   "simplefiles"
   "simplecells"
   "game2048"
+  "deminer"
   "cal26"
   "dizzy"
   "readme"
@@ -42,6 +43,10 @@ MANAGED_PRGS=(
 MANAGED_SEQS=(
   "apps.cfg"
   "editor help"
+  "example tasks"
+  "c"
+  "b"
+  "test"
 )
 
 is_managed_prg() {

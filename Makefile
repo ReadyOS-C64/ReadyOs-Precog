@@ -53,6 +53,7 @@ TASKLIST = tasklist.prg
 SIMPLEFILES = simplefiles.prg
 SIMPLECELLS = simplecells.prg
 GAME2048 = game2048.prg
+DEMINER = deminer.prg
 CAL26 = cal26.prg
 DIZZY = dizzy.prg
 READMEAPP = readme.prg
@@ -85,6 +86,14 @@ CATALOG_SRC = cfg/apps_catalog.txt
 CATALOG_SEQ = $(OBJ_DIR)/apps_cfg_petscii.seq
 EDITOR_HELP_SRC = cfg/editor_help.txt
 EDITOR_HELP_SEQ = $(OBJ_DIR)/editor_help.seq
+EXAMPLE_TASKS_SRC = cfg/example_tasks.txt
+EXAMPLE_TASKS_SEQ = $(OBJ_DIR)/example_tasks.seq
+C_SEQ_SRC = cfg/c.txt
+C_SEQ = $(OBJ_DIR)/c.seq
+B_SEQ_SRC = cfg/b.txt
+B_SEQ = $(OBJ_DIR)/b.seq
+TEST_SEQ_SRC = cfg/test.txt
+TEST_SEQ = $(OBJ_DIR)/test.seq
 XFILECHK_SRC8_TXT = cfg/xfilechk_src8.txt
 XFILECHK_SRC8_SEQ = $(OBJ_DIR)/xfilechk_src8.seq
 XFILECHK_TESTA_TXT = cfg/xfilechk_testa.txt
@@ -206,13 +215,14 @@ LIB_TASKLIST = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(TUI_HOTKEY_SRC) $(LIB_REU_DMA) 
 LIB_SIMPLEFILES = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(TUI_HOTKEY_SRC) $(REU_DMA_SRC) $(RESUME_STATE_SRC) $(STORAGE_DEVICE_SRC) $(FILE_BROWSER_SRC)
 LIB_SIMPLECELLS = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(LIB_REU_DMA) $(RESUME_STATE_SRC) $(STORAGE_DEVICE_SRC)
 LIB_GAME2048 = $(TUI_BASE_NAV) $(TUI_HOTKEY_SRC) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
+LIB_DEMINER = $(TUI_BASE_NAV) $(TUI_HOTKEY_SRC) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 LIB_CAL26 = $(TUI_BASE_INPUT_NAV_MISC) $(TUI_HOTKEY_SRC) $(LIB_REU_DMA) $(LIB_CLIP_COPY_PASTE_COUNT) $(RESUME_STATE_SRC)
 LIB_DIZZY = $(TUI_BASE_INPUT_NAV) $(TUI_HOTKEY_SRC) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 LIB_README = $(TUI_BASE_NAV_MISC) $(TUI_HOTKEY_SRC) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 LIB_READYSHELL = $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 
 # Default target
-all: $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(CAL26) $(DIZZY) $(READMEAPP) $(READYSHELL) $(DISK1) $(DISK2)
+all: $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(DEMINER) $(CAL26) $(DIZZY) $(READMEAPP) $(READYSHELL) $(DISK1) $(DISK2)
 	@echo ""
 	@echo "=== Build complete ==="
 	@ls -la *.prg $(DISK1) $(DISK2)
@@ -246,6 +256,18 @@ $(CATALOG_SEQ): $(CATALOG_SRC) $(BUILD_SUPPORT_DIR)/build_apps_catalog_petscii.p
 # Build plain-text lowercase PETASCII SEQ payloads
 $(EDITOR_HELP_SEQ): $(EDITOR_HELP_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(EDITOR_HELP_SRC) --output $@
+
+$(EXAMPLE_TASKS_SEQ): $(EXAMPLE_TASKS_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(EXAMPLE_TASKS_SRC) --output $@
+
+$(C_SEQ): $(C_SEQ_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(C_SEQ_SRC) --output $@
+
+$(B_SEQ): $(B_SEQ_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(B_SEQ_SRC) --output $@
+
+$(TEST_SEQ): $(TEST_SEQ_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(TEST_SEQ_SRC) --output $@
 
 $(XFILECHK_SRC8_SEQ): $(XFILECHK_SRC8_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(XFILECHK_SRC8_TXT) --output $@
@@ -296,6 +318,10 @@ $(SIMPLECELLS): $(APPS_DIR)/simplecells/simplecells.c $(APPS_DIR)/calcplus/rom_f
 # 2048 game app (loads at $1000)
 $(GAME2048): $(APPS_DIR)/game2048/game2048.c $(LIB_GAME2048)
 	$(CC) $(APP_CFLAGS) -m $(OBJ_DIR)/game2048.map -o $@ $^
+
+# Deminer game app (loads at $1000)
+$(DEMINER): $(APPS_DIR)/deminer/deminer.c $(LIB_DEMINER)
+	$(CC) $(APP_CFLAGS) -m $(OBJ_DIR)/deminer.map -o $@ $^
 
 # Calendar 2026 app (loads at $1000)
 $(CAL26): $(APPS_DIR)/cal26/cal26.c $(LIB_CAL26)
@@ -387,10 +413,10 @@ $(XFILECHK_DISK2): FORCE $(XFILECHK_TESTA_SEQ)
 
 # Create disk 1 (drive 8): boot chain + launcher + utilities + cal26 + dizzy + readyshell + catalog
 ifeq ($(READYOS_USE_PWSH),1)
-$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ)
+$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(DEMINER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ) $(EXAMPLE_TASKS_SEQ) $(C_SEQ) $(B_SEQ)
 	$(PWSH) -NoLogo -NoProfile -File $(BUILD_SUPPORT_DIR)/rebuild_disk.ps1 -Mode disk1 -DiskPath $@ -BuildSupportDir $(BUILD_SUPPORT_DIR) -RelSeedD71 "$(REL_SEED_D71)"
 else
-$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ)
+$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(DEMINER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ) $(EXAMPLE_TASKS_SEQ) $(C_SEQ) $(B_SEQ)
 	@set -e; \
 	PRESERVE_DIR=$$(mktemp -d /tmp/readyos_preserve.XXXXXX); \
 	if [ -f $@ ]; then \
@@ -402,14 +428,18 @@ $(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(CAL26) $(D
 		-write $(SHOWCFG) showcfg \
 		-write $(BOOT) boot \
 		-write $(LAUNCHER) launcher \
+		-write $(DEMINER) deminer \
 		-write $(CAL26) cal26 \
 		-write $(DIZZY) dizzy \
 		-write $(READYSHELL) readyshell \
 		-write $(READYSHELL_OVL1_DISK) rsovl1 \
 		-write $(READYSHELL_OVL2_DISK) rsovl2 \
-		-write $(READYSHELL_OVL3_DISK) rsovl3 \
-		-write $(CATALOG_SEQ) "apps.cfg,s" \
-		-write $(EDITOR_HELP_SEQ) "editor help,s"; \
+			-write $(READYSHELL_OVL3_DISK) rsovl3 \
+			-write $(CATALOG_SEQ) "apps.cfg,s" \
+			-write $(EDITOR_HELP_SEQ) "editor help,s" \
+			-write $(EXAMPLE_TASKS_SEQ) "example tasks,s" \
+			-write $(C_SEQ) "c,s" \
+			-write $(B_SEQ) "b,s"; \
 	echo ""; \
 	echo "Seeding CAL26 REL files:"; \
 	python3 $(BUILD_SUPPORT_DIR)/seed_cal26_rel.py --disk $@; \
@@ -432,10 +462,10 @@ endif
 
 # Create disk 2 (drive 9): remaining apps
 ifeq ($(READYOS_USE_PWSH),1)
-$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(READMEAPP)
+$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(READMEAPP) $(C_SEQ) $(TEST_SEQ)
 	$(PWSH) -NoLogo -NoProfile -File $(BUILD_SUPPORT_DIR)/rebuild_disk.ps1 -Mode disk2 -DiskPath $@ -BuildSupportDir $(BUILD_SUPPORT_DIR)
 else
-$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(READMEAPP)
+$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(READMEAPP) $(C_SEQ) $(TEST_SEQ)
 	@set -e; \
 	PRESERVE_DIR=$$(mktemp -d /tmp/readyos2_preserve.XXXXXX); \
 	if [ -f $@ ]; then \
@@ -447,11 +477,13 @@ $(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKL
 		-write $(HEXVIEW) hexview \
 		-write $(CLIPMGR) clipmgr \
 		-write $(REUVIEWER) reuviewer \
-		-write $(TASKLIST) tasklist \
-		-write $(SIMPLEFILES) simplefiles \
-		-write $(SIMPLECELLS) simplecells \
-		-write $(GAME2048) game2048 \
-		-write $(READMEAPP) readme; \
+			-write $(TASKLIST) tasklist \
+			-write $(SIMPLEFILES) simplefiles \
+			-write $(SIMPLECELLS) simplecells \
+			-write $(GAME2048) game2048 \
+			-write $(READMEAPP) readme \
+			-write $(C_SEQ) "c,s" \
+			-write $(TEST_SEQ) "test,s"; \
 	if [ -s $$PRESERVE_DIR/manifest.tsv ]; then \
 		$(BUILD_SUPPORT_DIR)/preserve_d71_user_data.sh restore $@ $$PRESERVE_DIR/manifest.tsv; \
 	fi; \
@@ -468,6 +500,10 @@ clean:
 	rm -rf $(READYSHELL_OBJ_DIR)
 	rm -f $(CATALOG_SEQ)
 	rm -f $(EDITOR_HELP_SEQ)
+	rm -f $(EXAMPLE_TASKS_SEQ)
+	rm -f $(C_SEQ)
+	rm -f $(B_SEQ)
+	rm -f $(TEST_SEQ)
 	rm -f *.prg
 	rm -f $(READYSHELL_OVL1_PRG) $(READYSHELL_OVL2_PRG) $(READYSHELL_OVL3_PRG) \
 		$(READYSHELL_OVL4_PRG) $(READYSHELL_OVL5_PRG) $(READYSHELL_OVL6_PRG) \
@@ -555,13 +591,14 @@ help:
 	@echo "  clipmgr.prg  - Clipboard manager (loads at \$$1000)"
 	@echo "  reuviewer.prg- REU memory viewer (loads at \$$1000)"
 	@echo "  game2048.prg - 2048 puzzle game (loads at \$$1000)"
+	@echo "  deminer.prg  - PETSCII minesweeper game (loads at \$$1000)"
 	@echo "  cal26.prg    - Calendar 2026 app (loads at \$$1000)"
 	@echo "  dizzy.prg    - Kanban task board app (loads at \$$1000)"
 	@echo "  readme.prg   - Project README app (loads at \$$1000)"
 	@echo "  readyshell.prg - ReadyShell app (loads at \$$1000, overlays rsovl1/2/3 on disk 1)"
 	@echo "  $(XFILECHK) - Standalone IEC file-operation harness (loads at \$$0801)"
-	@echo "  readyos.d71   - Disk 1 (boot/launcher/showcfg/cal26/dizzy/readyshell/rsovl1-3/apps.cfg/editor help)"
-	@echo "  readyos_2.d71 - Disk 2 (editor/calcplus/hexview/clipmgr/reuviewer/tasklist/simplefiles/simplecells/2048/readme)"
+	@echo "  readyos.d71   - Disk 1 (boot/launcher/showcfg/deminer/cal26/dizzy/readyshell/rsovl1-3/apps.cfg/editor help/example tasks/c/b)"
+	@echo "  readyos_2.d71 - Disk 2 (editor/calcplus/hexview/clipmgr/reuviewer/tasklist/simplefiles/simplecells/2048/readme/c/test)"
 	@echo "  $(XFILECHK_DISK1) - Standalone harness drive 8 disk (boot+harness+src fixture)"
 	@echo "  $(XFILECHK_DISK2) - Standalone harness drive 9 disk (test fixture)"
 

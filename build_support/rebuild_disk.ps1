@@ -65,6 +65,7 @@ try {
                 @((Assert-RepoFile 'showcfg.prg'), 'showcfg'),
                 @((Assert-RepoFile 'boot.prg'), 'boot'),
                 @((Assert-RepoFile 'launcher.prg'), 'launcher'),
+                @((Assert-RepoFile 'deminer.prg'), 'deminer'),
                 @((Assert-RepoFile 'cal26.prg'), 'cal26'),
                 @((Assert-RepoFile 'dizzy.prg'), 'dizzy'),
                 @((Assert-RepoFile 'readyshell.prg'), 'readyshell'),
@@ -72,7 +73,10 @@ try {
                 @((Assert-RepoFile 'obj/readyshell_ovl2.prg'), 'rsovl2'),
                 @((Assert-RepoFile 'obj/readyshell_ovl3.prg'), 'rsovl3'),
                 @((Assert-RepoFile 'obj/apps_cfg_petscii.seq'), 'apps.cfg,s'),
-                @((Assert-RepoFile 'obj/editor_help.seq'), 'editor help,s')
+                @((Assert-RepoFile 'obj/editor_help.seq'), 'editor help,s'),
+                @((Assert-RepoFile 'obj/example_tasks.seq'), 'example tasks,s'),
+                @((Assert-RepoFile 'obj/c.seq'), 'c,s'),
+                @((Assert-RepoFile 'obj/b.seq'), 'b,s')
             )
 
             Invoke-C1541WriteBatch -DiskLabel 'readyos,ro' -Mappings $mappings
@@ -102,8 +106,12 @@ try {
                 @((Assert-RepoFile 'clipmgr.prg'), 'clipmgr'),
                 @((Assert-RepoFile 'reuviewer.prg'), 'reuviewer'),
                 @((Assert-RepoFile 'tasklist.prg'), 'tasklist'),
+                @((Assert-RepoFile 'simplefiles.prg'), 'simplefiles'),
+                @((Assert-RepoFile 'simplecells.prg'), 'simplecells'),
                 @((Assert-RepoFile 'game2048.prg'), 'game2048'),
-                @((Assert-RepoFile 'readme.prg'), 'readme')
+                @((Assert-RepoFile 'readme.prg'), 'readme'),
+                @((Assert-RepoFile 'obj/c.seq'), 'c,s'),
+                @((Assert-RepoFile 'obj/test.seq'), 'test,s')
             )
 
             Invoke-C1541WriteBatch -DiskLabel 'readyos2,ro' -Mappings $mappings

@@ -27,6 +27,7 @@ $managedPrgs = @(
     'reuviewer',
     'tasklist',
     'game2048',
+    'deminer',
     'cal26',
     'dizzy',
     'readme',
@@ -42,7 +43,11 @@ $managedPrgs = @(
 
 $managedSeqs = @(
     'apps.cfg',
-    'editor help'
+    'editor help',
+    'example tasks',
+    'c',
+    'b',
+    'test'
 )
 
 function Test-ManagedBuildFile {

@@ -162,6 +162,7 @@ Modes (option):
   calcplus       Run calcplus.prg directly (standalone, no REU switching)
   hexview        Run hexview.prg directly (standalone, no REU switching)
   2048           Run game2048.prg directly (standalone, no REU switching)
+  deminer        Run deminer.prg directly (standalone, no REU switching)
   cal26          Run cal26.prg directly (standalone, no REU switching)
   dizzy          Run dizzy.prg directly (standalone, no REU switching)
   readme         Run readme.prg directly (standalone, no REU switching)
@@ -437,6 +438,7 @@ $script:EditorPrg = 'editor.prg'
 $script:CalcplusPrg = 'calcplus.prg'
 $script:HexviewPrg = 'hexview.prg'
 $script:Game2048Prg = 'game2048.prg'
+$script:DeminerPrg = 'deminer.prg'
 $script:Cal26Prg = 'cal26.prg'
 $script:DizzyPrg = 'dizzy.prg'
 $script:ReadmePrg = 'readme.prg'
@@ -619,6 +621,15 @@ switch ($script:Mode) {
         Start-ViceProcess ($script:ViceOpts + @('-autostartprgmode', '1', $script:Game2048Prg)) | Out-Null
     }
 
+    'deminer' {
+        Maybe-Build
+        Check-Prg $script:DeminerPrg
+        Print-Info -RunMode 'Standalone' -Target $script:DeminerPrg
+        Write-Host 'Running Deminer standalone (no REU, no shim)'
+        Write-Host ''
+        Start-ViceProcess ($script:ViceOpts + @('-autostartprgmode', '1', $script:DeminerPrg)) | Out-Null
+    }
+
     'cal26' {
         Maybe-Build
         Check-Disk $script:DiskFile1
@@ -720,7 +731,7 @@ switch ($script:Mode) {
             '  1. preboot.prg loads/runs setd71.prg; setd71 sets drives 8/9 to 1571 mode, then loads boot.prg',
             '  2. Boot loader installs shim and loads launcher',
             '  3. Select ''LOAD TO REU'' and press RETURN to preload apps',
-            '  4. Select an app (including 2048) and press RETURN to launch',
+            '  4. Select an app (including 2048 and deminer) and press RETURN to launch',
             '  5. Press CTRL+B to return to launcher',
             '  6. Press F2/F4 to switch between apps',
             ''

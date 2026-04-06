@@ -39,3 +39,6 @@ readyos, ultimate buddy, precog poc os
 
 8:readyshell:ready shell (demo)
 command shell poc scaffold
+
+8:deminer:deminer
+minesweeper-style puzzle

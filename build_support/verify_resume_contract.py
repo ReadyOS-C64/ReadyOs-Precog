@@ -94,7 +94,7 @@ def main():
 
     print("\n=== App Hooks ===")
     for app_name in ("editor", "calcplus", "hexview", "clipmgr", "reuviewer",
-                     "tasklist", "simplefiles", "game2048", "cal26", "dizzy", "readme",
+                     "tasklist", "simplefiles", "game2048", "deminer", "cal26", "dizzy", "readme",
                      "readyshellpoc"):
         try:
             hooks = parse_app_hooks(app_name)

@@ -15,6 +15,7 @@
 #   calcplus  - Run calcplus.prg directly (no REU switching)
 #   hexview   - Run hexview.prg directly (no REU switching)
 #   2048      - Run game2048.prg directly (no REU switching)
+#   deminer   - Run deminer.prg directly (no REU switching)
 #   cal26     - Run cal26.prg directly (no REU switching)
 #   dizzy     - Run dizzy.prg directly (no REU switching)
 #   readme    - Run readme.prg directly (no REU switching)
@@ -87,6 +88,7 @@ EDITOR_PRG="editor.prg"
 CALCPLUS_PRG="calcplus.prg"
 HEXVIEW_PRG="hexview.prg"
 GAME2048_PRG="game2048.prg"
+DEMINER_PRG="deminer.prg"
 CAL26_PRG="cal26.prg"
 DIZZY_PRG="dizzy.prg"
 README_PRG="readme.prg"
@@ -153,6 +155,7 @@ BUILD_MANAGED_PRGS=(
     "simplefiles"
     "simplecells"
     "game2048"
+    "deminer"
     "cal26"
     "dizzy"
     "readme"
@@ -169,6 +172,10 @@ BUILD_MANAGED_PRGS=(
 BUILD_MANAGED_SEQS=(
     "apps.cfg"
     "editor help"
+    "example tasks"
+    "c"
+    "b"
+    "test"
 )
 
 update_dynamic_version() {
@@ -237,6 +244,7 @@ show_help() {
     echo "  calcplus  Run calcplus.prg directly (standalone, no REU switching)"
     echo "  hexview   Run hexview.prg directly (standalone, no REU switching)"
     echo "  2048      Run game2048.prg directly (standalone, no REU switching)"
+    echo "  deminer   Run deminer.prg directly (standalone, no REU switching)"
     echo "  cal26     Run cal26.prg directly (standalone, no REU switching)"
     echo "  dizzy     Run dizzy.prg directly (standalone, no REU switching)"
     echo "  readme    Run readme.prg directly (standalone, no REU switching)"
@@ -893,6 +901,17 @@ EOF
             "$GAME2048_PRG"
         ;;
 
+    deminer)
+        maybe_build
+        check_prg "$DEMINER_PRG"
+        print_info "Standalone" "$DEMINER_PRG"
+        echo "Running Deminer standalone (no REU, no shim)"
+        echo ""
+        $VICE "${VICE_OPTS[@]}" \
+            -autostartprgmode 1 \
+            "$DEMINER_PRG"
+        ;;
+
     cal26)
         maybe_build
         check_disk "$DISK_FILE_1"
@@ -1045,7 +1064,7 @@ EOF
         echo "  1. preboot.prg loads/runs setd71.prg; setd71 sets drives 8/9 to 1571 mode, then loads boot.prg"
         echo "  2. Boot loader installs shim and loads launcher"
         echo "  3. Select 'LOAD TO REU' and press RETURN to preload apps"
-        echo "  4. Select an app (including 2048) and press RETURN to launch"
+        echo "  4. Select an app (including 2048 and deminer) and press RETURN to launch"
         echo "  5. Press CTRL+B to return to launcher"
         echo "  6. Press F2/F4 to switch between apps"
         echo ""

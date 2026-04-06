@@ -51,6 +51,7 @@ disk as `apps.cfg`.
 | 9 | `reuviewer` | reu viewer | Inspect REU allocation and usage |
 | 9 | `tasklist` | task list | Outline and notes app with search |
 | 9 | `game2048` | 2048 game | 2048 tile puzzle |
+| 8 | `deminer` | deminer | Minesweeper-style puzzle |
 | 8 | `cal26` | calendar 26 | 2026 calendar with REL-backed appointments |
 | 8 | `dizzy` | dizzy kanban | Kanban-style task board |
 | 9 | `readme` | read.me | In-system project and architecture guide |

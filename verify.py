@@ -32,6 +32,7 @@ APP_PRGS = [
     ("simplefiles", "simplefiles.prg"),
     ("simplecells", "simplecells.prg"),
     ("game2048", "game2048.prg"),
+    ("deminer", "deminer.prg"),
     ("cal26", "cal26.prg"),
     ("dizzy", "dizzy.prg"),
     ("readme", "readme.prg"),
@@ -850,6 +851,7 @@ def main():
             "reuviewer": "LIB_REUVIEWER",
             "tasklist": "LIB_TASKLIST",
             "game2048": "LIB_GAME2048",
+            "deminer": "LIB_DEMINER",
             "cal26": "LIB_CAL26",
             "dizzy": "LIB_DIZZY",
             "readme": "LIB_README",
@@ -865,7 +867,7 @@ def main():
             all_ok &= check(f"{var_name} links resume_state", line is not None and "$(RESUME_STATE_SRC)" in line.group(0))
 
     for app_name in ("editor", "calcplus", "hexview", "clipmgr", "reuviewer",
-                     "tasklist", "game2048", "cal26", "dizzy", "readme",
+                     "tasklist", "game2048", "deminer", "cal26", "dizzy", "readme",
                      "readyshellpoc"):
         path = os.path.join("src", "apps", app_name, f"{app_name}.c")
         try:
