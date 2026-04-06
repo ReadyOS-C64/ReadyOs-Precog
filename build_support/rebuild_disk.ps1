@@ -73,10 +73,7 @@ try {
                 @((Assert-RepoFile 'obj/readyshell_ovl2.prg'), 'rsovl2'),
                 @((Assert-RepoFile 'obj/readyshell_ovl3.prg'), 'rsovl3'),
                 @((Assert-RepoFile 'obj/apps_cfg_petscii.seq'), 'apps.cfg,s'),
-                @((Assert-RepoFile 'obj/editor_help.seq'), 'editor help,s'),
-                @((Assert-RepoFile 'obj/example_tasks.seq'), 'example tasks,s'),
-                @((Assert-RepoFile 'obj/c.seq'), 'c,s'),
-                @((Assert-RepoFile 'obj/b.seq'), 'b,s')
+                @((Assert-RepoFile 'obj/editor_help.seq'), 'editor help,s')
             )
 
             Invoke-C1541WriteBatch -DiskLabel 'readyos,ro' -Mappings $mappings
@@ -109,9 +106,7 @@ try {
                 @((Assert-RepoFile 'simplefiles.prg'), 'simplefiles'),
                 @((Assert-RepoFile 'simplecells.prg'), 'simplecells'),
                 @((Assert-RepoFile 'game2048.prg'), 'game2048'),
-                @((Assert-RepoFile 'readme.prg'), 'readme'),
-                @((Assert-RepoFile 'obj/c.seq'), 'c,s'),
-                @((Assert-RepoFile 'obj/test.seq'), 'test,s')
+                @((Assert-RepoFile 'readme.prg'), 'readme')
             )
 
             Invoke-C1541WriteBatch -DiskLabel 'readyos2,ro' -Mappings $mappings

@@ -43,10 +43,6 @@ MANAGED_PRGS=(
 MANAGED_SEQS=(
   "apps.cfg"
   "editor help"
-  "example tasks"
-  "c"
-  "b"
-  "test"
 )
 
 is_managed_prg() {
