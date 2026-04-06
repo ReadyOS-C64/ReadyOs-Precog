@@ -702,6 +702,7 @@ static void shell_show_help(void) {
     shell_write_line("  vars/expr: $A=1,2,3");
     shell_write_line("  filter: ?[ @>5 ]");
     shell_write_line("  foreach: %[ PRT @ ]");
+    shell_write_line("  use ! for pipeline |");
     shell_write_line("Built-ins: HELP VER CLEAR");
 }
 
