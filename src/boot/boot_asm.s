@@ -265,15 +265,26 @@ start:
     ; Init variables
     lda #0
     sta frame_counter
-    sta anim_border_ctr
-    sta anim_border_idx
+    sta anim_spinner_ctr
+    sta anim_spinner_idx
+    sta anim_spinner_rot
+    sta anim_spinner_style
     sta anim_shadow_phase
     lda #1
     sta cursor_visible
 
     ;=================================================================
-    ; Step 4b: Display version text at row 17, centered
+    ; Step 4b: Display version text at row 17 with PETSCII spinner cells
     ;=================================================================
+    ldx #0
+    lda spinner_chars,x       ; seed left spinner with frame 0
+    sta $06A8 + 10            ; row 17, col 10 (1 blank before version text)
+    lda spinner_chars_ccw,x   ; seed right spinner with mirrored frame 0
+    sta $06A8 + 12 + (msg_version_end - msg_version) + 1
+    lda #13                   ; light green, matching the boot cursor
+    sta $DAA8 + 10
+    sta $DAA8 + 12 + (msg_version_end - msg_version) + 1
+
     ldx #0
 @write_ver:
     lda msg_version,x
@@ -621,12 +632,14 @@ print_progress:
     ; Get current progress row from progress_row counter
     ldx progress_row
 
-    ; Calculate screen address: $0400 + row*40 + 4 (col offset)
+    ; Calculate screen address: $0400 + row*40 + 9 (col offset)
+    ; Keep carry so row 19 ($06F8) correctly becomes $0701 instead of $0601.
     lda screen_rows_lo,x
     clc
-    adc #4                  ; col 4 offset
+    adc #9                  ; col 9 offset
     sta ptr1_hi             ; reuse as dest lo (temp)
     lda screen_rows_hi,x
+    adc #0
 
     ; Now ptr1_hi = dest lo (with col offset), A = dest hi
     ; We need to set up for the copy
@@ -635,14 +648,13 @@ print_progress:
     sta @dest_hi_smc + 1    ; self-modifying: store low byte
 
     ; Also set up color RAM address (dest + $D400)
-    lda screen_rows_hi,x
-    clc
-    adc #$D4                ; color RAM is $D400 higher than $0400 base
-    sta @color_smc + 2
     lda screen_rows_lo,x
     clc
-    adc #4
+    adc #9                  ; row 19+, col 9 (5 chars farther right)
     sta @color_smc + 1
+    lda screen_rows_hi,x
+    adc #$D4                ; color RAM is $D400 higher than $0400 base
+    sta @color_smc + 2
 
     ; Increment progress row for next call
     inc progress_row
@@ -704,31 +716,58 @@ ascii_to_screen:
     rts
 
 ;=============================================================================
-; Raster IRQ handler - dual-rate flash (border cycles + cursor blinks + shadow)
-; NOTE: anim_border_ctr/idx/shadow_phase are in regular memory, NOT ZP,
+; Raster IRQ handler - dual-rate anim (version spinners + cursor blinks + shadow)
+; NOTE: anim_spinner_ctr/idx/shadow_phase are in regular memory, NOT ZP,
 ;       because ZP $0B-$0D are KERNAL I/O vars needed by LOAD
 ;=============================================================================
 raster_irq_handler:
     ; Check if raster IRQ
     lda $D019
     and #$01
-    beq @not_raster          ; OLD pattern: branch-if-NOT to bottom
+    bne @is_raster
+    jmp @not_raster          ; OLD pattern: branch-if-NOT to bottom
 
-    ; --- Border color cycle (every 6 frames) ---
-    inc anim_border_ctr
-    lda anim_border_ctr
-    cmp #6
-    bcc @no_border
+@is_raster:
+
+    ; --- Spinner step + shadow motion (every 12 frames) ---
+    inc anim_spinner_ctr
+    lda anim_spinner_ctr
+    cmp #12
+    bcc @no_spinner
 
     lda #0
-    sta anim_border_ctr
+    sta anim_spinner_ctr
 
-    ; Next color (0-15 = all 16 C64 colors)
-    inc anim_border_idx
-    lda anim_border_idx
-    and #$0F
-    sta anim_border_idx
-    sta $D020               ; set border color
+    ; Next chunky PETSCII spinner frame
+    inc anim_spinner_idx
+    lda anim_spinner_idx
+    and #$03
+    sta anim_spinner_idx
+    beq @check_spinner_style
+    jmp @draw_spinner
+
+    ; Switch spinner glyph family after 3 full rotations.
+@check_spinner_style:
+    inc anim_spinner_rot
+    lda anim_spinner_rot
+    cmp #3
+    bcc @draw_spinner
+
+    lda #0
+    sta anim_spinner_rot
+    lda anim_spinner_style
+    eor #$04
+    sta anim_spinner_style
+
+@draw_spinner:
+    lda anim_spinner_idx
+    clc
+    adc anim_spinner_style
+    tax
+    lda spinner_chars,x
+    sta $06A8 + 10
+    lda spinner_chars_ccw,x
+    sta $06A8 + 12 + (msg_version_end - msg_version) + 1
 
     ; Advance shadow phase and update shadow positions
     inc anim_shadow_phase
@@ -754,7 +793,7 @@ raster_irq_handler:
     sta $D005
     sta $D007
 
-@no_border:
+@no_spinner:
     ; --- Cursor flash (every 24 frames = 4x border rate) ---
     inc frame_counter
     lda frame_counter
@@ -819,6 +858,19 @@ triple_lo:
 cursor_chars:
     .byte $20, $A0
 
+; Spinner character lookup:
+;   entries 0-3  = chunky T-shape cycle
+;   entries 4-7  = corner/quarter-block cycle
+spinner_chars:
+    .byte $6B, $72, $73, $71
+    .byte $70, $6E, $7D, $6D
+
+; Right spinner mirrors the left across the version text.
+; This keeps the phase aligned while the apparent rotation runs opposite.
+spinner_chars_ccw:
+    .byte $73, $72, $6B, $71
+    .byte $6E, $70, $6D, $7D
+
 ; Shadow offset tables (smooth circular oscillation)
 shadow_dx:
     .byte 2, 3, 3, 4, 3, 2, 1, 1
@@ -876,9 +928,13 @@ gen_temp:
     .byte 0
 
 ; Animation variables (regular memory, NOT ZP - $0B-$0D are KERNAL I/O vars)
-anim_border_ctr:
+anim_spinner_ctr:
     .byte 0
-anim_border_idx:
+anim_spinner_idx:
+    .byte 0
+anim_spinner_rot:
+    .byte 0
+anim_spinner_style:
     .byte 0
 anim_shadow_phase:
     .byte 0
