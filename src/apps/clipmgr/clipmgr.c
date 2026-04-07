@@ -7,8 +7,10 @@
 
 #include "../../lib/tui.h"
 #include "../../lib/clipboard.h"
+#include "../../lib/dir_page.h"
 #include "../../lib/reu_mgr.h"
 #include "../../lib/resume_state.h"
+#include "../../lib/storage_device.h"
 #include <c64.h>
 #include <cbm.h>
 #include <conio.h>
@@ -40,13 +42,29 @@
 #define VIEW_PAGE_BYTES  (VIEW_TEXT_COLS * VIEW_TEXT_LINES)
 
 /* File I/O */
-#define MAX_DIR_ENTRIES 20
+#define MAX_DIR_ENTRIES 18
 #define DIR_NAME_LEN    17
 #define IO_BUF_SIZE     128
 #define LFN_DIR         1
 #define LFN_FILE        2
 #define LFN_CMD         15
 #define CLIP_MAX_BYTES  65535U
+
+#define CLIP_BUNDLE_MAGIC0     'R'
+#define CLIP_BUNDLE_MAGIC1     'C'
+#define CLIP_BUNDLE_MAGIC2     'L'
+#define CLIP_BUNDLE_MAGIC3     'P'
+#define CLIP_BUNDLE_MAGIC4     '1'
+#define CLIP_BUNDLE_VERSION    1u
+#define CLIP_BUNDLE_HEADER_LEN 8u
+#define CLIP_BUNDLE_RECORD_LEN 3u
+
+#define LOAD_RC_OK            0u
+#define LOAD_RC_IO            1u
+#define LOAD_RC_FULL          2u
+#define LOAD_RC_NO_REU        3u
+#define LOAD_RC_PARTIAL_FULL  4u
+#define LOAD_RC_PARTIAL_REU   5u
 
 #define SHIM_CURRENT_BANK (*(volatile unsigned char*)0xC834)
 
@@ -65,12 +83,15 @@ static char view_line_buf[VIEW_TEXT_COLS + 1];
 static char io_buf[IO_BUF_SIZE];
 
 /* File browser data */
-static char dir_names[MAX_DIR_ENTRIES][DIR_NAME_LEN];
-static char dir_types[MAX_DIR_ENTRIES][4];
+static DirPageEntry dir_entries[MAX_DIR_ENTRIES];
 static char dir_display[MAX_DIR_ENTRIES][21];
 static const char *dir_ptrs[MAX_DIR_ENTRIES];
 static unsigned char dir_count;
 static char save_buf[17];
+static unsigned char bundle_hdr[CLIP_BUNDLE_HEADER_LEN];
+static unsigned char bundle_rec[CLIP_BUNDLE_RECORD_LEN];
+static unsigned char staged_banks[CLIP_MAX_ITEMS];
+static unsigned int staged_sizes[CLIP_MAX_ITEMS];
 
 typedef struct {
     unsigned char selected;
@@ -144,7 +165,37 @@ static void draw_column_header(void) {
     tui_puts(1, 3, "#  TYPE  SIZE  PREVIEW", TUI_COLOR_GRAY3);
 }
 
-static void draw_item(unsigned char list_row, unsigned char item_idx) {
+static unsigned char selection_is_marked(unsigned int mask, unsigned char item_idx) {
+    return (unsigned char)((mask & ((unsigned int)1u << item_idx)) != 0u);
+}
+
+static unsigned char selection_count(unsigned int mask, unsigned char count) {
+    unsigned char idx;
+    unsigned char marked;
+
+    marked = 0u;
+    for (idx = 0u; idx < count; ++idx) {
+        if (selection_is_marked(mask, idx)) {
+            ++marked;
+        }
+    }
+    return marked;
+}
+
+static unsigned int selection_all_mask(unsigned char count) {
+    unsigned char idx;
+    unsigned int mask;
+
+    mask = 0u;
+    for (idx = 0u; idx < count; ++idx) {
+        mask |= (unsigned int)1u << idx;
+    }
+    return mask;
+}
+
+static void draw_item(unsigned char list_row, unsigned char item_idx,
+                      unsigned char cursor_idx, unsigned char save_mode,
+                      unsigned int select_mask) {
     unsigned char y;
     unsigned char color;
     unsigned int size;
@@ -160,36 +211,43 @@ static void draw_item(unsigned char list_row, unsigned char item_idx) {
         return;
     }
 
-    color = (item_idx == selected) ? TUI_COLOR_CYAN : TUI_COLOR_WHITE;
+    color = (item_idx == cursor_idx) ? TUI_COLOR_CYAN : TUI_COLOR_WHITE;
+    tui_clear_line(y, 0, 40, color);
 
     /* Selection indicator */
-    if (item_idx == selected) {
+    if (item_idx == cursor_idx) {
         tui_putc(0, y, 0x3E, color);  /* '>' */
     } else {
         tui_putc(0, y, 32, color);    /* space */
     }
 
-    /* Item number (1-based) */
-    tui_print_uint(1, y, item_idx + 1, color);
-    tui_puts(3, y, ".", color);
+    if (save_mode) {
+        tui_puts(1, y, selection_is_marked(select_mask, item_idx) ? "[x]" : "[ ]", color);
+        tui_print_uint(5, y, item_idx + 1, color);
+        tui_puts(7, y, ".", color);
+    } else {
+        tui_print_uint(1, y, item_idx + 1, color);
+        tui_puts(3, y, ".", color);
+    }
 
+    /* Item number (1-based) */
     /* Type */
     if (clip_get_type(item_idx) == CLIP_TYPE_TEXT) {
-        tui_puts(5, y, "TXT", color);
+        tui_puts(save_mode ? 9 : 5, y, "TXT", color);
     } else {
-        tui_puts(5, y, "???", color);
+        tui_puts(save_mode ? 9 : 5, y, "???", color);
     }
 
     /* Size */
     size = clip_get_size(item_idx);
     if (size < 1000) {
-        tui_puts_n(10, y, "", 5, color);
-        tui_print_uint(10, y, size, color);
-        tui_puts(14, y, "B", color);
+        tui_puts_n(save_mode ? 13 : 10, y, "", 5, color);
+        tui_print_uint(save_mode ? 13 : 10, y, size, color);
+        tui_puts(save_mode ? 17 : 14, y, "B", color);
     } else {
-        tui_puts_n(10, y, "", 5, color);
-        tui_print_uint(10, y, size / 1024, color);
-        tui_puts(14, y, "K", color);
+        tui_puts_n(save_mode ? 13 : 10, y, "", 5, color);
+        tui_print_uint(save_mode ? 13 : 10, y, size / 1024, color);
+        tui_puts(save_mode ? 17 : 14, y, "K", color);
     }
 
     /* Preview: fetch first PREVIEW_LEN bytes */
@@ -205,14 +263,14 @@ static void draw_item(unsigned char list_row, unsigned char item_idx) {
     }
     preview_buf[plen] = 0;
 
-    tui_puts(16, y, "\"", color);
-    tui_puts_n(17, y, preview_buf, 20, color);
-    if (fetched > 20) {
+    tui_puts(save_mode ? 19 : 16, y, "\"", color);
+    tui_puts_n(save_mode ? 20 : 17, y, preview_buf, save_mode ? 17 : 20, color);
+    if (fetched > (save_mode ? 17u : 20u)) {
         tui_puts(37, y, "...", TUI_COLOR_GRAY3);
     } else {
-        tui_puts(17 + plen, y, "\"", color);
+        tui_puts((save_mode ? 20 : 17) + plen, y, "\"", color);
         /* Pad rest */
-        tui_puts_n(18 + plen, y, "", 40 - 18 - plen, color);
+        tui_puts_n((save_mode ? 21 : 18) + plen, y, "", 40 - (save_mode ? 21 : 18) - plen, color);
     }
 }
 
@@ -225,14 +283,14 @@ static void draw_list(void) {
     for (row = 0; row < LIST_HEIGHT; ++row) {
         unsigned char idx = scroll_offset + row;
         if (idx < count) {
-            draw_item(row, idx);
+            draw_item(row, idx, selected, 0u, 0u);
         } else {
             tui_clear_line(LIST_START_Y + row, 0, 40, TUI_COLOR_WHITE);
         }
     }
 }
 
-static void draw_detail(void) {
+static void draw_detail_for_item(unsigned char item_idx) {
     unsigned int size;
     unsigned int fetched;
     unsigned char i;
@@ -240,17 +298,15 @@ static void draw_detail(void) {
     tui_clear_line(DETAIL_Y, 0, 40, TUI_COLOR_WHITE);
     tui_clear_line(DETAIL_Y + 1, 0, 40, TUI_COLOR_WHITE);
 
-    if (clip_item_count() == 0) {
+    if (clip_item_count() == 0 || item_idx >= clip_item_count()) {
         tui_puts(4, DETAIL_Y, "CLIPBOARD IS EMPTY", TUI_COLOR_GRAY3);
         return;
     }
 
-    if (selected >= clip_item_count()) return;
-
     /* Show full first 38 chars */
-    size = clip_get_size(selected);
+    size = clip_get_size(item_idx);
     memset(preview_buf, 0, sizeof(preview_buf));
-    fetched = clip_paste(selected, preview_buf, 38);
+    fetched = clip_paste(item_idx, preview_buf, 38);
 
     /* Sanitize */
     for (i = 0; i < (unsigned char)fetched; ++i) {
@@ -268,8 +324,12 @@ static void draw_detail(void) {
     tui_puts(13, DETAIL_Y + 1, "BYTES", TUI_COLOR_GRAY3);
 }
 
+static void draw_detail(void) {
+    draw_detail_for_item(selected);
+}
+
 static void draw_help(void) {
-    tui_puts(0, HELP_Y, "RET:VIEW F5:LOAD F6:SAVE DEL:DELETE", TUI_COLOR_GRAY3);
+    tui_puts(0, HELP_Y, "RET:VIEW F5:LOAD F6:SAVE SET DEL:DEL", TUI_COLOR_GRAY3);
     tui_puts(0, HELP_Y + 1, "C:CLEAR ALL F2/F4:APPS CTRL+B:HOME", TUI_COLOR_GRAY3);
 }
 
@@ -302,161 +362,186 @@ static void show_message(const char *msg, unsigned char color) {
     tui_getkey();
 }
 
+static unsigned char file_write_exact(unsigned char lfn, const void *data, unsigned int len) {
+    const unsigned char *ptr;
+    unsigned int total;
+    int nw;
+
+    ptr = (const unsigned char*)data;
+    total = 0u;
+    while (total < len) {
+        nw = cbm_write(lfn, ptr + total, len - total);
+        if (nw <= 0) {
+            return 0u;
+        }
+        total += (unsigned int)nw;
+    }
+    return 1u;
+}
+
+static unsigned char file_read_exact(unsigned char lfn, void *data, unsigned int len) {
+    unsigned char *ptr;
+    unsigned int total;
+    int nr;
+
+    ptr = (unsigned char*)data;
+    total = 0u;
+    while (total < len) {
+        nr = cbm_read(lfn, ptr + total, len - total);
+        if (nr <= 0) {
+            return 0u;
+        }
+        total += (unsigned int)nr;
+    }
+    return 1u;
+}
+
+static unsigned char file_skip_exact(unsigned char lfn, unsigned int len) {
+    unsigned int chunk;
+
+    while (len > 0u) {
+        chunk = (len < IO_BUF_SIZE) ? len : IO_BUF_SIZE;
+        if (!file_read_exact(lfn, io_buf, chunk)) {
+            return 0u;
+        }
+        len -= chunk;
+    }
+    return 1u;
+}
+
 static void build_dir_display(unsigned char idx) {
     unsigned char i, len;
+    const char *type_text;
 
-    strcpy(dir_display[idx], dir_names[idx]);
+    strcpy(dir_display[idx], dir_entries[idx].name);
     len = strlen(dir_display[idx]);
 
     for (i = len; i < 17; ++i) {
         dir_display[idx][i] = ' ';
     }
 
-    dir_display[idx][17] = dir_types[idx][0];
-    dir_display[idx][18] = dir_types[idx][1];
-    dir_display[idx][19] = dir_types[idx][2];
+    type_text = dir_page_type_text(dir_entries[idx].type);
+    dir_display[idx][17] = type_text[0];
+    dir_display[idx][18] = type_text[1];
+    dir_display[idx][19] = type_text[2];
     dir_display[idx][20] = 0;
 }
 
-static void read_directory(void) {
-    unsigned char buf[2];
-    unsigned char ch;
-    unsigned char in_quotes;
-    unsigned char name_pos;
-    unsigned char type_pos;
-    unsigned char first_line;
-    unsigned char past_space;
-    int n;
+static unsigned char read_directory(unsigned char start_index,
+                                    unsigned char *out_total) {
+    unsigned char idx;
 
     dir_count = 0;
-
-    if (cbm_open(LFN_DIR, 8, 0, "$") != 0) {
-        return;
+    if (dir_page_read(storage_device_get_default(),
+                      start_index,
+                      DIR_PAGE_TYPE_ANY,
+                      dir_entries,
+                      MAX_DIR_ENTRIES,
+                      &dir_count,
+                      out_total) != DIR_PAGE_RC_OK) {
+        if (out_total != 0) {
+            *out_total = 0;
+        }
+        return 0;
     }
-
-    cbm_read(LFN_DIR, buf, 2);
-    first_line = 1;
-
-    while (dir_count < MAX_DIR_ENTRIES) {
-        n = cbm_read(LFN_DIR, buf, 2);
-        if (n < 2 || (buf[0] == 0 && buf[1] == 0)) break;
-
-        cbm_read(LFN_DIR, buf, 2);
-
-        in_quotes = 0;
-        name_pos = 0;
-
-        while (1) {
-            n = cbm_read(LFN_DIR, &ch, 1);
-            if (n < 1 || ch == 0) break;
-
-            if (ch == 0x22) {
-                if (in_quotes) break;
-                in_quotes = 1;
-                continue;
-            }
-
-            if (in_quotes && !first_line) {
-                if (name_pos < DIR_NAME_LEN - 1) {
-                    dir_names[dir_count][name_pos] = ch;
-                    ++name_pos;
-                }
-            }
-        }
-
-        type_pos = 0;
-        past_space = 0;
-        dir_types[dir_count][0] = 0;
-
-        if (ch != 0) {
-            while (1) {
-                n = cbm_read(LFN_DIR, &ch, 1);
-                if (n < 1 || ch == 0) break;
-
-                if (!past_space) {
-                    if (ch != ' ' && ch != 0xA0) {
-                        past_space = 1;
-                        if (type_pos < 3) {
-                            dir_types[dir_count][type_pos] = ch;
-                            ++type_pos;
-                        }
-                    }
-                } else {
-                    if (type_pos < 3 && ch != ' ' && ch != 0xA0) {
-                        dir_types[dir_count][type_pos] = ch;
-                        ++type_pos;
-                    }
-                }
-            }
-        }
-        dir_types[dir_count][type_pos] = 0;
-
-        if (first_line) {
-            first_line = 0;
-            continue;
-        }
-
-        if (name_pos > 0) {
-            dir_names[dir_count][name_pos] = 0;
-            build_dir_display(dir_count);
-            dir_ptrs[dir_count] = dir_display[dir_count];
-            ++dir_count;
-        }
+    for (idx = 0; idx < dir_count; ++idx) {
+        build_dir_display(idx);
+        dir_ptrs[idx] = dir_display[idx];
     }
-
-    cbm_close(LFN_DIR);
+    return 1;
 }
 
 static unsigned char show_open_dialog(void) {
     TuiRect win;
     TuiMenu menu;
     unsigned char key;
-    unsigned char result;
+    unsigned char selected;
+    unsigned char page_start;
+    unsigned char total_count;
 
-    tui_clear(TUI_COLOR_BLUE);
-
-    win.x = 0;
-    win.y = 0;
-    win.w = 40;
-    win.h = 24;
-    tui_window_title(&win, "LOAD TO CLIPBOARD", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
-
-    tui_puts(10, 11, "READING DISK...", TUI_COLOR_YELLOW);
-    read_directory();
-    tui_clear_line(11, 1, 38, TUI_COLOR_WHITE);
-
-    if (dir_count == 0) {
-        tui_puts(6, 10, "NO FILES FOUND ON DISK", TUI_COLOR_LIGHTRED);
-        tui_puts(6, 14, "PRESS ANY KEY", TUI_COLOR_GRAY3);
-        tui_getkey();
-        return 255;
-    }
-
-    tui_print_uint(1, 22, dir_count, TUI_COLOR_GRAY3);
-    tui_puts(4, 22, "FILE(S) ON DISK", TUI_COLOR_GRAY3);
-    tui_puts(1, 24, "UP/DN:SELECT RET:LOAD STOP:CANCEL", TUI_COLOR_GRAY3);
-
-    tui_menu_init(&menu, 1, 2, 38, 18, dir_ptrs, dir_count);
-    menu.item_color = TUI_COLOR_WHITE;
-    menu.sel_color = TUI_COLOR_CYAN;
-    tui_menu_draw(&menu);
+    selected = 0;
+    page_start = 0;
+    total_count = 0;
 
     while (1) {
-        key = tui_getkey();
+        tui_clear(TUI_COLOR_BLUE);
 
-        if (key == TUI_KEY_RETURN) {
-            return menu.selected;
-        }
-        if (key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
-            return 255;
+        win.x = 0;
+        win.y = 0;
+        win.w = 40;
+        win.h = 24;
+        tui_window_title(&win, "LOAD TO CLIPBOARD", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
+
+        tui_puts(10, 11, "READING DISK...", TUI_COLOR_YELLOW);
+        (void)read_directory(page_start, &total_count);
+        tui_clear_line(11, 1, 38, TUI_COLOR_WHITE);
+        tui_puts(1, 22, "DRIVE:", TUI_COLOR_GRAY3);
+        tui_print_uint(8, 22, storage_device_get_default(), TUI_COLOR_CYAN);
+
+        if (total_count == 0 || dir_count == 0) {
+            tui_puts(6, 10, "NO FILES FOUND ON DISK", TUI_COLOR_LIGHTRED);
+            tui_puts(1, 24, "F3:DRV STOP:CANCEL", TUI_COLOR_GRAY3);
+        } else {
+            tui_print_uint(12, 22, total_count, TUI_COLOR_GRAY3);
+            tui_puts(15, 22, "FILE(S)", TUI_COLOR_GRAY3);
+            tui_puts(1, 24, "UP/DN SEL F3:DRV RET:LOAD STOP", TUI_COLOR_GRAY3);
+
+            tui_menu_init(&menu, 1, 2, 38, 18, dir_ptrs, dir_count);
+            menu.selected = (unsigned char)(selected - page_start);
+            menu.item_color = TUI_COLOR_WHITE;
+            menu.sel_color = TUI_COLOR_CYAN;
+            tui_menu_draw(&menu);
         }
 
-        result = tui_menu_input(&menu, key);
-        if (result != 255) {
-            return result;
-        }
+        while (1) {
+            key = tui_getkey();
 
-        tui_menu_draw(&menu);
+            if (key == TUI_KEY_F3) {
+                storage_device_set_default(
+                    storage_device_toggle_8_9(storage_device_get_default()));
+                selected = 0u;
+                page_start = 0u;
+                break;
+            }
+            if (key == TUI_KEY_RETURN) {
+                if (dir_count == 0u) {
+                    continue;
+                }
+                return (unsigned char)(selected - page_start);
+            }
+            if (key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
+                return 255;
+            }
+            if (key == TUI_KEY_HOME) {
+                selected = 0;
+                page_start = 0;
+                break;
+            }
+            if (key == TUI_KEY_UP) {
+                if (selected > 0) {
+                    --selected;
+                    if (selected < page_start) {
+                        page_start = selected;
+                        break;
+                    }
+                    menu.selected = (unsigned char)(selected - page_start);
+                    tui_menu_draw(&menu);
+                }
+                continue;
+            }
+            if (key == TUI_KEY_DOWN) {
+                if ((unsigned char)(selected + 1u) < total_count) {
+                    ++selected;
+                    if (selected >= (unsigned char)(page_start + dir_count)) {
+                        page_start = (unsigned char)(selected - dir_count + 1u);
+                        break;
+                    }
+                    menu.selected = (unsigned char)(selected - page_start);
+                    tui_menu_draw(&menu);
+                }
+                continue;
+            }
+        }
     }
 }
 
@@ -487,16 +572,27 @@ static unsigned char clip_insert_bank_item(unsigned char bank, unsigned int size
     return 0;
 }
 
-static unsigned char open_mode_for_type(const char *type) {
-    if (type[0] == 'P') return 'p';
-    if (type[0] == 'S') return 's';
-    if (type[0] == 'U') return 'u';
-    return 's';
+static void free_staged_entries(unsigned char staged_count) {
+    while (staged_count > 0u) {
+        --staged_count;
+        reu_free_bank(staged_banks[staged_count]);
+        staged_banks[staged_count] = 0xFFu;
+        staged_sizes[staged_count] = 0u;
+    }
+}
+
+static unsigned char bundle_magic_matches(const unsigned char *hdr) {
+    return (unsigned char)(
+        hdr[0] == CLIP_BUNDLE_MAGIC0 &&
+        hdr[1] == CLIP_BUNDLE_MAGIC1 &&
+        hdr[2] == CLIP_BUNDLE_MAGIC2 &&
+        hdr[3] == CLIP_BUNDLE_MAGIC3 &&
+        hdr[4] == CLIP_BUNDLE_MAGIC4);
 }
 
 /* Load selected file into one clipboard slot, capped to 65535 bytes. */
-static unsigned char file_load_to_clipboard(const char *name, const char *type,
-                                            unsigned char *truncated_out) {
+static unsigned char file_load_raw_to_clipboard(const char *name, unsigned char type,
+                                                unsigned char *truncated_out) {
     char open_str[24];
     unsigned char len;
     unsigned char bank;
@@ -521,12 +617,12 @@ static unsigned char file_load_to_clipboard(const char *name, const char *type,
     strcpy(open_str, name);
     len = strlen(open_str);
     open_str[len] = ',';
-    open_str[len + 1] = open_mode_for_type(type);
+    open_str[len + 1] = dir_page_type_mode(type);
     open_str[len + 2] = ',';
     open_str[len + 3] = 'r';
     open_str[len + 4] = 0;
 
-    if (cbm_open(LFN_FILE, 8, 2, open_str) != 0) {
+    if (cbm_open(LFN_FILE, storage_device_get_default(), 2, open_str) != 0) {
         reu_free_bank(bank);
         return 1;
     }
@@ -564,69 +660,335 @@ static unsigned char file_load_to_clipboard(const char *name, const char *type,
     return 0;
 }
 
-static unsigned char file_save_clip_entry(const char *name, unsigned char item_idx) {
+static unsigned char file_load_bundle_open(unsigned char *loaded_count_out) {
+    unsigned char entry_count;
+    unsigned char staged_count;
+    unsigned char idx;
+    unsigned char bank;
+    unsigned char rc;
+    unsigned char avail_slots;
+    unsigned char item_type;
+    unsigned int item_size;
+    unsigned int offset;
+    unsigned int chunk;
+
+    *loaded_count_out = 0u;
+    entry_count = bundle_hdr[6];
+    avail_slots = (unsigned char)(CLIP_MAX_ITEMS - *CLIP_COUNT);
+    staged_count = 0u;
+    rc = LOAD_RC_OK;
+
+    for (idx = 0u; idx < entry_count; ++idx) {
+        if (!file_read_exact(LFN_FILE, bundle_rec, CLIP_BUNDLE_RECORD_LEN)) {
+            cbm_close(LFN_FILE);
+            free_staged_entries(staged_count);
+            return LOAD_RC_IO;
+        }
+
+        item_type = bundle_rec[0];
+        item_size = (unsigned int)bundle_rec[1] | ((unsigned int)bundle_rec[2] << 8);
+        if (item_type != CLIP_TYPE_TEXT || item_size == 0u) {
+            cbm_close(LFN_FILE);
+            free_staged_entries(staged_count);
+            return LOAD_RC_IO;
+        }
+
+        if (staged_count < avail_slots && rc == LOAD_RC_OK) {
+            bank = reu_alloc_bank(REU_CLIPBOARD);
+            if (bank == 0xFFu) {
+                rc = (staged_count > 0u) ? LOAD_RC_PARTIAL_REU : LOAD_RC_NO_REU;
+                if (!file_skip_exact(LFN_FILE, item_size)) {
+                    cbm_close(LFN_FILE);
+                    free_staged_entries(staged_count);
+                    return LOAD_RC_IO;
+                }
+                continue;
+            }
+
+            offset = 0u;
+            while (offset < item_size) {
+                chunk = item_size - offset;
+                if (chunk > IO_BUF_SIZE) {
+                    chunk = IO_BUF_SIZE;
+                }
+                if (!file_read_exact(LFN_FILE, io_buf, chunk)) {
+                    cbm_close(LFN_FILE);
+                    reu_free_bank(bank);
+                    free_staged_entries(staged_count);
+                    return LOAD_RC_IO;
+                }
+                reu_dma_stash((unsigned int)io_buf, bank, offset, chunk);
+                offset += chunk;
+            }
+
+            staged_banks[staged_count] = bank;
+            staged_sizes[staged_count] = item_size;
+            ++staged_count;
+        } else {
+            if (rc == LOAD_RC_OK) {
+                rc = (staged_count > 0u) ? LOAD_RC_PARTIAL_FULL : LOAD_RC_FULL;
+            }
+            if (!file_skip_exact(LFN_FILE, item_size)) {
+                cbm_close(LFN_FILE);
+                free_staged_entries(staged_count);
+                return LOAD_RC_IO;
+            }
+        }
+    }
+
+    cbm_close(LFN_FILE);
+
+    while (staged_count > 0u) {
+        --staged_count;
+        if (clip_insert_bank_item(staged_banks[staged_count],
+                                  staged_sizes[staged_count]) != 0u) {
+            reu_free_bank(staged_banks[staged_count]);
+            return LOAD_RC_IO;
+        }
+        ++(*loaded_count_out);
+    }
+
+    return rc;
+}
+
+static unsigned char file_load_to_clipboard(const char *name, unsigned char type,
+                                            unsigned char *truncated_out,
+                                            unsigned char *loaded_count_out) {
+    char open_str[24];
+    int n;
+
+    *truncated_out = 0u;
+    *loaded_count_out = 0u;
+
+    if (type != CBM_T_SEQ) {
+        return file_load_raw_to_clipboard(name, type, truncated_out);
+    }
+
+    strcpy(open_str, name);
+    strcat(open_str, ",s,r");
+    if (cbm_open(LFN_FILE, storage_device_get_default(), 2, open_str) != 0) {
+        return LOAD_RC_IO;
+    }
+
+    n = cbm_read(LFN_FILE, bundle_hdr, CLIP_BUNDLE_HEADER_LEN);
+    if (n >= 5 && bundle_magic_matches(bundle_hdr)) {
+        if (n != CLIP_BUNDLE_HEADER_LEN ||
+            bundle_hdr[5] != CLIP_BUNDLE_VERSION ||
+            bundle_hdr[6] == 0u ||
+            bundle_hdr[6] > CLIP_MAX_ITEMS ||
+            bundle_hdr[7] != 0u) {
+            cbm_close(LFN_FILE);
+            return LOAD_RC_IO;
+        }
+        return file_load_bundle_open(loaded_count_out);
+    }
+
+    cbm_close(LFN_FILE);
+    return file_load_raw_to_clipboard(name, type, truncated_out);
+}
+
+static unsigned char file_save_clip_bundle(const char *name, unsigned int select_mask) {
     char cmd_str[24];
     char open_str[24];
+    unsigned char count;
+    unsigned char item_idx;
     unsigned int size;
     unsigned int remain;
     unsigned int offset;
     unsigned int chunk;
     unsigned char bank;
 
+    count = selection_count(select_mask, clip_item_count());
+    if (count == 0u) {
+        return 1u;
+    }
+
     strcpy(cmd_str, "s:");
     strcat(cmd_str, name);
-    cbm_open(LFN_CMD, 8, 15, cmd_str);
+    cbm_open(LFN_CMD, storage_device_get_default(), 15, cmd_str);
     cbm_close(LFN_CMD);
 
     strcpy(open_str, name);
     strcat(open_str, ",s,w");
 
-    if (cbm_open(LFN_FILE, 8, 2, open_str) != 0) {
+    if (cbm_open(LFN_FILE, storage_device_get_default(), 2, open_str) != 0) {
         return 1;
     }
 
-    bank = clip_item_bank(item_idx);
-    size = clip_get_size(item_idx);
-    offset = 0;
+    bundle_hdr[0] = CLIP_BUNDLE_MAGIC0;
+    bundle_hdr[1] = CLIP_BUNDLE_MAGIC1;
+    bundle_hdr[2] = CLIP_BUNDLE_MAGIC2;
+    bundle_hdr[3] = CLIP_BUNDLE_MAGIC3;
+    bundle_hdr[4] = CLIP_BUNDLE_MAGIC4;
+    bundle_hdr[5] = CLIP_BUNDLE_VERSION;
+    bundle_hdr[6] = count;
+    bundle_hdr[7] = 0u;
 
-    while (offset < size) {
-        remain = size - offset;
-        chunk = (remain < IO_BUF_SIZE) ? remain : IO_BUF_SIZE;
-        reu_dma_fetch((unsigned int)io_buf, bank, offset, chunk);
-        cbm_write(LFN_FILE, io_buf, chunk);
-        offset += chunk;
+    if (!file_write_exact(LFN_FILE, bundle_hdr, CLIP_BUNDLE_HEADER_LEN)) {
+        cbm_close(LFN_FILE);
+        return 1u;
+    }
+
+    count = clip_item_count();
+    for (item_idx = 0u; item_idx < count; ++item_idx) {
+        if (!selection_is_marked(select_mask, item_idx)) {
+            continue;
+        }
+
+        size = clip_get_size(item_idx);
+        bundle_rec[0] = clip_get_type(item_idx);
+        bundle_rec[1] = (unsigned char)(size & 0xFFu);
+        bundle_rec[2] = (unsigned char)(size >> 8);
+        if (!file_write_exact(LFN_FILE, bundle_rec, CLIP_BUNDLE_RECORD_LEN)) {
+            cbm_close(LFN_FILE);
+            return 1u;
+        }
+
+        bank = clip_item_bank(item_idx);
+        offset = 0u;
+        while (offset < size) {
+            remain = size - offset;
+            chunk = (remain < IO_BUF_SIZE) ? remain : IO_BUF_SIZE;
+            reu_dma_fetch((unsigned int)io_buf, bank, offset, chunk);
+            if (!file_write_exact(LFN_FILE, io_buf, chunk)) {
+                cbm_close(LFN_FILE);
+                return 1u;
+            }
+            offset += chunk;
+        }
     }
 
     cbm_close(LFN_FILE);
-    return 0;
+    return 0u;
 }
 
-static void build_default_save_name(unsigned char item_idx) {
-    unsigned int n;
-    unsigned char pos;
-    unsigned char tlen;
-    char tmp[5];
+static void build_default_save_name(void) {
+    strcpy(save_buf, "CLIPSET");
+}
 
-    save_buf[0] = 'C';
-    save_buf[1] = 'L';
-    save_buf[2] = 'I';
-    save_buf[3] = 'P';
-    pos = 4;
+static void draw_save_select_header(unsigned int select_mask) {
+    TuiRect box = {0, TITLE_Y, 40, 3};
+    unsigned char count;
 
-    n = (unsigned int)item_idx + 1;
-    tlen = 0;
-    do {
-        tmp[tlen++] = (char)('0' + (n % 10));
-        n /= 10;
-    } while (n > 0 && tlen < sizeof(tmp));
+    count = clip_item_count();
+    tui_window_title(&box, "SAVE CLIPBOARD SET",
+                     TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
+    tui_puts(2, TITLE_Y + 1, "MARKED:", TUI_COLOR_WHITE);
+    tui_print_uint(10, TITLE_Y + 1, selection_count(select_mask, count), TUI_COLOR_CYAN);
+    tui_puts(14, TITLE_Y + 1, "ITEMS:", TUI_COLOR_WHITE);
+    tui_print_uint(21, TITLE_Y + 1, count, TUI_COLOR_CYAN);
+    tui_puts(24, TITLE_Y + 1, "/16", TUI_COLOR_GRAY3);
+}
 
-    while (tlen > 0 && pos < 16) {
-        save_buf[pos++] = tmp[--tlen];
+static void draw_save_select_help(void) {
+    tui_puts(0, HELP_Y, "SPC:TOGGLE A:ALL C:CLEAR RET:FILENAME", TUI_COLOR_GRAY3);
+    tui_puts(0, HELP_Y + 1, "F6:SAVE STOP:BACK CTRL+B:HOME", TUI_COLOR_GRAY3);
+}
+
+static void draw_save_select_screen(unsigned char cursor, unsigned char scroll,
+                                    unsigned int select_mask) {
+    unsigned char row;
+    unsigned char count;
+
+    tui_clear(TUI_COLOR_BLUE);
+    draw_save_select_header(select_mask);
+    tui_puts(0, 3, " SEL # TYPE  SIZE  PREVIEW", TUI_COLOR_GRAY3);
+
+    count = clip_item_count();
+    for (row = 0u; row < LIST_HEIGHT; ++row) {
+        unsigned char idx = scroll + row;
+        if (idx < count) {
+            draw_item(row, idx, cursor, 1u, select_mask);
+        } else {
+            tui_clear_line(LIST_START_Y + row, 0, 40, TUI_COLOR_WHITE);
+        }
     }
-    save_buf[pos] = 0;
+
+    draw_detail_for_item(cursor);
+    draw_save_select_help();
+    draw_status();
 }
 
-static unsigned char show_save_dialog(unsigned char item_idx) {
+static unsigned char show_save_select_dialog(unsigned int *select_mask_out) {
+    unsigned char count;
+    unsigned char cursor;
+    unsigned char scroll;
+    unsigned char key;
+    unsigned int select_mask;
+
+    count = clip_item_count();
+    if (count == 0u) {
+        return 0u;
+    }
+
+    cursor = (selected < count) ? selected : 0u;
+    scroll = scroll_offset;
+    if (scroll > cursor) {
+        scroll = cursor;
+    }
+    if (cursor >= scroll + LIST_HEIGHT) {
+        scroll = (unsigned char)(cursor - LIST_HEIGHT + 1u);
+    }
+    select_mask = (unsigned int)1u << cursor;
+
+    while (1) {
+        draw_save_select_screen(cursor, scroll, select_mask);
+        key = tui_getkey();
+
+        if (key == TUI_KEY_UP) {
+            if (cursor > 0u) {
+                --cursor;
+                if (cursor < scroll) {
+                    scroll = cursor;
+                }
+            }
+            continue;
+        }
+        if (key == TUI_KEY_DOWN) {
+            if (cursor + 1u < count) {
+                ++cursor;
+                if (cursor >= scroll + LIST_HEIGHT) {
+                    scroll = (unsigned char)(cursor - LIST_HEIGHT + 1u);
+                }
+            }
+            continue;
+        }
+        if (key == TUI_KEY_HOME) {
+            cursor = 0u;
+            scroll = 0u;
+            continue;
+        }
+        if (key == ' ') {
+            select_mask ^= (unsigned int)1u << cursor;
+            continue;
+        }
+        if (key == 'a' || key == 'A') {
+            select_mask = selection_all_mask(count);
+            continue;
+        }
+        if (key == 'c' || key == 'C') {
+            select_mask = 0u;
+            continue;
+        }
+        if (key == TUI_KEY_RETURN || key == TUI_KEY_F6) {
+            if (selection_count(select_mask, count) == 0u) {
+                show_message("SELECT ITEMS", TUI_COLOR_LIGHTRED);
+                continue;
+            }
+            selected = cursor;
+            scroll_offset = scroll;
+            *select_mask_out = select_mask;
+            return 1u;
+        }
+        if (key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
+            selected = cursor;
+            scroll_offset = scroll;
+            return 0u;
+        }
+    }
+}
+
+static unsigned char show_save_dialog(unsigned int select_mask) {
     TuiRect win;
     TuiInput input;
     unsigned char key;
@@ -642,17 +1004,27 @@ static unsigned char show_save_dialog(unsigned char item_idx) {
     tui_puts(7, 10, "FILENAME:", TUI_COLOR_WHITE);
 
     tui_input_init(&input, 7, 11, 20, 16, save_buf, TUI_COLOR_CYAN);
-    build_default_save_name(item_idx);
+    build_default_save_name();
     input.cursor = strlen(save_buf);
     tui_input_draw(&input);
 
-    tui_puts(7, 13, "RET:SAVE  STOP:CANCEL", TUI_COLOR_GRAY3);
+    tui_puts(7, 12, "DRIVE:", TUI_COLOR_GRAY3);
+    tui_print_uint(14, 12, storage_device_get_default(), TUI_COLOR_CYAN);
+    tui_puts(7, 13, "F3:DRV RET:SAVE STOP:CANCEL", TUI_COLOR_GRAY3);
 
     while (1) {
         key = tui_getkey();
 
+        if (key == TUI_KEY_F3) {
+            storage_device_set_default(
+                storage_device_toggle_8_9(storage_device_get_default()));
+            tui_puts_n(14, 12, "", 2, TUI_COLOR_CYAN);
+            tui_print_uint(14, 12, storage_device_get_default(), TUI_COLOR_CYAN);
+            continue;
+        }
+
         if (key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
-            return 0;
+            return 0u;
         }
 
         if (tui_input_key(&input, key)) {
@@ -661,11 +1033,11 @@ static unsigned char show_save_dialog(unsigned char item_idx) {
             }
 
             tui_puts(7, 12, "SAVING...", TUI_COLOR_YELLOW);
-            if (file_save_clip_entry(save_buf, item_idx) != 0) {
+            if (file_save_clip_bundle(save_buf, select_mask) != 0u) {
                 show_message("SAVE ERROR!", TUI_COLOR_LIGHTRED);
-                return 0;
+                return 0u;
             }
-            return 1;
+            return 1u;
         }
 
         tui_input_draw(&input);
@@ -816,8 +1188,10 @@ static void clipmgr_loop(void) {
     unsigned char count;
     unsigned char sel_idx;
     unsigned char truncated;
+    unsigned char loaded_count;
     unsigned char rc;
     unsigned char nav_action;
+    unsigned int save_select_mask;
 
     clipmgr_draw();
 
@@ -884,11 +1258,18 @@ static void clipmgr_loop(void) {
                 if (sel_idx != 255) {
                     tui_clear(TUI_COLOR_BLUE);
                     tui_puts(13, 12, "LOADING...", TUI_COLOR_YELLOW);
-                    rc = file_load_to_clipboard(dir_names[sel_idx], dir_types[sel_idx], &truncated);
+                    rc = file_load_to_clipboard(dir_entries[sel_idx].name,
+                                                dir_entries[sel_idx].type,
+                                                &truncated,
+                                                &loaded_count);
                     if (rc == 0) {
                         selected = 0;
                         scroll_offset = 0;
-                        if (truncated) {
+                        if (loaded_count > 1u) {
+                            show_message("IMPORTED", TUI_COLOR_LIGHTGREEN);
+                        } else if (loaded_count == 1u) {
+                            show_message("IMPORTED", TUI_COLOR_LIGHTGREEN);
+                        } else if (truncated) {
                             show_message("LOADED (TRUNC 64K)", TUI_COLOR_YELLOW);
                         } else {
                             show_message("LOADED", TUI_COLOR_LIGHTGREEN);
@@ -897,6 +1278,10 @@ static void clipmgr_loop(void) {
                         show_message("CLIPBOARD FULL", TUI_COLOR_LIGHTRED);
                     } else if (rc == 3) {
                         show_message("NO REU SPACE", TUI_COLOR_LIGHTRED);
+                    } else if (rc == LOAD_RC_PARTIAL_FULL || rc == LOAD_RC_PARTIAL_REU) {
+                        selected = 0;
+                        scroll_offset = 0;
+                        show_message("IMPORT PARTIAL", TUI_COLOR_YELLOW);
                     } else {
                         show_message("LOAD ERROR!", TUI_COLOR_LIGHTRED);
                     }
@@ -910,8 +1295,10 @@ static void clipmgr_loop(void) {
                     clipmgr_draw();
                     break;
                 }
-                if (show_save_dialog(selected)) {
-                    show_message("SAVED", TUI_COLOR_LIGHTGREEN);
+                if (show_save_select_dialog(&save_select_mask)) {
+                    if (show_save_dialog(save_select_mask)) {
+                        show_message("SAVED", TUI_COLOR_LIGHTGREEN);
+                    }
                 }
                 clipmgr_draw();
                 break;
