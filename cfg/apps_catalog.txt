@@ -4,6 +4,9 @@
 9:editor:editor:1
 text editor with clipboard
 
+8:quicknotes:quicknotes
+reu-backed note editor
+
 9:calcplus:calc plus
 keyboard-first expression calculator
 

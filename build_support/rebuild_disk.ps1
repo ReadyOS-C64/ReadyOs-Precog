@@ -65,6 +65,7 @@ try {
                 @((Assert-RepoFile 'showcfg.prg'), 'showcfg'),
                 @((Assert-RepoFile 'boot.prg'), 'boot'),
                 @((Assert-RepoFile 'launcher.prg'), 'launcher'),
+                @((Assert-RepoFile 'quicknotes.prg'), 'quicknotes'),
                 @((Assert-RepoFile 'deminer.prg'), 'deminer'),
                 @((Assert-RepoFile 'cal26.prg'), 'cal26'),
                 @((Assert-RepoFile 'dizzy.prg'), 'dizzy'),

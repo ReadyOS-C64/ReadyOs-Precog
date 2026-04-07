@@ -45,6 +45,7 @@ SHOWCFG = showcfg.prg
 TEST_REU = test_reu.prg
 LAUNCHER = launcher.prg
 EDITOR = editor.prg
+QUICKNOTES = quicknotes.prg
 CALCPLUS = calcplus.prg
 HEXVIEW = hexview.prg
 CLIPMGR = clipmgr.prg
@@ -200,6 +201,7 @@ LIB_CLIP_COUNT = $(CLIP_COUNT_SRC)
 LIB_CLIP_PASTE_COUNT = $(CLIP_PASTE_SRC) $(CLIP_COUNT_SRC)
 LIB_CLIP_COPY_PASTE_COUNT = $(CLIP_COPY_SRC) $(CLIP_PASTE_SRC) $(CLIP_COUNT_SRC)
 LIB_EDITOR = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(TUI_HOTKEY_SRC) $(LIB_REU_DMA) $(LIB_CLIP_COPY_PASTE_COUNT) $(RESUME_STATE_SRC) $(STORAGE_DEVICE_SRC) $(DIR_PAGE_SRC)
+LIB_QUICKNOTES = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(TUI_HOTKEY_SRC) $(LIB_REU_DMA_STATS) $(LIB_CLIP_COPY_PASTE_COUNT) $(RESUME_STATE_SRC) $(STORAGE_DEVICE_SRC) $(DIR_PAGE_SRC)
 LIB_CALCPLUS = $(TUI_BASE_NAV) $(TUI_HOTKEY_SRC) $(LIB_REU_DMA) $(LIB_CLIP_COPY_PASTE_COUNT) $(RESUME_STATE_SRC)
 LIB_HEXVIEW = $(TUI_BASE_NAV_MISC) $(TUI_HOTKEY_SRC) $(LIB_REU_DMA) $(LIB_CLIP_COPY) $(RESUME_STATE_SRC)
 LIB_CLIPMGR = $(TUI_BASE_MENU_INPUT_NAV_MISC) $(TUI_HOTKEY_SRC) $(LIB_REU_DMA_STATS) $(LIB_CLIP_PASTE_COUNT) $(CLIP_ADMIN_SRC) $(RESUME_STATE_SRC) $(STORAGE_DEVICE_SRC) $(DIR_PAGE_SRC)
@@ -215,7 +217,7 @@ LIB_README = $(TUI_BASE_NAV_MISC) $(TUI_HOTKEY_SRC) $(REU_DMA_SRC) $(RESUME_STAT
 LIB_READYSHELL = $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 
 # Default target
-all: $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(DEMINER) $(CAL26) $(DIZZY) $(READMEAPP) $(READYSHELL) $(DISK1) $(DISK2)
+all: $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $(QUICKNOTES) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(DEMINER) $(CAL26) $(DIZZY) $(READMEAPP) $(READYSHELL) $(DISK1) $(DISK2)
 	@echo ""
 	@echo "=== Build complete ==="
 	@ls -la *.prg $(DISK1) $(DISK2)
@@ -267,6 +269,10 @@ $(LAUNCHER): $(APPS_DIR)/launcher/launcher.c $(LIB_LAUNCHER) $(VERSION_HEADER)
 # Editor app (loads at $1000)
 $(EDITOR): $(APPS_DIR)/editor/editor.c $(LIB_EDITOR)
 	$(CC) $(EDITOR_CFLAGS) -m $(OBJ_DIR)/editor.map -o $@ $^
+
+# Quicknotes app (loads at $1000)
+$(QUICKNOTES): $(APPS_DIR)/quicknotes/quicknotes.c $(LIB_QUICKNOTES)
+	$(CC) $(EDITOR_CFLAGS) -m $(OBJ_DIR)/quicknotes.map -o $@ $^
 
 # Calculator Plus app (loads at $1000)
 $(CALCPLUS): $(APPS_DIR)/calcplus/calcplus.c $(APPS_DIR)/calcplus/rom_float.s $(LIB_CALCPLUS)
@@ -394,10 +400,10 @@ $(XFILECHK_DISK2): FORCE $(XFILECHK_TESTA_SEQ)
 
 # Create disk 1 (drive 8): boot chain + launcher + utilities + cal26 + dizzy + readyshell + catalog
 ifeq ($(READYOS_USE_PWSH),1)
-$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(DEMINER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ)
+$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(QUICKNOTES) $(DEMINER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ)
 	$(PWSH) -NoLogo -NoProfile -File $(BUILD_SUPPORT_DIR)/rebuild_disk.ps1 -Mode disk1 -DiskPath $@ -BuildSupportDir $(BUILD_SUPPORT_DIR) -RelSeedD71 "$(REL_SEED_D71)"
 else
-$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(DEMINER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ)
+$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(QUICKNOTES) $(DEMINER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ)
 	@set -e; \
 	PRESERVE_DIR=$$(mktemp -d /tmp/readyos_preserve.XXXXXX); \
 	if [ -f $@ ]; then \
@@ -409,6 +415,7 @@ $(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(DEMINER) $
 		-write $(SHOWCFG) showcfg \
 		-write $(BOOT) boot \
 		-write $(LAUNCHER) launcher \
+		-write $(QUICKNOTES) quicknotes \
 		-write $(DEMINER) deminer \
 		-write $(CAL26) cal26 \
 		-write $(DIZZY) dizzy \
@@ -558,6 +565,7 @@ help:
 	@echo "  boot.prg     - Boot loader (installs shim, loads launcher)"
 	@echo "  launcher.prg - App launcher (loads at \$$1000)"
 	@echo "  editor.prg   - Text editor (loads at \$$1000)"
+	@echo "  quicknotes.prg - REU-backed note editor (loads at \$$1000)"
 	@echo "  calcplus.prg - Calculator Plus (loads at \$$1000)"
 	@echo "  hexview.prg  - Hex memory viewer (loads at \$$1000)"
 	@echo "  clipmgr.prg  - Clipboard manager (loads at \$$1000)"
@@ -569,7 +577,7 @@ help:
 	@echo "  readme.prg   - Project README app (loads at \$$1000)"
 	@echo "  readyshell.prg - ReadyShell app (loads at \$$1000, overlays rsovl1/2/3 on disk 1)"
 	@echo "  $(XFILECHK) - Standalone IEC file-operation harness (loads at \$$0801)"
-	@echo "  readyos.d71   - Disk 1 (boot/launcher/showcfg/deminer/cal26/dizzy/readyshell/rsovl1-3/apps.cfg/editor help)"
+	@echo "  readyos.d71   - Disk 1 (boot/launcher/showcfg/quicknotes/deminer/cal26/dizzy/readyshell/rsovl1-3/apps.cfg/editor help)"
 	@echo "  readyos_2.d71 - Disk 2 (editor/calcplus/hexview/clipmgr/reuviewer/tasklist/simplefiles/simplecells/2048/readme)"
 	@echo "  $(XFILECHK_DISK1) - Standalone harness drive 8 disk (boot+harness+src fixture)"
 	@echo "  $(XFILECHK_DISK2) - Standalone harness drive 9 disk (test fixture)"

@@ -23,8 +23,8 @@
 #define REU_MAGIC_VALUE  0xA5
 #define REU_TOTAL_BANKS  256
 
-/* First bank available for dynamic allocation (0-15 reserved for app slots) */
-#define REU_FIRST_DYNAMIC 16
+/* First bank available for dynamic allocation (0-23 reserved for app slots) */
+#define REU_FIRST_DYNAMIC 24
 
 /* ReadyShell fixed REU ownership (absolute offsets in 0x40xxxx-0x43xxxx range) */
 #define REU_BANK_RS_OVL1  0x40
@@ -32,9 +32,10 @@
 #define REU_BANK_RS_OVL3  0x42
 #define REU_BANK_RS_DEBUG 0x43
 
-/* Shim bitmap at $C836-$C837 (tracks which app banks are loaded) */
+/* Shim bitmap at $C836-$C838 (tracks which app banks are loaded) */
 #define SHIM_REU_BITMAP_LO  ((unsigned char*)0xC836)
 #define SHIM_REU_BITMAP_HI  ((unsigned char*)0xC837)
+#define SHIM_REU_BITMAP_XHI ((unsigned char*)0xC838)
 
 /* Initialize REU manager (safe to call multiple times) */
 void reu_mgr_init(void);

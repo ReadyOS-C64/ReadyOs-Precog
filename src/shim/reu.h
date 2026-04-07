@@ -16,8 +16,8 @@
 #define REU_BANK_SYSTEM    0   /* System state, bank bitmap */
 #define REU_BANK_CLIPBOARD 1   /* Shared clipboard (up to 60KB) */
 #define REU_BANK_APP_BASE  2   /* App slots start here */
-#define REU_BANK_APP_COUNT 16  /* 16 app slots (banks 2-17) */
-#define REU_BANK_FREE_BASE 18  /* Free pool starts here */
+#define REU_BANK_APP_COUNT 24  /* 24 app slots (banks 2-25) */
+#define REU_BANK_FREE_BASE 26  /* Free pool starts here */
 
 /* Detect if REU is present */
 unsigned char reu_detect(void);

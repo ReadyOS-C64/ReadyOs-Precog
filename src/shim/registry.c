@@ -8,7 +8,7 @@
 #include <string.h>
 
 /* Maximum number of apps */
-#define MAX_APPS 16
+#define MAX_APPS 24
 
 /* App status values */
 #define STATUS_FREE      0
@@ -64,7 +64,7 @@ void registry_init(void) {
 
 /*
  * registry_find_free - Find a free app slot
- * Returns: slot index (0-15) or 0xFF if none free
+ * Returns: slot index (0-23) or 0xFF if none free
  */
 unsigned char registry_find_free(void) {
     unsigned char i;
@@ -84,7 +84,7 @@ unsigned char registry_find_free(void) {
  * entry: Entry point function
  * flags: App flags
  *
- * Returns: app ID (0-15) or 0xFF on failure
+ * Returns: app ID (0-23) or 0xFF on failure
  */
 unsigned char registry_register(const char *name, void *entry, unsigned char flags) {
     unsigned char slot;
@@ -209,7 +209,7 @@ void *registry_get_entry(unsigned char app_id) {
  *
  * name: App name to search for
  *
- * Returns: app ID (0-15) or 0xFF if not found
+ * Returns: app ID (0-23) or 0xFF if not found
  */
 unsigned char registry_find_by_name(const char *name) {
     unsigned char i;
@@ -258,7 +258,7 @@ void registry_set_current(unsigned char app_id) {
 /*
  * registry_get_slot - Get slot info for enumeration
  *
- * index: Slot index (0-15)
+ * index: Slot index (0-23)
  * name: Output buffer for name (8 bytes)
  * status: Output for status
  *

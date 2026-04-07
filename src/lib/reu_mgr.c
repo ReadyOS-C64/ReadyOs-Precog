@@ -20,14 +20,15 @@
 #define REU_CMD_FETCH 0x91
 
 /*---------------------------------------------------------------------------
- * Sync allocation table from shim's reu_bitmap ($C836-$C837)
- * Banks 0-15 are app-slot banks:
+ * Sync allocation table from shim's reu_bitmap ($C836-$C838)
+ * Banks 0-23 are app-slot banks:
  *   - set bit   -> APP_STATE
  *   - clear bit -> RESERVED
  *---------------------------------------------------------------------------*/
 static void reu_sync_from_bitmap(void) {
     unsigned char bitmap_lo = *SHIM_REU_BITMAP_LO;
     unsigned char bitmap_hi = *SHIM_REU_BITMAP_HI;
+    unsigned char bitmap_xhi = *SHIM_REU_BITMAP_XHI;
     unsigned char bank;
     unsigned char mask;
 
@@ -46,6 +47,15 @@ static void reu_sync_from_bitmap(void) {
             REU_ALLOC_TABLE[bank + 8] = REU_APP_STATE;
         } else {
             REU_ALLOC_TABLE[bank + 8] = REU_RESERVED;
+        }
+    }
+
+    for (bank = 0; bank < 8; ++bank) {
+        mask = (unsigned char)(1 << bank);
+        if (bitmap_xhi & mask) {
+            REU_ALLOC_TABLE[bank + 16] = REU_APP_STATE;
+        } else {
+            REU_ALLOC_TABLE[bank + 16] = REU_RESERVED;
         }
     }
 }
@@ -129,9 +139,12 @@ void reu_free_bank(unsigned char bank) {
         if (bank < 8) {
             mask = (unsigned char)(1 << bank);
             *SHIM_REU_BITMAP_LO &= (unsigned char)~mask;
-        } else {
+        } else if (bank < 16) {
             mask = (unsigned char)(1 << (bank - 8));
             *SHIM_REU_BITMAP_HI &= (unsigned char)~mask;
+        } else {
+            mask = (unsigned char)(1 << (bank - 16));
+            *SHIM_REU_BITMAP_XHI &= (unsigned char)~mask;
         }
         return;
     }

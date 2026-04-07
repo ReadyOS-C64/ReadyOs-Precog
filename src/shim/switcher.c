@@ -40,7 +40,7 @@
 #define STATUS_SUSPENDED 2
 
 /* Max apps */
-#define MAX_APPS 16
+#define MAX_APPS 24
 
 /*---------------------------------------------------------------------------
  * External functions from registry.c

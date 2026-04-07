@@ -7,6 +7,7 @@
 static void reu_sync_from_bitmap(void) {
     unsigned char bitmap_lo = *SHIM_REU_BITMAP_LO;
     unsigned char bitmap_hi = *SHIM_REU_BITMAP_HI;
+    unsigned char bitmap_xhi = *SHIM_REU_BITMAP_XHI;
     unsigned char bank;
     unsigned char mask;
 
@@ -18,6 +19,11 @@ static void reu_sync_from_bitmap(void) {
     for (bank = 0; bank < 8; ++bank) {
         mask = (unsigned char)(1 << bank);
         REU_ALLOC_TABLE[bank + 8] = (bitmap_hi & mask) ? REU_APP_STATE : REU_RESERVED;
+    }
+
+    for (bank = 0; bank < 8; ++bank) {
+        mask = (unsigned char)(1 << bank);
+        REU_ALLOC_TABLE[bank + 16] = (bitmap_xhi & mask) ? REU_APP_STATE : REU_RESERVED;
     }
 }
 

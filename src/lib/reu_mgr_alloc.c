@@ -44,9 +44,12 @@ void reu_free_bank(unsigned char bank) {
         if (bank < 8) {
             mask = (unsigned char)(1 << bank);
             *SHIM_REU_BITMAP_LO &= (unsigned char)~mask;
-        } else {
+        } else if (bank < 16) {
             mask = (unsigned char)(1 << (bank - 8));
             *SHIM_REU_BITMAP_HI &= (unsigned char)~mask;
+        } else {
+            mask = (unsigned char)(1 << (bank - 16));
+            *SHIM_REU_BITMAP_XHI &= (unsigned char)~mask;
         }
         return;
     }

@@ -1754,6 +1754,7 @@ static void draw_column_headers(void) {
 
     tui_clear_line(COLHDR_Y, 0, 40, TUI_COLOR_GRAY3);
     tui_puts(0, COLHDR_Y, "##", TUI_COLOR_GREEN);
+    tui_putc((unsigned char)(GRID_X - 1u), COLHDR_Y, TUI_VLINE, TUI_COLOR_GRAY2);
     for (i = 0u; i < visible_count; ++i) {
         unsigned char color;
         unsigned char x;
@@ -1770,7 +1771,7 @@ static void draw_column_headers(void) {
 
         if ((unsigned char)(x + w) < 40u) {
             gutter_color = (unsigned char)((i & 1u) ? TUI_COLOR_GRAY2 : TUI_COLOR_GRAY3);
-            tui_putc((unsigned char)(x + w), COLHDR_Y, 0x66, gutter_color);
+            tui_putc((unsigned char)(x + w), COLHDR_Y, TUI_VLINE, gutter_color);
         }
     }
 }
@@ -1799,6 +1800,10 @@ static void draw_grid_row(unsigned char row_on_screen) {
     row_label[1] = (char)('0' + ((sheet_row + 1u) % 10u));
     row_label[2] = 0;
     write_cell_span(0, (unsigned char)(GRID_Y + row_on_screen), row_label, 2, TUI_COLOR_GREEN, 1, 0);
+    tui_putc((unsigned char)(GRID_X - 1u),
+             (unsigned char)(GRID_Y + row_on_screen),
+             TUI_VLINE,
+             TUI_COLOR_GRAY2);
 
     for (i = 0u; i < visible_count; ++i) {
         unsigned char col;
@@ -1835,7 +1840,7 @@ static void draw_grid_row(unsigned char row_on_screen) {
             gutter_color = (unsigned char)((i & 1u) ? TUI_COLOR_GRAY2 : TUI_COLOR_GRAY3);
             tui_putc((unsigned char)(x + w),
                      (unsigned char)(GRID_Y + row_on_screen),
-                     0x66,
+                     TUI_VLINE,
                      gutter_color);
         }
     }

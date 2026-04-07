@@ -34,6 +34,7 @@
 #define SHIM_LAST_SAVED   ((unsigned char*)0xC835) /* Last app saved by return_to_launcher */
 #define SHIM_REU_BITMAP_LO ((unsigned char*)0xC836) /* Bitmap bits 0-7 */
 #define SHIM_REU_BITMAP_HI ((unsigned char*)0xC837) /* Bitmap bits 8-15 */
+#define SHIM_REU_BITMAP_XHI ((unsigned char*)0xC838) /* Bitmap bits 16-23 */
 #define SHIM_LOAD_DISK_DEV_IMM ((unsigned char*)0xC84D) /* A2 xx at $C84C */
 #define SHIM_PRELOAD_DEV_IMM   ((unsigned char*)0xC89C) /* A2 xx at $C89B */
 
@@ -67,7 +68,7 @@
 #define REU_INDICATOR 0x2A  /* '*' in PETSCII screen code */
 
 /* App catalog limits */
-#define MAX_APPS 16          /* slot 0 + up to 15 app slots */
+#define MAX_APPS 24          /* slot 0 + up to 23 app slots */
 #define MAX_FILE_LEN 12      /* shim filename buffer is 12 bytes */
 #define MAX_NAME_LEN 31
 #define MAX_DESC_LEN 38
@@ -228,7 +229,7 @@ unsigned char tui_get_prev_app(unsigned char current_bank) {
 }
 
 /*---------------------------------------------------------------------------
- * Shim bitmap helpers ($C836-$C837)
+ * Shim bitmap helpers ($C836-$C838)
  *---------------------------------------------------------------------------*/
 static unsigned char shim_bitmap_has_bank(unsigned char bank) {
     if (bank < 8) {
@@ -236,6 +237,9 @@ static unsigned char shim_bitmap_has_bank(unsigned char bank) {
     }
     if (bank < 16) {
         return (unsigned char)(*SHIM_REU_BITMAP_HI & (unsigned char)(1U << (bank - 8)));
+    }
+    if (bank < 24) {
+        return (unsigned char)(*SHIM_REU_BITMAP_XHI & (unsigned char)(1U << (bank - 16)));
     }
     return 0;
 }
@@ -245,11 +249,13 @@ static void shim_bitmap_clear_bank(unsigned char bank) {
         *SHIM_REU_BITMAP_LO &= (unsigned char)~(unsigned char)(1U << bank);
     } else if (bank < 16) {
         *SHIM_REU_BITMAP_HI &= (unsigned char)~(unsigned char)(1U << (bank - 8));
+    } else if (bank < 24) {
+        *SHIM_REU_BITMAP_XHI &= (unsigned char)~(unsigned char)(1U << (bank - 16));
     }
 }
 
 /*---------------------------------------------------------------------------
- * Sync apps_loaded[] from shim's reu_bitmap ($C836-$C837)
+ * Sync apps_loaded[] from shim's reu_bitmap ($C836-$C838)
  * The shim updates reu_bitmap whenever an app is stashed to REU,
  * so this reflects the actual REU contents.
  *---------------------------------------------------------------------------*/
@@ -261,11 +267,13 @@ static void sync_from_reu_bitmap(void) {
     /* Resilience: if return_to_launcher recorded a saved bank but bitmap
      * wasn't updated (e.g., interrupted path), heal bitmap from last_saved. */
     last_saved = *SHIM_LAST_SAVED;
-    if (last_saved < 16) {
+    if (last_saved < 24) {
         if (last_saved < 8) {
             *SHIM_REU_BITMAP_LO |= (unsigned char)(1U << last_saved);
-        } else {
+        } else if (last_saved < 16) {
             *SHIM_REU_BITMAP_HI |= (unsigned char)(1U << (last_saved - 8));
+        } else {
+            *SHIM_REU_BITMAP_XHI |= (unsigned char)(1U << (last_saved - 16));
         }
     }
 
@@ -289,11 +297,14 @@ static void sync_from_reu_bitmap(void) {
 /*---------------------------------------------------------------------------
  * Slot contract helpers
  *---------------------------------------------------------------------------*/
-static void compute_required_slot_bitmap(unsigned char *expected_lo, unsigned char *expected_hi) {
+static void compute_required_slot_bitmap(unsigned char *expected_lo,
+                                         unsigned char *expected_hi,
+                                         unsigned char *expected_xhi) {
     unsigned char i;
     unsigned char bank;
     unsigned char lo = 0;
     unsigned char hi = 0;
+    unsigned char xhi = 0;
 
     for (i = 1; i < app_count; ++i) {
         bank = app_banks[i];
@@ -301,20 +312,25 @@ static void compute_required_slot_bitmap(unsigned char *expected_lo, unsigned ch
             lo |= (unsigned char)(1U << bank);
         } else if (bank < 16) {
             hi |= (unsigned char)(1U << (bank - 8));
+        } else if (bank < 24) {
+            xhi |= (unsigned char)(1U << (bank - 16));
         }
     }
 
     *expected_lo = lo;
     *expected_hi = hi;
+    *expected_xhi = xhi;
 }
 
 static unsigned char required_slots_loaded(void) {
     unsigned char expected_lo;
     unsigned char expected_hi;
+    unsigned char expected_xhi;
 
-    compute_required_slot_bitmap(&expected_lo, &expected_hi);
+    compute_required_slot_bitmap(&expected_lo, &expected_hi, &expected_xhi);
     return (unsigned char)(((*SHIM_REU_BITMAP_LO & expected_lo) == expected_lo) &&
-                           ((*SHIM_REU_BITMAP_HI & expected_hi) == expected_hi));
+                           ((*SHIM_REU_BITMAP_HI & expected_hi) == expected_hi) &&
+                           ((*SHIM_REU_BITMAP_XHI & expected_xhi) == expected_xhi));
 }
 
 static unsigned char is_space_char(char ch) {
@@ -836,7 +852,7 @@ static unsigned char validate_slot_contract(unsigned char *detail_a,
 
     for (i = 1; i < app_count; ++i) {
         bank_i = app_banks[i];
-        if (bank_i == 0 || bank_i >= 16) {
+        if (bank_i == 0 || bank_i >= MAX_APPS) {
             *detail_a = i;
             *detail_b = bank_i;
             *detail_c = 0;
@@ -1096,8 +1112,6 @@ static void load_all_to_reu(void) {
     unsigned char loaded_ok;
     unsigned char retried;
     unsigned char missing_count;
-    unsigned char expected_lo;
-    unsigned char expected_hi;
     unsigned char bitmap_complete;
     unsigned char status_x;
     unsigned char done_x;
@@ -1193,9 +1207,8 @@ static void load_all_to_reu(void) {
         tui_print_uint(6, counter_y, total_to_load, TUI_COLOR_WHITE);
     }
 
-    /* Final authoritative check: required slots 1..10 must all be present. */
+    /* Final authoritative check: all catalog-assigned banks must be present. */
     sync_from_reu_bitmap();
-    compute_required_slot_bitmap(&expected_lo, &expected_hi);
     bitmap_complete = required_slots_loaded();
 
     for (i = 1; i < app_count; ++i) {

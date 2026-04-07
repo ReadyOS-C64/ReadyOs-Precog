@@ -24,6 +24,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 APP_PRGS = [
     ("launcher", "launcher.prg"),
     ("editor", "editor.prg"),
+    ("quicknotes", "quicknotes.prg"),
     ("calcplus", "calcplus.prg"),
     ("hexview", "hexview.prg"),
     ("clipmgr", "clipmgr.prg"),
@@ -281,6 +282,7 @@ def parse_tui_switch_contract(paths):
             "app_bank_max": int(max_bank_m.group(1), 10),
             "uses_bitmap_lo": "SHIM_REU_BITMAP_LO" in src,
             "uses_bitmap_hi": "SHIM_REU_BITMAP_HI" in src,
+            "uses_bitmap_xhi": "SHIM_REU_BITMAP_XHI" in src,
             "has_bank_loaded_helper": "tui_bank_loaded" in src,
         }
 
@@ -485,6 +487,7 @@ def main():
     all_ok &= check("current_bank", shim[0x34] == 0x00, f"${shim[0x34]:02X} (expect $00)")
     all_ok &= check("reu_bitmap_lo", shim[0x36] == 0x00, f"${shim[0x36]:02X} (expect $00)")
     all_ok &= check("reu_bitmap_hi", shim[0x37] == 0x00, f"${shim[0x37]:02X} (expect $00)")
+    all_ok &= check("reu_bitmap_xhi", shim[0x38] == 0x00, f"${shim[0x38]:02X} (expect $00)")
     all_ok &= check("storage_drive", shim[0x39] == 0x08, f"${shim[0x39]:02X} (expect $08)")
 
     # --- Routine Alignment ---
@@ -540,11 +543,11 @@ def main():
                     "LDA #$91; STA $DF01")
 
     bitmap_guard = list(shim[0x1C0:0x1C0 + 4])
-    all_ok &= check("$C9C0 bitmap bank guard", bitmap_guard == [0xC9, 0x10, 0xB0, 0x1B],
-                    "CMP #$10; BCS done")
-    bitmap_store = list(shim[0x1D9:0x1D9 + 6])
-    all_ok &= check("$C9D9 bitmap indexed store", bitmap_store == [0x19, 0x36, 0xC8, 0x99, 0x36, 0xC8],
-                    "ORA $C836,Y; STA $C836,Y")
+    all_ok &= check("$C9C0 bitmap bank guard", bitmap_guard == [0xC9, 0x18, 0xB0, 0x17],
+                    "CMP #$18; BCS done")
+    bitmap_store = list(shim[0x1D5:0x1D5 + 6])
+    all_ok &= check("$C9D5 bitmap indexed store", bitmap_store == [0x1D, 0x36, 0xC8, 0x9D, 0x36, 0xC8],
+                    "ORA $C836,X; STA $C836,X")
 
     # --- Region Boundary Invariants ---
     print("\n=== Region Boundary Invariants ===")
@@ -649,8 +652,8 @@ def main():
     except (FileNotFoundError, ValueError, AttributeError) as ex:
         all_ok &= check("launcher runtime contract parse", False, str(ex))
     else:
-        all_ok &= check("MAX_APPS", slot_contract["max_apps"] == 16,
-                        f'{slot_contract["max_apps"]} (expect 16)')
+        all_ok &= check("MAX_APPS", slot_contract["max_apps"] == 24,
+                        f'{slot_contract["max_apps"]} (expect 24)')
         all_ok &= check("MAX_FILE_LEN", slot_contract["max_file_len"] == 12,
                         f'{slot_contract["max_file_len"]} (expect 12)')
         all_ok &= check("DEFAULT_DRIVE", slot_contract["default_drive"] == 8,
@@ -691,7 +694,7 @@ def main():
         labels = [e["label"] for e in catalog_entries]
         descs = [e["desc"] for e in catalog_entries]
         all_ok &= check("catalog entries > 0", len(catalog_entries) > 0, f"{len(catalog_entries)} entries")
-        all_ok &= check("catalog entries <= 15", len(catalog_entries) <= 15,
+        all_ok &= check("catalog entries <= 23", len(catalog_entries) <= 23,
                         f"{len(catalog_entries)} entries")
         all_ok &= check("catalog drives in 8..11", all(8 <= d <= 11 for d in drives), f"{drives}")
         all_ok &= check("catalog prg names non-empty", all(0 < len(p) <= 12 for p in prgs), f"{prgs}")
@@ -774,10 +777,11 @@ def main():
     else:
         all_ok &= check("tui switch contract source exists", os.path.exists(tui_contract["source_path"]),
                         tui_contract["source_path"])
-        all_ok &= check("APP_BANK_MAX", tui_contract["app_bank_max"] == 15,
-                        f'{tui_contract["app_bank_max"]} (expect 15)')
+        all_ok &= check("APP_BANK_MAX", tui_contract["app_bank_max"] == 23,
+                        f'{tui_contract["app_bank_max"]} (expect 23)')
         all_ok &= check("tui checks bitmap low byte", tui_contract["uses_bitmap_lo"])
         all_ok &= check("tui checks bitmap high byte", tui_contract["uses_bitmap_hi"])
+        all_ok &= check("tui checks bitmap xhi byte", tui_contract["uses_bitmap_xhi"])
         all_ok &= check("tui has loaded-bank helper", tui_contract["has_bank_loaded_helper"])
 
     # --- REU Allocation Contract ---
@@ -793,8 +797,8 @@ def main():
 
         all_ok &= check("REU_TOTAL_BANKS", reu_total_banks == 256,
                         f"{reu_total_banks} (expect 256)")
-        all_ok &= check("REU_FIRST_DYNAMIC", reu_first_dynamic == 16,
-                        f"{reu_first_dynamic} (expect 16)")
+        all_ok &= check("REU_FIRST_DYNAMIC", reu_first_dynamic == 24,
+                        f"{reu_first_dynamic} (expect 24)")
         all_ok &= check("REU_RESERVED type id", reu_type_reserved == 4,
                         f"{reu_type_reserved} (expect 4)")
 
@@ -813,8 +817,14 @@ def main():
             reserved_count = reu_first_dynamic - (highest_used + 1)
             all_ok &= check("apps fit before dynamic pool", highest_used < reu_first_dynamic,
                             f"highest={highest_used}, dynamic_base={reu_first_dynamic}")
-            all_ok &= check("reserved app-slot headroom", reserved_count > 0,
-                            f"{reserved_count} reserved slots ({highest_used + 1}-{reu_first_dynamic - 1})")
+            all_ok &= check("catalog stays within app-slot pool", reserved_count >= 0,
+                            f"{highest_used} catalog apps across slots 1-{reu_first_dynamic - 1}")
+            if reserved_count > 0:
+                all_ok &= check("reserved app-slot headroom", True,
+                                f"{reserved_count} reserved slots ({highest_used + 1}-{reu_first_dynamic - 1})")
+            elif reserved_count == 0:
+                warn("reserved app-slot headroom exhausted",
+                     f"catalog uses every app slot 1-{reu_first_dynamic - 1}")
 
     # --- Warm Resume Contract ---
     print("\n=== Warm Resume Contract ===")

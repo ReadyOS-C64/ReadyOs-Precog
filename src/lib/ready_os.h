@@ -56,7 +56,7 @@
 /* Maximum values */
 #define MAX_APP_NAME     8
 #define MAX_DEEPLINK_PARAMS 64
-#define MAX_APPS         16
+#define MAX_APPS         24
 
 /*---------------------------------------------------------------------------
  * Data Structures
@@ -88,7 +88,7 @@ typedef struct {
  * App Info structure - returned by ready_app_info()
  */
 typedef struct {
-    unsigned char id;            /* App slot ID (0-15) */
+    unsigned char id;            /* App slot ID (0-23) */
     unsigned char status;        /* APP_STATUS_* */
     char name[MAX_APP_NAME];     /* App name */
 } AppInfo;
@@ -101,7 +101,7 @@ typedef struct {
  * ready_init - Register app with Ready OS
  * Call this at app startup with a pointer to your ReadyAppHeader
  *
- * Returns: app_id (0-15) on success, 0xFF on failure
+ * Returns: app_id (0-23) on success, 0xFF on failure
  */
 unsigned char ready_init(ReadyAppHeader *header);
 
@@ -185,7 +185,7 @@ unsigned char ready_app_count(void);
 /*
  * ready_current_app - Get current app ID
  *
- * Returns: App ID (0-15) or 0xFF if no app running
+ * Returns: App ID (0-23) or 0xFF if no app running
  */
 unsigned char ready_current_app(void);
 

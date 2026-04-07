@@ -531,12 +531,13 @@ void tui_return_to_launcher(void) {
 #define SHIM_TARGET_BANK ((unsigned char*)0xC820)
 #define SHIM_REU_BITMAP_LO ((unsigned char*)0xC836)
 #define SHIM_REU_BITMAP_HI ((unsigned char*)0xC837)
+#define SHIM_REU_BITMAP_XHI ((unsigned char*)0xC838)
 
 /* App bank definitions (must match launcher.c) */
 #define APP_BANK_LAUNCHER 0
 #define APP_BANK_EDITOR   1
 #define APP_BANK_HEXCALC  2
-#define APP_BANK_MAX      15  /* Highest valid app bank */
+#define APP_BANK_MAX      23  /* Highest valid app bank */
 
 static unsigned char tui_bank_loaded(unsigned char bank) {
     if (bank < 8) {
@@ -544,6 +545,9 @@ static unsigned char tui_bank_loaded(unsigned char bank) {
     }
     if (bank < 16) {
         return (unsigned char)((*SHIM_REU_BITMAP_HI & (unsigned char)(1U << (bank - 8))) != 0);
+    }
+    if (bank < 24) {
+        return (unsigned char)((*SHIM_REU_BITMAP_XHI & (unsigned char)(1U << (bank - 16))) != 0);
     }
     return 0;
 }

@@ -1009,11 +1009,12 @@ jt_fetch_bank   = $C815     ; Helper: fetch from bank in A
 ; $C835: last_saved
 ; $C836: reu_bitmap_lo (banks 0-7)
 ; $C837: reu_bitmap_hi (banks 8-15)
-; $C838: log_index - debug byte ring head
+; $C838: reu_bitmap_xhi (banks 16-23)
 ; $C839: storage_drive - shim-global default storage drive for D8/D9 app dialogs
 ;        This persists across app switches and is shared by apps that use the
 ;        common file-dialog default-drive contract.
-; $C83A-$C83F: reserved
+; $C83A: log_index - debug byte ring head
+; $C83B-$C83F: reserved
 
 .byte $00                   ; $C820: target_bank
 .byte $08                   ; $C821: filename_len
@@ -1025,9 +1026,10 @@ jt_fetch_bank   = $C815     ; Helper: fetch from bank in A
 .byte $FF                   ; $C835: last_saved
 .byte $00                   ; $C836: reu_bitmap_lo
 .byte $00                   ; $C837: reu_bitmap_hi
-.byte $00                   ; $C838: log_index (for debug buffer)
+.byte $00                   ; $C838: reu_bitmap_xhi
 .byte $08                   ; $C839: storage_drive (default drive 8)
-.byte $00,$00,$00,$00,$00,$00  ; $C83A-$C83F: reserved
+.byte $00                   ; $C83A: log_index (for debug buffer)
+.byte $00,$00,$00,$00,$00   ; $C83B-$C83F: reserved
 
 ;-----------------------------------------------------------------------------
 ; $C840: load_disk - Load app from disk and run (32 bytes)
@@ -1249,53 +1251,52 @@ jt_fetch_bank   = $C815     ; Helper: fetch from bank in A
 .byte $00,$00
 
 ;-----------------------------------------------------------------------------
-; $C9C0: set_bitmap - Set bit for bank in A in reu_bitmap ($C836-$C837)
+; $C9C0: set_bitmap - Set bit for bank in A in reu_bitmap ($C836-$C838)
 ; Input: A = bank number
-; Supports bank numbers 0-15 (ignored for >=16)
+; Supports bank numbers 0-23 (ignored for >=24)
 ; Clobbers: A, X, Y
 ;-----------------------------------------------------------------------------
 ; $C9C0
-.byte $C9, $10              ; CMP #$10 (only banks 0-15 are tracked)
-.byte $B0, $1B              ; BCS done
-.byte $AA                   ; TAX
-.byte $A0, $00              ; LDY #$00 (bitmap low byte)
-.byte $E0, $08              ; CPX #$08
-.byte $90, $05              ; BCC load_mask
-.byte $C8                   ; INY (bitmap high byte)
-.byte $8A                   ; TXA
-.byte $38                   ; SEC
-.byte $E9, $08              ; SBC #$08
-.byte $AA                   ; TAX
-; load_mask:
-.byte $A9, $01              ; LDA #$01 (must happen after high-bank adjust)
+.byte $C9, $18              ; CMP #$18 (only banks 0-23 are tracked)
+.byte $B0, $17              ; BCS done
+.byte $AA                   ; TAX - preserve full bank
+.byte $29, $07              ; AND #$07 - bit index within byte
+.byte $A8                   ; TAY - Y = bit index
+.byte $8A                   ; TXA - restore full bank
+.byte $4A                   ; LSR A
+.byte $4A                   ; LSR A
+.byte $4A                   ; LSR A
+.byte $AA                   ; TAX - X = byte offset 0..2
+.byte $A9, $01              ; LDA #$01
 ; shift_loop:
-.byte $CA                   ; DEX
+.byte $88                   ; DEY
 .byte $30, $03              ; BMI store_bit
 .byte $0A                   ; ASL A
 .byte $10, $FA              ; BPL shift_loop
 ; store_bit:
-.byte $19, $36, $C8         ; ORA $C836,Y
-.byte $99, $36, $C8         ; STA $C836,Y
+.byte $1D, $36, $C8         ; ORA $C836,X
+.byte $9D, $36, $C8         ; STA $C836,X
 ; done:
 .byte $60                   ; RTS
+.byte $00,$00,$00,$00       ; Padding to $C9E0
 
 ;-----------------------------------------------------------------------------
 ; $C9E0: log_byte - Write debug marker to buffer at $C980
 ; Input: A = byte to log
 ; Preserves: X, Y
-; Uses: $C838 as log_index, wraps at 32 bytes
+; Uses: $C83A as log_index, wraps at 32 bytes
 ;-----------------------------------------------------------------------------
 ; $C9E0
 .byte $48                   ; PHA - save the byte to log
 .byte $8E, $FC, $00         ; STX $00FC - save X to ZP temp
-.byte $AE, $38, $C8         ; LDX $C838 - get log_index
+.byte $AE, $3A, $C8         ; LDX $C83A - get log_index
 .byte $68                   ; PLA - get byte back
 .byte $9D, $80, $C9         ; STA $C980,X - write to buffer
 .byte $E8                   ; INX - increment index
 .byte $E0, $20              ; CPX #$20 - wrap at 32
 .byte $D0, $02              ; BNE +2 (skip reset)
 .byte $A2, $00              ; LDX #$00 - reset to 0
-.byte $8E, $38, $C8         ; STX $C838 - store new index
+.byte $8E, $3A, $C8         ; STX $C83A - store new index
 .byte $AE, $FC, $00         ; LDX $00FC - restore X
 .byte $60                   ; RTS
 ; Padding to $CA00 (25 bytes code, need 7 bytes padding)

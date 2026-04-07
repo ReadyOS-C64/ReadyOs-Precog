@@ -83,7 +83,7 @@ _shim_version:
 ;-----------------------------------------------------------------------------
 .proc init_system_state
         ; Clear app registry
-        ldx #15
+        ldx #23
         lda #$00
 @clear_loop:
         sta app_status,x
@@ -109,8 +109,8 @@ _shim_version:
 ;-----------------------------------------------------------------------------
 .proc init_reu_banks
         ; Mark banks 0-1 as system (used)
-        ; Banks 2-17 are app slots (initially free)
-        ; Banks 18-255 are free pool
+        ; Banks 2-25 are app slots (initially free)
+        ; Banks 26-255 are free pool
 
         ; For now just verify REU is working
         ; Store a test pattern
@@ -154,7 +154,7 @@ no_reu_msg:
 .proc _sys_init
         ; Register new app
         ; A = app header pointer low, X = high
-        ; Returns: A = app_id (0-15) or $FF on error
+        ; Returns: A = app_id (0-23) or $FF on error
         jmp _sys_init_impl
 .endproc
 
@@ -204,14 +204,14 @@ no_reu_msg:
 ;-----------------------------------------------------------------------------
 .segment "DATA"
 
-; Current running app (0-15, $FF = none)
+; Current running app (0-23, $FF = none)
 current_app:    .byte $FF
 
 ; App status for each slot (0=free, 1=running, 2=suspended)
-app_status:     .res 16, 0
+app_status:     .res 24, 0
 
 ; REU bank assignment for each app slot
-app_banks:      .res 16, 0
+app_banks:      .res 24, 0
 
 ; Clipboard state
 clip_type:      .byte 0         ; 0=empty, 1=text, 2=binary

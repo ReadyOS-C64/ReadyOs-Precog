@@ -93,7 +93,7 @@ def main():
         all_ok &= check("tail reaches 64KB boundary", resume_end == 0x10000, hex(resume_end))
 
     print("\n=== App Hooks ===")
-    for app_name in ("editor", "calcplus", "hexview", "clipmgr", "reuviewer",
+    for app_name in ("editor", "quicknotes", "calcplus", "hexview", "clipmgr", "reuviewer",
                      "tasklist", "simplefiles", "game2048", "deminer", "cal26", "dizzy", "readme",
                      "readyshellpoc"):
         try:

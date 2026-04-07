@@ -11,7 +11,7 @@
 .import _context_save, _context_restore
 
 ; System constants
-MAX_APPS = 16
+MAX_APPS = 24
 
 ; Memory layout constants
 ZP_START     = $00
@@ -60,7 +60,7 @@ clip_size:      .word 0
 ;-----------------------------------------------------------------------------
 ; _sys_init_impl - Register a new app
 ; Input: A/X = pointer to ReadyAppHeader
-; Output: A = app_id (0-15) or $FF on error
+; Output: A = app_id (0-23) or $FF on error
 ;-----------------------------------------------------------------------------
 .proc _sys_init_impl
         ; Store header pointer
