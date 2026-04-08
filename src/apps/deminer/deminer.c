@@ -546,19 +546,19 @@ static void draw_help_line(void) {
 
     if (mode == MODE_MENU) {
         draw_field(0, HELP_Y, 40,
-                   "RET/J:START  B/I:LEVEL  F1:HELP", TUI_COLOR_GRAY3);
+                   "RET/J:START  B/I:LEVEL  F8:HELP", TUI_COLOR_GRAY3);
     } else if (mode == MODE_PAUSE) {
         draw_field(0, HELP_Y, 40,
-                   "RET/P:RESUME  R:RESTART  F1:HELP", TUI_COLOR_GRAY3);
+                   "RET/P:RESUME  R:RESTART  F8:HELP", TUI_COLOR_GRAY3);
     } else if (mode == MODE_WON) {
         draw_field(0, HELP_Y, 40,
-                   "R:RESTART  M:MENU  F1:HELP", TUI_COLOR_GRAY3);
+                   "R:RESTART  M:MENU  F8:HELP", TUI_COLOR_GRAY3);
     } else if (mode == MODE_LOST) {
         draw_field(0, HELP_Y, 40,
-                   "R:RETRY  M:MENU  F1:HELP", TUI_COLOR_GRAY3);
+                   "R:RETRY  M:MENU  F8:HELP", TUI_COLOR_GRAY3);
     } else {
         draw_field(0, HELP_Y, 40,
-                   "RET/J:OPEN  SPC/K:FLAG  F1:HELP", TUI_COLOR_GRAY3);
+                   "RET/J:OPEN  SPC/K:FLAG  F8:HELP", TUI_COLOR_GRAY3);
     }
 }
 
@@ -581,7 +581,7 @@ static void draw_pause_overlay(void) {
     draw_field(10, PAUSE_Y + 2, 12, "RET/P RESUME", TUI_COLOR_WHITE);
     draw_field(10, PAUSE_Y + 4, 12, "R     RESTART", TUI_COLOR_WHITE);
     draw_field(10, PAUSE_Y + 5, 12, "M     MENU", TUI_COLOR_WHITE);
-    draw_field(10, PAUSE_Y + 6, 12, "F1    HELP", TUI_COLOR_WHITE);
+    draw_field(10, PAUSE_Y + 6, 12, "F8    HELP", TUI_COLOR_WHITE);
 }
 
 static void update_keyrepeat_mode(void) {
@@ -620,11 +620,11 @@ static void show_help_popup(void) {
     draw_field(3, 14, 32, "OPEN EVERY SAFE CELL TO WIN", TUI_COLOR_GRAY3);
     draw_field(3, 15, 32, "F2/F4: APPS  CTRL+B: LAUNCHER", TUI_COLOR_GRAY3);
     draw_field(3, 16, 32, "RUN/STOP: QUIT APP", TUI_COLOR_GRAY3);
-    draw_field(3, 17, 32, "F1/RET/STOP/LEFT: CLOSE", TUI_COLOR_CYAN);
+    draw_field(3, 17, 32, "F8/RET/STOP/LEFT: CLOSE", TUI_COLOR_CYAN);
 
     while (1) {
         key = tui_getkey();
-        if (key == TUI_KEY_F1 || key == TUI_KEY_RETURN ||
+        if (key == TUI_KEY_F8 || key == TUI_KEY_RETURN ||
             key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
             restore_popup_background(HELP_POPUP_X, HELP_POPUP_Y,
                                      HELP_POPUP_W, HELP_POPUP_H,
@@ -1058,7 +1058,7 @@ static void deminer_loop(void) {
                 start_game(menu_level);
                 continue;
             }
-            if (key == TUI_KEY_F1) {
+            if (key == TUI_KEY_F8) {
                 show_help_popup();
                 continue;
             }
@@ -1083,7 +1083,7 @@ static void deminer_loop(void) {
                 draw_help_line();
                 continue;
             }
-            if (key == TUI_KEY_F1) {
+            if (key == TUI_KEY_F8) {
                 show_help_popup();
                 continue;
             }
@@ -1106,7 +1106,7 @@ static void deminer_loop(void) {
         }
 
         if (mode == MODE_WON || mode == MODE_LOST) {
-            if (key == TUI_KEY_F1) {
+            if (key == TUI_KEY_F8) {
                 show_help_popup();
                 continue;
             }
@@ -1138,7 +1138,7 @@ static void deminer_loop(void) {
             continue;
         }
 
-        if (key == TUI_KEY_F1) {
+        if (key == TUI_KEY_F8) {
             show_help_popup();
             continue;
         }

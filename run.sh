@@ -99,7 +99,7 @@ XFILECHK_DISK_FILE_1="xfilechk.d71"
 XFILECHK_DISK_FILE_2="xfilechk_2.d71"
 
 # Dynamic build version (base + rolling suffix A..Z)
-VERSION_BASE="0.1.7"
+VERSION_BASE="0.1.8"
 VERSION_STATE_FILE="/tmp/readyos_run_version_suffix.txt"
 VERSION_HEADER_FILE="src/generated/build_version.h"
 VERSION_ASM_FILE="src/generated/msg_version.inc"

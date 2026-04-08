@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ReadyOS Function Key Audit</title>
+  <style>
+    :root {
+      --panel: rgba(255, 252, 247, 0.94);
+      --panel-strong: #fffdf8;
+      --ink: #1c2733;
+      --muted: #5d6974;
+      --line: #d9d1c4;
+      --hero: #14314d;
+      --save: #dff4e3;
+      --load: #fff0ca;
+      --copy: #dcecff;
+      --paste: #eadbff;
+      --mode: #ffe3db;
+      --help: #d9f7ee;
+      --view: #dce6ff;
+      --open: #efe7d8;
+      --other: #ececec;
+      --none: #faf6ef;
+      --hard: #8f2240;
+      --easy: #116f4d;
+      --warn: #8a5315;
+      --shadow: 0 18px 60px rgba(20, 49, 77, 0.10);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, #fffaf0 0, #f8f3e9 40%, #ece4d7 100%);
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+      line-height: 1.45;
+    }
+
+    header {
+      padding: 36px 34px 30px;
+      color: #f6fbff;
+      background:
+        linear-gradient(135deg, rgba(20,49,77,0.97), rgba(35,74,110,0.92));
+      box-shadow: var(--shadow);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 2.4rem;
+      letter-spacing: -0.035em;
+    }
+
+    header p {
+      max-width: 76ch;
+      margin: 10px 0 0;
+      color: #d5e0eb;
+      font-size: 1.03rem;
+    }
+
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px 20px 56px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .card,
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 12px 40px rgba(28, 39, 51, 0.05);
+    }
+
+    .card {
+      padding: 16px 18px;
+    }
+
+    .card .k {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .card .v {
+      margin-top: 6px;
+      font-size: 1.95rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    section {
+      margin-top: 16px;
+      padding: 20px 22px 18px;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 1.34rem;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+    }
+
+    p, li { font-size: 0.98rem; }
+
+    .lede {
+      color: var(--muted);
+      max-width: 78ch;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      white-space: nowrap;
+      font-size: 0.9rem;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,0.08);
+      flex: 0 0 auto;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1120px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px 10px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.93rem;
+    }
+
+    th:last-child, td:last-child { border-right: 0; }
+    tr:last-child td { border-bottom: 0; }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f1ebe1;
+      color: #213446;
+    }
+
+    td.app {
+      min-width: 180px;
+      font-weight: 700;
+      background: #fcf8f1;
+    }
+
+    td.notes {
+      min-width: 320px;
+      color: var(--muted);
+    }
+
+    .cell {
+      min-width: 108px;
+      font-weight: 700;
+    }
+
+    .copy { background: var(--copy); }
+    .paste { background: var(--paste); }
+    .save { background: var(--save); }
+    .load { background: var(--load); }
+    .mode { background: var(--mode); }
+    .help { background: var(--help); }
+    .view { background: var(--view); }
+    .open { background: var(--open); }
+    .other { background: var(--other); }
+    .none { background: var(--none); color: #8a8a8a; }
+
+    .bands,
+    .twocol {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(260px, 1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .twocol {
+      grid-template-columns: repeat(2, minmax(320px, 1fr));
+    }
+
+    .band {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 15px 13px;
+      background: var(--panel-strong);
+    }
+
+    .badge {
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .easy {
+      color: var(--easy);
+      background: #e8fbf2;
+    }
+
+    .hard {
+      color: var(--hard);
+      background: #fff0f4;
+    }
+
+    .callout {
+      border-left: 4px solid #d28a28;
+      background: #fff6e8;
+      padding: 12px 14px;
+      border-radius: 12px;
+      color: var(--warn);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    li + li {
+      margin-top: 4px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      background: #f1ebdf;
+      border-radius: 6px;
+      padding: 0.1rem 0.35rem;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 1100px) {
+      .cards,
+      .bands,
+      .twocol {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ReadyOS Function Key Audit</h1>
+    <p>
+      Post-normalization view of the launcher-visible apps plus the launcher itself.
+      The main result is that every app with a dedicated help key now converges on <code>F8</code>,
+      and clipboard now follows the system’s save/load direction more naturally with <code>F5</code> for save/export and <code>F7</code> for load/import.
+    </p>
+  </header>
+
+  <div class="wrap">
+    <div class="cards">
+      <div class="card">
+        <div class="k">Apps audited</div>
+        <div class="v">16</div>
+      </div>
+      <div class="card">
+        <div class="k"><code>F8 = Help</code> apps</div>
+        <div class="v">10</div>
+      </div>
+      <div class="card">
+        <div class="k">Apps with no help key</div>
+        <div class="v">6</div>
+      </div>
+      <div class="card">
+        <div class="k">Help-key outliers</div>
+        <div class="v">0</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Legend</h2>
+      <p class="lede">
+        Read across each row for one app’s local key story. Read down each column to see overload pressure.
+        The matrix is intentionally visual so conflicts jump out before you read the written analysis.
+      </p>
+      <div class="legend">
+        <span class="chip"><span class="swatch" style="background: var(--copy)"></span>copy/new/format</span>
+        <span class="chip"><span class="swatch" style="background: var(--paste)"></span>paste/edit/drive</span>
+        <span class="chip"><span class="swatch" style="background: var(--save)"></span>save/export</span>
+        <span class="chip"><span class="swatch" style="background: var(--load)"></span>load/import/refresh</span>
+        <span class="chip"><span class="swatch" style="background: var(--mode)"></span>mode toggle</span>
+        <span class="chip"><span class="swatch" style="background: var(--view)"></span>view/navigation</span>
+        <span class="chip"><span class="swatch" style="background: var(--open)"></span>open/select</span>
+        <span class="chip"><span class="swatch" style="background: var(--help)"></span>help</span>
+        <span class="chip"><span class="swatch" style="background: var(--other)"></span>other system action</span>
+        <span class="chip"><span class="swatch" style="background: var(--none)"></span>unused</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Function Key Matrix</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>App</th>
+              <th>F1</th>
+              <th>F3</th>
+              <th>F5</th>
+              <th>F6</th>
+              <th>F7</th>
+              <th>F8</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="app">editor</td>
+              <td class="cell copy">copy</td>
+              <td class="cell paste">paste</td>
+              <td class="cell save">save</td>
+              <td class="cell open">select</td>
+              <td class="cell open">open</td>
+              <td class="cell help">help</td>
+              <td class="notes">Dialog flows also reuse <code>F3</code> for drive selection.</td>
+            </tr>
+            <tr>
+              <td class="app">quicknotes</td>
+              <td class="cell copy">copy</td>
+              <td class="cell paste">paste</td>
+              <td class="cell save">save</td>
+              <td class="cell open">select</td>
+              <td class="cell open">open</td>
+              <td class="cell help">help</td>
+              <td class="notes">Very close to editor.</td>
+            </tr>
+            <tr>
+              <td class="app">calc plus</td>
+              <td class="cell copy">copy</td>
+              <td class="cell paste">paste</td>
+              <td class="cell none">-</td>
+              <td class="cell mode">angle mode</td>
+              <td class="cell mode">calc mode</td>
+              <td class="cell help">help</td>
+              <td class="notes"><code>F5</code> is available.</td>
+            </tr>
+            <tr>
+              <td class="app">hex viewer</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell mode">PETSCII/screen</td>
+              <td class="cell none">-</td>
+              <td class="cell help">help</td>
+              <td class="notes">Minimal local function-key surface.</td>
+            </tr>
+            <tr>
+              <td class="app">clipboard</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell save">save/export</td>
+              <td class="cell none">-</td>
+              <td class="cell load">load/import</td>
+              <td class="cell none">-</td>
+              <td class="notes">Now aligns better with save on <code>F5</code> and load on <code>F7</code>.</td>
+            </tr>
+            <tr>
+              <td class="app">reu viewer</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="notes">No local function keys.</td>
+            </tr>
+            <tr>
+              <td class="app">task list</td>
+              <td class="cell copy">copy</td>
+              <td class="cell paste">paste</td>
+              <td class="cell save">save</td>
+              <td class="cell save">save as</td>
+              <td class="cell open">open</td>
+              <td class="cell help">help</td>
+              <td class="notes">Very close to editor and quicknotes.</td>
+            </tr>
+            <tr>
+              <td class="app">simple files</td>
+              <td class="cell none">-</td>
+              <td class="cell paste">drive toggle</td>
+              <td class="cell load">refresh</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell help">help</td>
+              <td class="notes"><code>F3</code> also overlaps with drive selection in dialogs.</td>
+            </tr>
+            <tr>
+              <td class="app">simple cells</td>
+              <td class="cell copy">format menu</td>
+              <td class="cell paste">formula edit</td>
+              <td class="cell save">save</td>
+              <td class="cell none">-</td>
+              <td class="cell open">open</td>
+              <td class="cell help">help</td>
+              <td class="notes">Copy/paste are letter keys here, not function keys.</td>
+            </tr>
+            <tr>
+              <td class="app">2048 game</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="notes">No local function keys.</td>
+            </tr>
+            <tr>
+              <td class="app">calendar 26</td>
+              <td class="cell copy">copy day item</td>
+              <td class="cell paste">paste to day</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell view">next view</td>
+              <td class="cell help">help</td>
+              <td class="notes"><code>F5</code> is available.</td>
+            </tr>
+            <tr>
+              <td class="app">dizzy kanban</td>
+              <td class="cell copy">new card</td>
+              <td class="cell paste">edit card</td>
+              <td class="cell none">-</td>
+              <td class="cell view">single/double</td>
+              <td class="cell view">cycle focus</td>
+              <td class="cell help">help</td>
+              <td class="notes"><code>F5</code> is available.</td>
+            </tr>
+            <tr>
+              <td class="app">read.me</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="notes">No local function keys.</td>
+            </tr>
+            <tr>
+              <td class="app">ready shell</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="notes">Help exists as typed <code>HELP</code>, not a function key.</td>
+            </tr>
+            <tr>
+              <td class="app">deminer</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell help">help</td>
+              <td class="notes">Now aligned with the system’s help convention.</td>
+            </tr>
+            <tr>
+              <td class="app">launcher</td>
+              <td class="cell other">load all</td>
+              <td class="cell other">load selected</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="cell none">-</td>
+              <td class="notes"><code>F2/F4</code> drive launcher navigation here.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small">Global cross-app convention remains strong for <code>F2/F4</code> app switching and <code>CTRL+B</code> return-to-launcher/home.</p>
+    </section>
+
+    <section>
+      <h2>Conflict Pressure by Key</h2>
+      <div class="bands">
+        <div class="band">
+          <h3>F1</h3>
+          <div class="badge hard">Still hard to normalize</div>
+          <ul>
+            <li>Copy in editor, quicknotes, task list, and calendar 26.</li>
+            <li>New card in dizzy.</li>
+            <li>Format menu in simple cells.</li>
+            <li>Load all in launcher.</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>F3</h3>
+          <div class="badge hard">Still hard to normalize</div>
+          <ul>
+            <li>Paste in editor-family apps, calc plus, and calendar 26.</li>
+            <li>Edit card in dizzy.</li>
+            <li>Drive toggle/select in simple files and multiple dialogs.</li>
+            <li>Formula edit in simple cells.</li>
+            <li>Load selected app in launcher.</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>F5</h3>
+          <div class="badge easy">Healthier now</div>
+          <ul>
+            <li>Mostly save/export or refresh.</li>
+            <li>Clipboard now reinforces that pattern instead of fighting it.</li>
+            <li>Low enough pressure that local variation is acceptable.</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>F6</h3>
+          <div class="badge hard">Mode-heavy</div>
+          <ul>
+            <li>Select in editor and quicknotes.</li>
+            <li>Angle mode in calc plus.</li>
+            <li>Save as in task list.</li>
+            <li>Mode/view toggles in hex viewer and dizzy.</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>F7</h3>
+          <div class="badge hard">Open/load/view mix</div>
+          <ul>
+            <li>Open in editor, quicknotes, task list, and simple cells.</li>
+            <li>Load/import in clipboard.</li>
+            <li>Next view in calendar 26.</li>
+            <li>Mode/focus work in calc plus and dizzy.</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>F8</h3>
+          <div class="badge easy">Best current convention</div>
+          <ul>
+            <li>Every app with a dedicated help key now lands here.</li>
+            <li>Remaining gap is only the apps with no help surface yet.</li>
+            <li>This is the strongest convention to preserve and expand.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Other Hotkeys</h2>
+      <div class="twocol">
+        <div class="band">
+          <h3>System-Level Conventions</h3>
+          <ul>
+            <li><code>F2/F4</code>: app switching</li>
+            <li><code>CTRL+B</code>: launcher/home</li>
+            <li><code>RUN/STOP</code>: often quit, cancel, or close</li>
+            <li><code>RETURN</code>: usually open, edit, confirm, launch, or close help</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>Control-Key Clusters</h3>
+          <ul>
+            <li><strong>Editor:</strong> <code>CTRL+A</code> save as, <code>CTRL+E</code> line end, <code>CTRL+F/G</code> find, <code>CTRL+N/P</code> page</li>
+            <li><strong>Quicknotes:</strong> <code>CTRL+L/O</code> pane, <code>CTRL+N/P</code> page, <code>CTRL+W</code> new note, <code>CTRL+R</code> title, <code>CTRL+D</code> delete, <code>CTRL+U/K</code> move, <code>CTRL+F/G</code> find</li>
+            <li><strong>Simple Files:</strong> <code>CTRL+N/P</code> page</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>Letter-Key Workflows</h3>
+          <ul>
+            <li><strong>Simple Cells:</strong> <code>C/V</code> copy/paste</li>
+            <li><strong>Simple Files:</strong> <code>C</code> copy, <code>N</code> copy as, <code>D</code> duplicate, <code>S</code> swap panes</li>
+            <li><strong>Calendar 26:</strong> <code>L</code> load, <code>R</code> rebuild, <code>N</code> new, <code>A</code> edit, <code>D</code> delete, <code>T</code> set today</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>More Letter-Key Workflows</h3>
+          <ul>
+            <li><strong>Dizzy:</strong> <code>L</code> load, <code>R</code> rebuild, <code>D/A/S</code> toggle flags, <code>/</code> search, <code>C</code> clear search</li>
+            <li><strong>Deminer:</strong> <code>B/I</code> difficulty, <code>P</code> pause, <code>R</code> restart, <code>M</code> menu, <code>J/RETURN</code> reveal, <code>K/SPACE</code> flag</li>
+            <li><strong>Ready Shell:</strong> typed <code>HELP</code>, <code>VER</code>, <code>CLEAR</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Suggestions</h2>
+      <div class="twocol">
+        <div>
+          <h3>What is easy right now</h3>
+          <ul>
+            <li>Add <code>F8</code> help to clipboard, REU viewer, read.me, and 2048.</li>
+            <li>Keep reinforcing the bias of <code>F5</code> toward save/refresh.</li>
+            <li>Keep reinforcing the bias of <code>F7</code> toward open/load/navigation.</li>
+          </ul>
+        </div>
+        <div class="callout">
+          <strong>Important context:</strong>
+          <br>
+          There is no established user base yet, so this is the cheapest moment to normalize conventions.
+          The limiting factor is implementation effort, not user retraining or habit breakage.
+        </div>
+      </div>
+      <div class="bands">
+        <div class="band">
+          <h3>What is still harder</h3>
+          <ul>
+            <li>A full semantic cleanup of <code>F1</code>.</li>
+            <li>A full semantic cleanup of <code>F3</code>.</li>
+            <li>A fully uniform meaning for <code>F6</code> and <code>F7</code>.</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>Why it is harder</h3>
+          <ul>
+            <li>Those keys already carry meaningful editing and navigation flows.</li>
+            <li>Several apps use them deeply enough that changes would affect core interaction, not just labels.</li>
+          </ul>
+        </div>
+        <div class="band">
+          <h3>Current best convention</h3>
+          <ul>
+            <li><code>F8 = Help</code></li>
+            <li><code>F2/F4</code> app switching</li>
+            <li><code>CTRL+B</code> launcher/home</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

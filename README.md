@@ -3,7 +3,7 @@
 ReadyOS PRECOG is an experimental REU-first environment for a modern
 Commodore 64 setup. It is aimed first at the Commodore 64 Ultimate, but it is
 also designed to run well in VICE with REU enabled, which makes it a practical
-fit for THEC64 Mini / Maxi style workflows too. PRECOG `0.1.7` is the current
+fit for THEC64 Mini / Maxi style workflows too. PRECOG `0.1.8` is the current
 experimental release line.
 
 What if a Commodore 64 could feel ready, not just nostalgic? ReadyOS treats
@@ -24,7 +24,7 @@ Project overview: https://readyos.notion.site/
 
 ## Getting Started
 
-Use the two `D71` images from the `0.1.7` release:
+Use the two `D71` images from the `0.1.8` release:
 
 - `readyos.d71`
 - `readyos_2.d71`
@@ -51,7 +51,7 @@ Boot sequence:
 
 ## Current Status
 
-- Base release: `0.1.7`
+- Base release: `0.1.8`
 - Local builds use the existing rolling suffix flow
 - Ships as two `D71` images
 - Launcher catalog currently contains `15` apps

@@ -101,6 +101,9 @@
 #define LIST_TOP 4
 #define LIST_H   16
 
+#define DAY_ROW_VISIBLE_WIDTH 40
+#define DAY_ROW_PREFIX_LEN     6
+
 #define MAX_DAY_ITEMS 32
 #define MAX_EVENT_TEXT EVT_TEXT_MAX
 
@@ -312,6 +315,7 @@ static void draw_week_row_from_cache(unsigned int start, unsigned char row, unsi
 static unsigned char load_calendar_storage(unsigned char preserve_trace);
 static void format_rel_error_status(const char *prefix);
 static unsigned char rebuild_calendar_storage(void);
+static void redraw(void);
 static void resume_save_state(void);
 static unsigned char resume_restore_state(void);
 static void cal26_return_to_launcher(void);
@@ -482,7 +486,7 @@ static void show_help_screen(void) {
     tui_puts_n(1, 1, "CALENDAR 26 HELP", 38, TUI_COLOR_YELLOW);
     tui_puts_n(1, 3, "ARROWS: MOVE DATE SELECTION", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 4, ",/.: CHANGE MONTH/WEEK", 38, TUI_COLOR_WHITE);
-    tui_puts_n(1, 5, "F5:HELP F7:NEXT VIEW", 38, TUI_COLOR_WHITE);
+    tui_puts_n(1, 5, "F7:NEXT VIEW F8:HELP", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 6, "L:LOAD R:REBLD CALENDAR", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 7, "RETURN:DAY/JUMP, T:SET TODAY", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 8, "N:NEW A:EDIT D:DELETE", 38, TUI_COLOR_WHITE);
@@ -563,6 +567,24 @@ static void end_save_indicator(unsigned char ok) {
     } else {
         set_status("SAVE ERROR", TUI_COLOR_LIGHTRED);
     }
+}
+
+static void begin_load_indicator(void) {
+    TuiRect win;
+
+    redraw();
+
+    win.x = 12;
+    win.y = 9;
+    win.w = 16;
+    win.h = 5;
+
+    tui_window_title(&win, "LOADING", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
+    tui_puts(14, 11, "PLEASE WAIT", TUI_COLOR_WHITE);
+}
+
+static void end_load_indicator(void) {
+    redraw();
 }
 
 static void invert_line(unsigned char y, unsigned char x, unsigned char len) {
@@ -1199,6 +1221,67 @@ static unsigned char free_event_record(unsigned int rec) {
     return 0;
 }
 
+static unsigned char event_record_in_range(unsigned int rec) {
+    return (unsigned char)(rec >= REC_EVENT_BASE && rec < next_record);
+}
+
+static unsigned int active_event_traversal_budget(void) {
+    if (next_record <= REC_EVENT_BASE) {
+        return 0;
+    }
+    return (unsigned int)(next_record - REC_EVENT_BASE);
+}
+
+static unsigned char validate_active_event_link(unsigned int expected_doy,
+                                                unsigned int rec,
+                                                const EventRec *ev) {
+    if (!event_record_in_range(rec)) {
+        return 0;
+    }
+    if (ev->day != expected_doy) {
+        return 0;
+    }
+    if ((ev->flags & EVT_FLAG_DELETED) != 0) {
+        return 0;
+    }
+    if (ev->prev == rec || ev->next == rec) {
+        return 0;
+    }
+    if (ev->prev != 0 && !event_record_in_range(ev->prev)) {
+        return 0;
+    }
+    if (ev->next != 0 && !event_record_in_range(ev->next)) {
+        return 0;
+    }
+    return 1;
+}
+
+static void format_day_item_line(char *out,
+                                 unsigned char out_cap,
+                                 unsigned char selected,
+                                 unsigned char flags,
+                                 const char *text) {
+    unsigned char copy_len;
+
+    if (out_cap <= DAY_ROW_PREFIX_LEN) {
+        if (out_cap > 0) {
+            out[0] = 0;
+        }
+        return;
+    }
+
+    out[0] = selected ? '>' : ' ';
+    out[1] = ' ';
+    out[2] = '[';
+    out[3] = (flags & EVT_FLAG_DONE) ? 'X' : ' ';
+    out[4] = ']';
+    out[5] = ' ';
+    out[6] = 0;
+
+    copy_len = (unsigned char)(out_cap - 1 - DAY_ROW_PREFIX_LEN);
+    strncat(out, text, copy_len);
+}
+
 /*---------------------------------------------------------------------------
  * Day cache and CRUD
  *---------------------------------------------------------------------------*/
@@ -1218,6 +1301,7 @@ static void clamp_day_selection(void) {
 
 static unsigned char load_day_cache(unsigned int doy) {
     unsigned int rec;
+    unsigned int traversal_budget;
     unsigned char count;
     EventRec ev;
 
@@ -1227,10 +1311,21 @@ static unsigned char load_day_cache(unsigned int doy) {
     day_cache_capped = 0;
 
     rec = day_head[doy - 1];
+    traversal_budget = active_event_traversal_budget();
     count = 0;
 
     while (rec != 0 && count < MAX_DAY_ITEMS) {
+        if (!event_record_in_range(rec) || traversal_budget == 0) {
+            set_status("BAD DAY CHAIN", TUI_COLOR_LIGHTRED);
+            return 1;
+        }
+        --traversal_budget;
+
         if (read_event(rec, &ev) != 0) return 1;
+        if (!validate_active_event_link(doy, rec, &ev)) {
+            set_status("BAD DAY CHAIN", TUI_COLOR_LIGHTRED);
+            return 1;
+        }
 
         day_item_rec[count] = rec;
         day_item_flags[count] = ev.flags;
@@ -1515,6 +1610,7 @@ static unsigned char build_upcoming_page(unsigned int page) {
     unsigned int skip;
     unsigned int doy;
     unsigned int rec;
+    unsigned int traversal_budget;
     EventRec ev;
 
     upcoming_count = 0;
@@ -1523,11 +1619,22 @@ static unsigned char build_upcoming_page(unsigned int page) {
     upcoming_has_more = 0;
 
     skip = page * UPCOMING_PAGE_SIZE;
+    traversal_budget = active_event_traversal_budget();
 
     for (doy = today_doy; doy <= CAL_DAYS; ++doy) {
         rec = day_head[doy - 1];
         while (rec != 0) {
+            if (!event_record_in_range(rec) || traversal_budget == 0) {
+                set_status("BAD UPCOMING CHAIN", TUI_COLOR_LIGHTRED);
+                return 1;
+            }
+            --traversal_budget;
+
             if (read_event(rec, &ev) != 0) return 1;
+            if (!validate_active_event_link(doy, rec, &ev)) {
+                set_status("BAD UPCOMING CHAIN", TUI_COLOR_LIGHTRED);
+                return 1;
+            }
 
             if ((ev.flags & EVT_FLAG_DONE) == 0) {
                 if (skip > 0) {
@@ -1643,7 +1750,9 @@ static unsigned char format_week_task_label(unsigned int doy, char *out, unsigne
 
     rec = day_head[doy - 1];
     if (rec == 0) return 1;
+    if (!event_record_in_range(rec)) return 1;
     if (read_event(rec, &ev) != 0) return 1;
+    if (!validate_active_event_link(doy, rec, &ev)) return 1;
 
     out[0] = 0;
     idx = 0;
@@ -1874,7 +1983,7 @@ static void draw_month_view(void) {
         tui_puts_n(0, 22, "press l to load calandar items", 38, TUI_COLOR_LIGHTGREEN);
     }
 
-    tui_puts(0, 23, "ARROWS:DAY ,/.:MONTH RET:DAY F5:HELP F7:NEXT", TUI_COLOR_GRAY3);
+    tui_puts(0, 23, "ARROWS:DAY ,/.:MONTH RET:DAY F7:NEXT F8:HELP", TUI_COLOR_GRAY3);
     draw_status_line();
 }
 
@@ -1897,14 +2006,14 @@ static void draw_week_view(void) {
         draw_week_row_from_cache(start, i, (unsigned char)(doy == selected_doy));
     }
 
-    tui_puts(0, 23, "ARROWS:NAV RET:DAY F5:HELP F7:NEXT ,/.:WEEK", TUI_COLOR_GRAY3);
+    tui_puts(0, 23, "ARROWS:NAV RET:DAY F7:NEXT ,/.:WEEK F8:HELP", TUI_COLOR_GRAY3);
     draw_status_line();
 }
 
 static void draw_day_view(void) {
     unsigned char i;
     unsigned char row;
-    char line[40];
+    char line[DAY_ROW_VISIBLE_WIDTH + 1];
 
     tui_clear(TUI_COLOR_BLUE);
     draw_common_header("DAY");
@@ -1928,15 +2037,10 @@ static void draw_day_view(void) {
         tui_clear_line((unsigned char)(LIST_TOP + row), 0, 40, TUI_COLOR_WHITE);
         if (i >= day_item_count) continue;
 
-        line[0] = (i == day_sel) ? '>' : ' ';
-        line[1] = ' ';
-        line[2] = '[';
-        line[3] = (day_item_flags[i] & EVT_FLAG_DONE) ? 'X' : ' ';
-        line[4] = ']';
-        line[5] = ' ';
-        line[6] = 0;
-
-        strcat(line, day_item_text[i]);
+        format_day_item_line(line, sizeof(line),
+                             (unsigned char)(i == day_sel),
+                             day_item_flags[i],
+                             day_item_text[i]);
 
         tui_puts_n(0, (unsigned char)(LIST_TOP + row), line, 40,
                    (day_item_flags[i] & EVT_FLAG_DONE) ? TUI_COLOR_GRAY2 : TUI_COLOR_WHITE);
@@ -1954,7 +2058,7 @@ static void draw_day_view(void) {
         tui_puts(2, 21, "DAY LIST CAPPED (32)", TUI_COLOR_YELLOW);
     }
 
-    tui_puts(0, 23, "N:NEW RET:EDIT DEL:DEL SPC:DONE +/-:MOVE F1/F3 CPY/PST F5:HELP", TUI_COLOR_GRAY3);
+    tui_puts(0, 23, "N:NEW RET:EDIT DEL:DEL +/- MOVE F1/F3 CPY/PST F8:HELP", TUI_COLOR_GRAY3);
     draw_status_line();
 }
 
@@ -2008,7 +2112,7 @@ static void draw_upcoming_view(void) {
         tui_puts(2, 8, "NO UPCOMING ITEMS", TUI_COLOR_GRAY3);
     }
 
-    tui_puts(0, 23, "UP/DN:SEL RET:JUMP ,/.:PAGE F5:HELP F7:NEXT", TUI_COLOR_GRAY3);
+    tui_puts(0, 23, "UP/DN:SEL RET:JUMP ,/.:PAGE F7:NEXT F8:HELP", TUI_COLOR_GRAY3);
     draw_status_line();
 }
 
@@ -2098,8 +2202,9 @@ static void handle_global_keys(unsigned char key, unsigned char *handled) {
 
     if (key == 'l' || key == 'L') {
         suppress_load_prompt = 1;
+        begin_load_indicator();
         load_calendar_storage(0);
-        redraw();
+        end_load_indicator();
         return;
     }
 
@@ -2108,8 +2213,9 @@ static void handle_global_keys(unsigned char key, unsigned char *handled) {
             redraw();
             return;
         }
+        begin_load_indicator();
         rebuild_calendar_storage();
-        redraw();
+        end_load_indicator();
         return;
     }
 
@@ -2124,7 +2230,7 @@ static void handle_global_keys(unsigned char key, unsigned char *handled) {
         return;
     }
 
-    if (key == TUI_KEY_F5) {
+    if (key == TUI_KEY_F8) {
         show_help_screen();
         redraw();
         return;
@@ -2523,11 +2629,15 @@ static unsigned char load_calendar_storage(unsigned char preserve_trace) {
     storage_loaded = 1;
 
     if (load_day_cache(selected_doy) != 0) {
-        set_status("LOAD WARN: DAY CACHE", TUI_COLOR_LIGHTRED);
+        if (status_msg[0] == 0) {
+            set_status("LOAD WARN: DAY CACHE", TUI_COLOR_LIGHTRED);
+        }
         return 1;
     }
     if (build_upcoming_page(0) != 0) {
-        set_status("LOAD WARN: UPCOMING", TUI_COLOR_LIGHTRED);
+        if (status_msg[0] == 0) {
+            set_status("LOAD WARN: UPCOMING", TUI_COLOR_LIGHTRED);
+        }
         return 1;
     }
 

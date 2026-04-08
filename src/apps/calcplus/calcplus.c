@@ -1559,7 +1559,7 @@ static void draw_mode_indicator(void) {
 }
 
 static void draw_help(void) {
-    tui_puts_n(0, HELP_Y, "F1:CPY F3:PST F5:HELP F6:ANG F7:MODE", 39, TUI_COLOR_GRAY3);
+    tui_puts_n(0, HELP_Y, "F1:CPY F3:PST F6:ANG F7:MODE F8:HELP", 39, TUI_COLOR_GRAY3);
     tui_puts_n(0, HELP_Y + 1, "CLR:; ST:$A $A=1 ENT UP/DN", 39, TUI_COLOR_GRAY3);
 }
 
@@ -1574,7 +1574,7 @@ static void show_help_screen(void) {
     tui_puts_n(1, 8, "CLR PREFIX: ;expr", 38, TUI_COLOR_LIGHTGREEN);
     tui_puts_n(1, 9, "EXP: ^ / UP-ARROW", 38, TUI_COLOR_LIGHTGREEN);
     tui_puts_n(1, 10, "VARS: ST $A OR $A=EXPR, USE $A", 38, TUI_COLOR_LIGHTGREEN);
-    tui_puts_n(1, 11, "F1 COPY  F3 PASTE  F5 HELP", 38, TUI_COLOR_WHITE);
+    tui_puts_n(1, 11, "F1 COPY  F3 PASTE  F8 HELP", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 12, "F6 ANGLE  F7 MODE", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 13, "ENTER EVAL  UP/DOWN HISTORY", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 14, "F2/F4 APPS  CTRL+B HOME", 38, TUI_COLOR_WHITE);
@@ -1940,7 +1940,7 @@ static unsigned char handle_key(unsigned char key) {
         }
         return (REDRAW_EDITOR | REDRAW_STATUS);
     }
-    if (key == TUI_KEY_F5) {
+    if (key == TUI_KEY_F8) {
         show_help_screen();
         return REDRAW_NONE;
     }

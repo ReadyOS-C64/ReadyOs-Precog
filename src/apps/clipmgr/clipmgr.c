@@ -329,7 +329,7 @@ static void draw_detail(void) {
 }
 
 static void draw_help(void) {
-    tui_puts(0, HELP_Y, "RET:VIEW F5:LOAD F6:SAVE SET DEL:DEL", TUI_COLOR_GRAY3);
+    tui_puts(0, HELP_Y, "RET:VIEW F5:SAVE SET F7:LOAD DEL:DEL", TUI_COLOR_GRAY3);
     tui_puts(0, HELP_Y + 1, "C:CLEAR ALL F2/F4:APPS CTRL+B:HOME", TUI_COLOR_GRAY3);
 }
 
@@ -882,7 +882,7 @@ static void draw_save_select_header(unsigned int select_mask) {
 
 static void draw_save_select_help(void) {
     tui_puts(0, HELP_Y, "SPC:TOGGLE A:ALL C:CLEAR RET:FILENAME", TUI_COLOR_GRAY3);
-    tui_puts(0, HELP_Y + 1, "F6:SAVE STOP:BACK CTRL+B:HOME", TUI_COLOR_GRAY3);
+    tui_puts(0, HELP_Y + 1, "F5:SAVE STOP:BACK CTRL+B:HOME", TUI_COLOR_GRAY3);
 }
 
 static void draw_save_select_screen(unsigned char cursor, unsigned char scroll,
@@ -970,7 +970,7 @@ static unsigned char show_save_select_dialog(unsigned int *select_mask_out) {
             select_mask = 0u;
             continue;
         }
-        if (key == TUI_KEY_RETURN || key == TUI_KEY_F6) {
+        if (key == TUI_KEY_RETURN || key == TUI_KEY_F5) {
             if (selection_count(select_mask, count) == 0u) {
                 show_message("SELECT ITEMS", TUI_COLOR_LIGHTRED);
                 continue;
@@ -1253,7 +1253,7 @@ static void clipmgr_loop(void) {
                 }
                 break;
 
-            case TUI_KEY_F5:
+            case TUI_KEY_F7:
                 sel_idx = show_open_dialog();
                 if (sel_idx != 255) {
                     tui_clear(TUI_COLOR_BLUE);
@@ -1289,7 +1289,7 @@ static void clipmgr_loop(void) {
                 clipmgr_draw();
                 break;
 
-            case TUI_KEY_F6:
+            case TUI_KEY_F5:
                 if (count == 0 || selected >= count) {
                     show_message("CLIPBOARD EMPTY", TUI_COLOR_LIGHTRED);
                     clipmgr_draw();

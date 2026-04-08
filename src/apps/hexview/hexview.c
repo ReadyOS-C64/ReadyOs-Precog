@@ -159,7 +159,7 @@ static void draw_hex_static(void) {
     draw_char_mode_label();
 
     /* Help */
-    tui_puts(1, HELP_Y, "UP/DN:SCROLL C:COPY F5:HELP F6:MODE",
+    tui_puts(1, HELP_Y, "UP/DN:SCROLL C:COPY F6:MODE F8:HELP",
              TUI_COLOR_GRAY3);
     tui_puts(1, HELP_Y + 1, "F2/F4:APPS ^B:HOME STOP:QUIT",
              TUI_COLOR_GRAY3);
@@ -241,7 +241,7 @@ static void handle_hex_key(unsigned char key) {
             }
             break;
 
-        case TUI_KEY_F5:
+        case TUI_KEY_F8:
             show_help_screen();
             break;
 
@@ -317,7 +317,7 @@ static void show_help_screen(void) {
     tui_puts_n(1, 11, "A0-FF -> FOLDED TO BASE GLYPHS", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 13, "SCR MODE: NO SUBSTITUTION,", 38, TUI_COLOR_CYAN);
     tui_puts_n(1, 14, "BYTE WRITTEN DIRECTLY AS SCREEN CODE.", 38, TUI_COLOR_WHITE);
-    tui_puts_n(1, 16, "F5 OR ANY KEY: RETURN", 38, TUI_COLOR_YELLOW);
+    tui_puts_n(1, 16, "F8 OR ANY KEY: RETURN", 38, TUI_COLOR_YELLOW);
     (void)tui_getkey();
 
     draw_hex_static();

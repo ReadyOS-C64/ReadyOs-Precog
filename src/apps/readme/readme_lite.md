@@ -1,11 +1,11 @@
-## ReadyOS PRECOG 0.1.7
+## ReadyOS PRECOG 0.1.8
 
 The goal is **fast app switching** for Commodore 64 Ultimate use,
 tuned to stay usable at both 1MHz and 48MHz while remaining
 C64-class practical.
 
 Current snapshot:
-- Base release: **0.1.7**
+- Base release: **0.1.8**
 - Runtime target: clean behavior from stock-speed C64 use up through
   Ultimate turbo workflows
 - Media layout: two `D71` disks, `readyos.d71` on drive 8 and

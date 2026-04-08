@@ -3,7 +3,7 @@
 
 const char *const readme_page_line_text[README_PAGE_COUNT][README_LINES_PER_PAGE] = {
     {
-        "ReadyOS PRECOG 0.1.7",
+        "ReadyOS PRECOG 0.1.8",
         "",
         "The goal is ~Bfast app switching~B for",
         "Commodore 64 Ultimate use,",
@@ -12,7 +12,7 @@ const char *const readme_page_line_text[README_PAGE_COUNT][README_LINES_PER_PAGE
         "C64-class practical.",
         "",
         "Current snapshot:",
-        "* Base release: ~B0.1.7~B",
+        "* Base release: ~B0.1.8~B",
         "* Runtime target: clean behavior from",
         "  stock-speed C64 use up through",
         "Ultimate turbo workflows",

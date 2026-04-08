@@ -711,6 +711,26 @@ static void end_save_indicator(unsigned char ok) {
     draw_status_now();
 }
 
+static void draw_screen(void);
+
+static void begin_load_indicator(void) {
+    TuiRect win;
+
+    draw_screen();
+
+    win.x = 12;
+    win.y = 9;
+    win.w = 16;
+    win.h = 5;
+
+    tui_window_title(&win, "LOADING", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
+    tui_puts(14, 11, "PLEASE WAIT", TUI_COLOR_WHITE);
+}
+
+static void end_load_indicator(void) {
+    draw_screen();
+}
+
 static unsigned char is_digit_ch(char c) {
     return (unsigned char)(c >= '0' && c <= '9');
 }
@@ -1877,7 +1897,7 @@ static void draw_help(void) {
         return;
     }
     tui_puts_n(0, HELP1_Y, "F1:NEW RET:EDIT +/-:MOVE ,/.:REORDER", 40, TUI_COLOR_GRAY3);
-    tui_puts_n(0, HELP2_Y, "DEL:DELETE /:SEARCH F5:HELP L/R F2/F4", 40, TUI_COLOR_GRAY3);
+    tui_puts_n(0, HELP2_Y, "DEL:DELETE /:SEARCH F6/F7 VIEW F8:HELP", 40, TUI_COLOR_GRAY3);
 }
 
 static void show_help_screen(void) {
@@ -1894,7 +1914,7 @@ static void show_help_screen(void) {
     tui_puts_n(1, 11, "/: SEARCH  C: CLEAR SEARCH", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 12, "F7: CYCLE FOCUS COLUMN", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 13, "L:LOAD R:REBLD", 38, TUI_COLOR_WHITE);
-    tui_puts_n(1, 14, "F2/F4: SWITCH APPS", 38, TUI_COLOR_WHITE);
+    tui_puts_n(1, 14, "F8: HELP  F2/F4: SWITCH APPS", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 15, "CTRL+B: HOME/RETURN", 38, TUI_COLOR_WHITE);
     tui_puts_n(1, 16, "PRESS ANY KEY TO RETURN", 38, TUI_COLOR_CYAN);
     (void)tui_getkey();
@@ -2019,17 +2039,20 @@ static void dizzy_loop(void) {
         if (handle_global_switch(key)) continue;
 
         if (key == 'l' || key == 'L') {
+            begin_load_indicator();
             (void)load_dizzy_storage(0);
-            draw_screen();
+            end_load_indicator();
             continue;
         }
         if (key == 'r' || key == 'R') {
             if (confirm_popup("REBUILD BOARD?")) {
+                begin_load_indicator();
                 (void)rebuild_dizzy_storage();
+                end_load_indicator();
             } else {
                 set_status("CANCELLED", TUI_COLOR_GRAY3);
+                draw_screen();
             }
-            draw_screen();
             continue;
         }
 
@@ -2202,7 +2225,7 @@ static void dizzy_loop(void) {
                 set_status("FILTER CLEARED", TUI_COLOR_LIGHTGREEN);
                 break;
 
-            case TUI_KEY_F5:
+            case TUI_KEY_F8:
                 show_help_screen();
                 break;
 
