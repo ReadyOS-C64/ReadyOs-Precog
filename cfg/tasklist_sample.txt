@@ -1,0 +1,4 @@
+00 inbox
+>call mom
+>tag #home
+11 ship release #work

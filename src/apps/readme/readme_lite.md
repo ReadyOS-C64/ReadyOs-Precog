@@ -8,8 +8,8 @@ Current snapshot:
 - Base release: **0.1.8**
 - Runtime target: clean behavior from stock-speed C64 use up through
   Ultimate turbo workflows
-- Media layout: two `D71` disks, `readyos.d71` on drive 8 and
-  `readyos_2.d71` on drive 9
+- Media layout: profile-based release media with external `helpme.md`
+  instructions for the selected build
 - New since 0.1.5: **quicknotes**, **simple files**, **simple cells**,
   and **deminer**
 
@@ -70,8 +70,8 @@ Key attributes:
 - Deep links between apps to specific views or contexts.
 - Hardware-friendly speed scaling for stable UI/input behavior across
   slower and faster machines.
-- Dual-disk layout so boot-side apps and the larger app set can be
-  split cleanly across drive 8 and drive 9.
+- Profile-based disk layout so the same ReadyOS runtime can ship as
+  dual-d71, d81, or dual-d64 media.
 - UltimateBuddy can extend launch/control workflows when present,
   while ReadyOS remains fully usable without it.
 
@@ -134,12 +134,13 @@ Recent additions:
   suspend/resume flow.
 
 Disk layout:
-- `readyos.d71` is drive 8.
-- `readyos_2.d71` is drive 9.
+- The exact disk image names depend on the selected build profile.
+- Drive assignments are documented in the external profile `helpme.md`.
 
-### Drive 8 Apps
+### Boot-Side Apps
 
-These are the boot-side and utility-side apps on `readyos.d71`.
+These are the launcher, boot chain, and utility-side apps that live on
+the primary ReadyOS disk for multi-disk profiles.
 
 ### Quicknotes
 
@@ -180,9 +181,10 @@ Current limitation:
 - the current build can crash on the third entry after repeated
   app switching, so treat it as a fragile demo
 
-### Drive 9 Apps
+### Secondary-Disk Apps
 
-These live on `readyos_2.d71`, the second ReadyOS app disk.
+These are the larger application-side programs for multi-disk
+profiles. Single-disk profiles place them on the main release disk.
 
 ### Editor
 

@@ -23,6 +23,8 @@ BOOT_DIR = src/boot
 GEN_DIR = src/generated
 BUILD_SUPPORT_DIR ?= build_support
 VICE_DEBUG_TOOLS_DIR ?= ../agenticdevharness/tools
+PROFILE ?= precog-dual-d71
+PROFILE_CATALOG_SRC = $(shell $(PYTHON) $(BUILD_SUPPORT_DIR)/readyos_profiles.py catalog-source --profile $(PROFILE))
 
 # Flags for standard C64 programs (load at $0801)
 # Note: -Osir causes cc65 optimizer crashes, disabled for now
@@ -85,13 +87,15 @@ DISK2 = readyos_2.d71
 XFILECHK_DISK1 = $(HARNESS_OUT_DIR)/xfilechk.d71
 XFILECHK_DISK2 = $(HARNESS_OUT_DIR)/xfilechk_2.d71
 DISK = $(DISK1)
-READYOS_CONFIG_SRC ?= cfg/readyos_config.ini
+READYOS_CONFIG_SRC ?= $(PROFILE_CATALOG_SRC)
 READYOS_CONFIG_LOAD_ALL ?=
 READYOS_CONFIG_RUN_FIRST ?=
 CATALOG_SRC = $(READYOS_CONFIG_SRC)
 CATALOG_SEQ = $(OBJ_DIR)/apps_cfg_petscii.seq
 EDITOR_HELP_SRC = cfg/editor_help.txt
 EDITOR_HELP_SEQ = $(OBJ_DIR)/editor_help.seq
+TASKLIST_SAMPLE_SRC = cfg/tasklist_sample.txt
+TASKLIST_SAMPLE_SEQ = $(OBJ_DIR)/tasklist_sample.seq
 XFILECHK_SRC8_TXT = cfg/xfilechk_src8.txt
 XFILECHK_SRC8_SEQ = $(OBJ_DIR)/xfilechk_src8.seq
 XFILECHK_TESTA_TXT = cfg/xfilechk_testa.txt
@@ -221,20 +225,28 @@ LIB_DIZZY = $(TUI_BASE_INPUT_NAV) $(TUI_HOTKEY_SRC) $(REU_DMA_SRC) $(RESUME_STAT
 LIB_README = $(TUI_BASE_NAV_MISC) $(TUI_HOTKEY_SRC) $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 LIB_READYSHELL = $(REU_DMA_SRC) $(RESUME_STATE_SRC)
 
+# Primary binaries shared across profiles
+PROGRAMS = $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $(QUICKNOTES) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(DEMINER) $(CAL26) $(DIZZY) $(READMEAPP) $(READYSHELL)
+
 # Default target
-all: $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $(QUICKNOTES) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(DEMINER) $(CAL26) $(DIZZY) $(READMEAPP) $(READYSHELL) $(DISK1) $(DISK2)
+all: profile
 	@echo ""
 	@echo "=== Build complete ==="
-	@ls -la *.prg $(DISK1) $(DISK2)
+	@VERSION_TEXT=$$($(PYTHON) $(BUILD_SUPPORT_DIR)/update_build_version.py --current); \
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/readyos_profiles.py resolve --profile "$(PROFILE)" --version "$$VERSION_TEXT"
 
 # Boot loader (assembly version for size control)
-$(BOOT): $(BOOT_DIR)/boot_asm.s $(VERSION_ASM_INC) $(CATALOG_SEQ)
+$(BOOT): $(BOOT_DIR)/boot_asm.s $(VERSION_ASM_INC) $(VARIANT_ASM_INC) $(CATALOG_SEQ)
 	$(AS) -o obj/boot.o $<
 	$(LD) -C $(CFG_DIR)/boot_asm.cfg -o $@ obj/boot.o
 
-# C64 BASIC preboot loader (sets D71 mode then chains to boot)
-$(PREBOOT): $(BOOT_DIR)/preboot.bas
-	$(PETCAT) -w2 -o $@ $<
+# Variant asm include is generated as a side effect of apps.cfg generation.
+$(VARIANT_ASM_INC): $(CATALOG_SEQ)
+	@test -f $@
+
+# C64 BASIC preboot loader is profile-sensitive.
+$(PREBOOT): FORCE $(BUILD_SUPPORT_DIR)/readyos_profiles.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/readyos_profiles.py write-preboot --profile "$(PROFILE)" --output $@
 
 # C64 BASIC helper to issue U0>M1 and run boot
 $(SETD71): $(BOOT_DIR)/setd71.bas
@@ -250,7 +262,7 @@ $(SHOWCFG): $(BOOT_DIR)/showcfg.bas
 	$(PETCAT) -w2 -o $@ $<
 
 # Build apps.cfg payload from sectioned config source
-$(CATALOG_SEQ): $(CATALOG_SRC) $(BUILD_SUPPORT_DIR)/build_apps_catalog_petscii.py
+$(CATALOG_SEQ): FORCE $(CATALOG_SRC) $(BUILD_SUPPORT_DIR)/build_apps_catalog_petscii.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_apps_catalog_petscii.py --input $(CATALOG_SRC) --output $@ \
 		--variant-asm-output $(VARIANT_ASM_INC) \
 		$(if $(strip $(READYOS_CONFIG_LOAD_ALL)),--override-load-all $(READYOS_CONFIG_LOAD_ALL),) \
@@ -265,6 +277,9 @@ $(XFILECHK_SRC8_SEQ): $(XFILECHK_SRC8_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lo
 
 $(XFILECHK_TESTA_SEQ): $(XFILECHK_TESTA_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(XFILECHK_TESTA_TXT) --output $@
+
+$(TASKLIST_SAMPLE_SEQ): $(TASKLIST_SAMPLE_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(TASKLIST_SAMPLE_SRC) --output $@
 
 # Test REU program (standalone)
 $(TEST_REU): $(SRC_DIR)/test_reu.c
@@ -484,6 +499,35 @@ $(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKL
 	@$(C1541) $@ -list
 endif
 
+# Version preparation shared by direct make and run scripts.
+prepare-version:
+ifeq ($(strip $(READYOS_VERSION_TEXT)),)
+	@$(PYTHON) $(BUILD_SUPPORT_DIR)/update_build_version.py --next >/dev/null
+else
+	@$(PYTHON) $(BUILD_SUPPORT_DIR)/update_build_version.py --write "$(READYOS_VERSION_TEXT)" >/dev/null
+endif
+
+programs: prepare-version $(PROGRAMS)
+
+profiles:
+	@$(PYTHON) $(BUILD_SUPPORT_DIR)/readyos_profiles.py list-ids
+
+profile: programs
+	@VERSION_TEXT=$$($(PYTHON) $(BUILD_SUPPORT_DIR)/update_build_version.py --current); \
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/readyos_profiles.py build-release \
+		--profile "$(PROFILE)" \
+		--version "$$VERSION_TEXT" \
+		--catalog-source "$(READYOS_CONFIG_SRC)" \
+		$(if $(strip $(READYOS_CONFIG_LOAD_ALL)),--override-load-all "$(READYOS_CONFIG_LOAD_ALL)",) \
+		$(if $(strip $(READYOS_CONFIG_RUN_FIRST)),--override-run-first "$(READYOS_CONFIG_RUN_FIRST)",)
+
+release-all: prepare-version
+	@VERSION_TEXT=$$($(PYTHON) $(BUILD_SUPPORT_DIR)/update_build_version.py --current); \
+	for profile in $$($(PYTHON) $(BUILD_SUPPORT_DIR)/readyos_profiles.py list-ids); do \
+		echo "==> $$profile ($$VERSION_TEXT)"; \
+		$(MAKE) PROFILE="$$profile" READYOS_VERSION_TEXT="$$VERSION_TEXT" profile; \
+	done
+
 # Clean
 clean:
 	rm -f $(OBJ_DIR)/*.o
@@ -492,6 +536,7 @@ clean:
 	rm -f $(CATALOG_SEQ)
 	rm -f $(VARIANT_ASM_INC)
 	rm -f $(EDITOR_HELP_SEQ)
+	rm -f $(TASKLIST_SAMPLE_SEQ)
 	rm -f *.prg
 	rm -f $(READYSHELL_OVL1_PRG) $(READYSHELL_OVL2_PRG) $(READYSHELL_OVL3_PRG) \
 		$(READYSHELL_OVL4_PRG) $(READYSHELL_OVL5_PRG) $(READYSHELL_OVL6_PRG) \
@@ -499,10 +544,12 @@ clean:
 	rm -f $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK)
 	rm -f *.d64
 	rm -f *.d71
+	rm -f *.d81
+	rm -rf release
 
 # Verify all generated binaries and memory layout constraints
-verify: all
-	python3 verify.py
+verify: profile
+	python3 verify.py --profile "$(PROFILE)"
 	python3 $(BUILD_SUPPORT_DIR)/editor_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/simplefiles_host_smoke.py
@@ -510,12 +557,7 @@ verify: all
 	python3 $(BUILD_SUPPORT_DIR)/verify_memory_map.py
 
 # Full rebuild + deep verification
-fullcheck: clean all
-	python3 verify.py
-	python3 $(BUILD_SUPPORT_DIR)/editor_host_smoke.py
-	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
-	python3 $(BUILD_SUPPORT_DIR)/verify_resume_contract.py
-	python3 $(BUILD_SUPPORT_DIR)/verify_memory_map.py
+fullcheck: clean verify
 
 # Warm-resume contract checks only
 verify-resume:
@@ -539,8 +581,8 @@ tasklist-smoke-host:
 	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
 
 # Run Ready OS (boot loader)
-run: $(DISK1) $(DISK2)
-	x64sc -reu -reusize 16384 -drive8type 1571 -drive8truedrive -devicebackend8 0 +busdevice8 -drive9type 1571 -drive9truedrive -devicebackend9 0 +busdevice9 -8 $(DISK1) -9 $(DISK2) -autostartprgmode 1 $(PREBOOT)
+run:
+	bash ./run.sh --profile "$(PROFILE)"
 
 # Run test_reu standalone
 run-test: $(TEST_REU)
@@ -551,7 +593,11 @@ help:
 	@echo "Ready OS Build System"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all         - Build all programs and both disk images (default)"
+	@echo "  all         - Build the selected profile release package (default)"
+	@echo "  profiles    - List available build/run profiles"
+	@echo "  profile     - Build one profile under release/<profile>"
+	@echo "                Use PROFILE=<id> (default: $(PROFILE))"
+	@echo "  release-all - Build every release profile with one version stamp"
 	@echo "  clean       - Remove built files"
 	@echo "  verify      - Build and run deep binary verification"
 	@echo "                (includes hard memory-map gate)"
@@ -561,7 +607,7 @@ help:
 	@echo "  tasklist-smoke-host - Run Tasklist host-side smoke checks"
 	@echo "  seed-cal26  - Seed CAL26 REL files on readyos.d71 with sample events"
 	@echo "  launcher-verbose - Rebuild launcher with verbose config diagnostics"
-	@echo "  run         - Run Ready OS in VICE"
+	@echo "  run         - Run Ready OS through run.sh for PROFILE=<id>"
 	@echo "  run-test    - Run REU test in VICE"
 	@echo "  $(XFILECHK) - Build standalone IEC file-operation harness"
 	@echo "  $(XFILECHK_DISK1) - Build standalone IEC harness boot/program disk"
@@ -586,8 +632,10 @@ help:
 	@echo "  readme.prg   - Project README app (loads at \$$1000)"
 	@echo "  readyshell.prg - ReadyShell app (loads at \$$1000, overlays rsovl1/2/3 on disk 1)"
 	@echo "  $(XFILECHK) - Standalone IEC file-operation harness (loads at \$$0801)"
-	@echo "  readyos.d71   - Disk 1 (boot/launcher/showcfg/quicknotes/deminer/cal26/dizzy/readyshell/rsovl1-3/apps.cfg/editor help)"
-	@echo "  readyos_2.d71 - Disk 2 (editor/calcplus/hexview/clipmgr/reuviewer/tasklist/simplefiles/simplecells/2048/readme)"
+	@echo "  release/<profile>/readyos-v<version>-<kind>[_n].<ext>"
+	@echo "              - Versioned disk images for the selected profile"
+	@echo "  release/<profile>/helpme.md"
+	@echo "              - Profile-specific run instructions"
 	@echo "  $(XFILECHK_DISK1) - Standalone harness drive 8 disk (boot+harness+src fixture)"
 	@echo "  $(XFILECHK_DISK2) - Standalone harness drive 9 disk (test fixture)"
 
@@ -605,4 +653,4 @@ probe-rel:
 launcher-verbose:
 	$(MAKE) LAUNCHER_CFG_VERBOSE=1 $(LAUNCHER)
 
-.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-parse-smoke-host editor-smoke-host tasklist-smoke-host FORCE
+.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-parse-smoke-host editor-smoke-host tasklist-smoke-host programs prepare-version profile profiles release-all FORCE

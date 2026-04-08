@@ -11,14 +11,20 @@ Performs structural shim checks plus deep binary/layout checks:
 - app headroom warnings near the $C5FF snapshot ceiling
 """
 
+import argparse
 import os
 import re
 import struct
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+ROOT = Path(__file__).resolve().parent
+os.chdir(ROOT)
+sys.path.insert(0, str(ROOT / "build_support"))
+
+import readyos_profiles
 
 
 APP_PRGS = [
@@ -55,10 +61,6 @@ SHIM_START = 0xC800
 SHIM_END = 0xC9FF
 IO_START = 0xD000
 APP_HEADROOM_WARN = 1024
-DISK_8 = "readyos.d71"
-DISK_9 = "readyos_2.d71"
-
-
 def parse_env_int(name, default):
     raw = os.environ.get(name)
     if raw is None:
@@ -448,6 +450,21 @@ def parse_apps_catalog_bytes(raw):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--profile", default=os.environ.get("PROFILE"),
+                    help="ReadyOS release profile to verify")
+    args = ap.parse_args()
+
+    profile_id = args.profile or readyos_profiles.default_profile_id()
+    profile = readyos_profiles.load_profile(profile_id)
+    runtime_manifest = readyos_profiles.resolve_profile(profile_id, None, latest=True)
+    catalog_source = runtime_manifest["catalog_source"]
+    disks_by_index = {int(item["index"]): item for item in runtime_manifest["disks"]}
+    disks_by_drive = {int(item["drive"]): item for item in runtime_manifest["disks"]}
+    drive8_disk = disks_by_drive.get(8)
+    drive_set = set(disks_by_drive.keys())
+    boot_prgs = runtime_manifest.get("boot_prgs", [])
+
     all_ok = True
 
     # --- Boot.prg ---
@@ -480,6 +497,37 @@ def main():
     boot_end = boot_load_addr + boot_payload - 1
     all_ok &= check("Boot image stays below app RAM", boot_end < APP_LOAD_START,
                     f"${boot_load_addr:04X}-${boot_end:04X} (app starts at ${APP_LOAD_START:04X})")
+
+    # --- Release Boot Chain Contract ---
+    print("\n=== Release Boot Chain Contract ===")
+    expected_variant = str(runtime_manifest.get("variant_boot_name", "")).encode("utf-8")
+    autostart_path = runtime_manifest.get("autostart_prg")
+    autostart_disk_prg = runtime_manifest.get("autostart_disk_prg")
+    all_ok &= check("manifest has boot_prgs", len(boot_prgs) >= 2, f"{len(boot_prgs)} entries")
+    for boot_prg in boot_prgs:
+        boot_path = str(boot_prg.get("path", ""))
+        all_ok &= check(f"boot prg exists: {Path(boot_path).name}", os.path.exists(boot_path), boot_path)
+    if autostart_path:
+        all_ok &= check("manifest autostart exists", os.path.exists(autostart_path), str(autostart_path))
+    if autostart_disk_prg:
+        all_ok &= check("manifest autostart disk prg is preboot", Path(str(autostart_disk_prg)).name == "preboot.prg",
+                        str(autostart_disk_prg))
+    release_boot_path = None
+    for boot_prg in boot_prgs:
+        if str(boot_prg.get("stem")) == "boot":
+            release_boot_path = str(boot_prg.get("path"))
+            break
+    if release_boot_path is None:
+        all_ok &= check("release boot prg listed", False)
+    else:
+        try:
+            release_boot = Path(release_boot_path).read_bytes()
+        except FileNotFoundError:
+            all_ok &= check("release boot prg readable", False, release_boot_path)
+        else:
+            all_ok &= check("release boot embeds expected variant text",
+                            expected_variant in release_boot,
+                            runtime_manifest.get("variant_boot_name", ""))
 
     # --- Jump Table ---
     print("\n=== Jump Table ($C800-$C817) ===")
@@ -703,7 +751,7 @@ def main():
         all_ok &= check("catalog rejects .prg extension", reject_prg_ext)
 
     try:
-        catalog_entries = parse_apps_catalog(os.path.join("cfg", "readyos_config.ini"))
+        catalog_entries = parse_apps_catalog(catalog_source)
     except (FileNotFoundError, ValueError) as ex:
         all_ok &= check("apps catalog parse", False, str(ex))
     else:
@@ -714,64 +762,62 @@ def main():
         all_ok &= check("catalog entries > 0", len(catalog_entries) > 0, f"{len(catalog_entries)} entries")
         all_ok &= check("catalog entries <= 23", len(catalog_entries) <= 23,
                         f"{len(catalog_entries)} entries")
-        all_ok &= check("catalog drives in 8..11", all(8 <= d <= 11 for d in drives), f"{drives}")
+        all_ok &= check("catalog drives map to profile drives", all(d in drive_set for d in drives), f"{drives}")
         all_ok &= check("catalog prg names non-empty", all(0 < len(p) <= 12 for p in prgs), f"{prgs}")
         all_ok &= check("catalog prg names unique", len(set(prgs)) == len(prgs), f"{prgs}")
         all_ok &= check("catalog labels non-empty", all(len(l) > 0 for l in labels))
         all_ok &= check("catalog descriptions non-empty", all(len(d) > 0 for d in descs))
-        all_ok &= check("catalog includes cal26 on drive 8",
-                        any(e["prg"] == "cal26" and e["drive"] == 8 for e in catalog_entries))
-        all_ok &= check("catalog includes dizzy on drive 8",
-                        any(e["prg"] == "dizzy" and e["drive"] == 8 for e in catalog_entries))
-        try:
-            disk_catalog_raw = read_c1541_file_bytes(DISK_8, "apps.cfg,s")
-            disk_catalog_entries = parse_apps_catalog_bytes(disk_catalog_raw)
-        except ValueError as ex:
-            all_ok &= check("disk8 apps.cfg read/parse", False, str(ex))
+        if drive8_disk is None:
+            all_ok &= check("profile has drive 8 disk", False, profile_id)
         else:
-            all_ok &= check("disk8 apps.cfg bytes present", len(disk_catalog_raw) > 0, f"{len(disk_catalog_raw)} bytes")
-            all_ok &= check("disk8 apps.cfg entry count", len(disk_catalog_entries) == len(catalog_entries),
-                            f"disk={len(disk_catalog_entries)} src={len(catalog_entries)}")
-            all_ok &= check("disk8 apps.cfg mirrors source",
-                            disk_catalog_entries == catalog_entries)
+            try:
+                disk_catalog_raw = read_c1541_file_bytes(drive8_disk["path"], "apps.cfg,s")
+                disk_catalog_entries = parse_apps_catalog_bytes(disk_catalog_raw)
+            except ValueError as ex:
+                all_ok &= check("drive8 apps.cfg read/parse", False, str(ex))
+            else:
+                all_ok &= check("drive8 apps.cfg bytes present", len(disk_catalog_raw) > 0, f"{len(disk_catalog_raw)} bytes")
+                all_ok &= check("drive8 apps.cfg entry count", len(disk_catalog_entries) == len(catalog_entries),
+                                f"disk={len(disk_catalog_entries)} src={len(catalog_entries)}")
+                all_ok &= check("drive8 apps.cfg mirrors source",
+                                disk_catalog_entries == catalog_entries)
 
-    # --- Dual-disk content contract ---
-    print("\n=== Dual-Disk Content Contract ===")
-    try:
-        disk8 = read_c1541_listing(DISK_8)
-        disk9 = read_c1541_listing(DISK_9)
-    except ValueError as ex:
-        all_ok &= check("disk listing", False, str(ex))
-        disk8 = {}
-        disk9 = {}
-    if disk8 and disk9:
-        required_disk8 = {
-            "preboot": "prg",
-            "setd71": "prg",
-            "showcfg": "prg",
-            "boot": "prg",
-            "launcher": "prg",
-            "apps.cfg": "seq",
-        }
-        required_disk9 = {}
-        if catalog_entries is not None:
-            for entry in catalog_entries:
-                if entry["drive"] == 8:
-                    required_disk8[entry["prg"]] = "prg"
-                elif entry["drive"] == 9:
-                    required_disk9[entry["prg"]] = "prg"
-        for name, ftype in required_disk8.items():
-            all_ok &= check(f"disk8 has {name}", disk8.get(name) == ftype,
-                            f"type={disk8.get(name)} expect={ftype}")
-        for name, ftype in required_disk9.items():
-            all_ok &= check(f"disk9 has {name}", disk9.get(name) == ftype,
-                            f"type={disk9.get(name)} expect={ftype}")
-        all_ok &= check("disk8 has rsovl1", disk8.get("rsovl1") == "prg",
-                        f"type={disk8.get('rsovl1')} expect=prg")
-        all_ok &= check("disk8 has rsovl2", disk8.get("rsovl2") == "prg",
-                        f"type={disk8.get('rsovl2')} expect=prg")
-        all_ok &= check("disk8 has rsovl3", disk8.get("rsovl3") == "prg",
-                        f"type={disk8.get('rsovl3')} expect=prg")
+    # --- Profile disk content contract ---
+    print("\n=== Profile Disk Content Contract ===")
+    apps_on_catalog = {entry["prg"] for entry in catalog_entries or []}
+    known_apps = {name for name, _ in APP_PRGS}
+    for disk_meta in profile["disks"]:
+        disk_index = int(disk_meta["index"])
+        runtime_disk = disks_by_index.get(disk_index)
+        if runtime_disk is None:
+            all_ok &= check(f"profile disk {disk_index} exists in runtime manifest", False)
+            continue
+        try:
+            listing = read_c1541_listing(runtime_disk["path"])
+        except ValueError as ex:
+            all_ok &= check(f"disk {disk_index} listing", False, str(ex))
+            continue
+
+        for entry in disk_meta["contents"]:
+            name = str(entry["name"]).lower()
+            ftype = str(entry["type"]).lower()
+            if ftype == "prg" and name in known_apps and name not in apps_on_catalog:
+                continue
+            app_name = entry.get("app")
+            if app_name and str(app_name) not in apps_on_catalog:
+                continue
+            all_ok &= check(f"disk {disk_index} has {name}",
+                            listing.get(name) == ftype,
+                            f"type={listing.get(name)} expect={ftype}")
+
+        for op in disk_meta.get("post_build", []):
+            if op.get("type") == "seed_cal26_rel" and "cal26" in apps_on_catalog:
+                all_ok &= check(f"disk {disk_index} has cal26.rel",
+                                listing.get("cal26.rel") == "rel",
+                                f"type={listing.get('cal26.rel')} expect=rel")
+                all_ok &= check(f"disk {disk_index} has cal26cfg.rel",
+                                listing.get("cal26cfg.rel") == "rel",
+                                f"type={listing.get('cal26cfg.rel')} expect=rel")
 
     # --- Launcher shim patch contract ---
     print("\n=== Launcher Shim Patch Contract ===")

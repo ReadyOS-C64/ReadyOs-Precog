@@ -18,16 +18,17 @@ At a glance:
 - primary focus: Commodore 64 Ultimate workflows
 - practical secondary path: VICE with REU enabled
 - tuned to stay usable from `1MHz` up through `48MHz`
-- ships as two `D71` images with REU-backed app switching
+- ships as profile-based media builds with REU-backed app switching
 
 Project overview: https://readyos.notion.site/
 
 ## Getting Started
 
-Use the two `D71` images from the `0.1.8` release:
+Use the profile-specific disk images from the selected release folder:
 
-- `readyos.d71`
-- `readyos_2.d71`
+- `release/precog-dual-d71/`
+- `release/precog-d81/`
+- `release/precog-dual-d64/`
 
 Tested targets:
 
@@ -40,9 +41,7 @@ Recommended setup:
 
 - enable the REU
 - set REU size to `16MB`
-- configure both drives as `1571`
-- mount `readyos.d71` as drive `8`
-- mount `readyos_2.d71` as drive `9`
+- follow the `helpme.md` inside the selected release profile directory
 
 Boot sequence:
 
@@ -53,7 +52,7 @@ Boot sequence:
 
 - Base release: `0.1.8`
 - Local builds use the existing rolling suffix flow
-- Ships as two `D71` images
+- Builds release media per profile
 - Launcher catalog currently contains `15` apps
 - Runtime reserves `24` app slots in REU
 - ReadyOS runs on its own; UltimateBuddy remains an optional companion concept,
@@ -61,8 +60,8 @@ Boot sequence:
 
 ## App Catalog
 
-The launcher-visible catalog lives in `cfg/apps_catalog.txt` and is generated
-to `apps.cfg` on drive `8`.
+The launcher-visible catalog lives in `cfg/profiles/*.ini` and is generated
+to `apps.cfg` on drive `8` for the selected profile.
 
 | Drive | Program | Display Name | Current Role |
 | --- | --- | --- | --- |
@@ -117,8 +116,9 @@ REU layout:
 
 Disk layout:
 
-- drive `8`: boot chain, catalog, and boot-side apps
-- drive `9`: the second app disk for the larger app set
+- media shape depends on the selected release profile
+- dual-d71 is the default local run/test target
+- d81 and dual-d64 profiles reuse the same runtime with different media maps
 
 ## Build And Run
 
@@ -131,13 +131,17 @@ Requirements:
 Main entry points:
 
 - `bash ./run.sh`
-  rebuild both `D71` images and launch ReadyOS in VICE
+  rebuild the default release profile and launch ReadyOS in VICE
 - `pwsh -File ./run.ps1`
   PowerShell entry point for the same workflow
+- `bash ./run.sh --profile precog-d81`
+  build and launch a non-default profile
 - `bash ./run.sh --skipbuild`
-  launch using existing binaries and disks
+  launch using the latest built artifacts for the selected profile
 - `make`
-  build programs and both disk images
+  build the default profile release package
+- `make release-all`
+  build all release profiles with one version stamp
 - `make verify`
   run the repo verification and host smoke checks
 
@@ -152,14 +156,14 @@ Notes:
 
 Generated build-owned assets include:
 
-- `apps.cfg` from `cfg/apps_catalog.txt`
+- `apps.cfg` from the selected `cfg/profiles/*.ini` source
 - `src/generated/readme_pages.c` and `src/generated/readme_pages.h` from
   `src/apps/readme/readme_lite.md`
 - `src/generated/build_version.h` and `src/generated/msg_version.inc` from the
   local run/build flow
 
-Normal disk rebuilds are intended to preserve non-managed user files already
-present on existing `D71` images while replacing build-owned artifacts.
+Normal profile rebuilds preserve non-managed user files from the prior
+profile build while replacing build-owned artifacts in `release/<profile>/`.
 
 Public supporting docs in `docs/` currently include:
 

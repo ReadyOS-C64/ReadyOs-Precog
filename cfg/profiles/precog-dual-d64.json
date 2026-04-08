@@ -1,0 +1,52 @@
+{
+  "id": "precog-dual-d64",
+  "display_name": "precog (dual d64)",
+  "kind": "dual-d64",
+  "default_run": false,
+  "catalog_source": "cfg/profiles/precog-dual-d64.ini",
+  "boot": {
+    "preboot_mode": "boot",
+    "autostart_prg": "preboot.prg"
+  },
+  "disks": [
+    {
+      "index": 1,
+      "drive": 8,
+      "label": "readyos64a,ro",
+      "image_type": "d64",
+      "vice_drive_type": "1541",
+      "true_drive": true,
+      "contents": [
+        { "artifact": "preboot.prg", "name": "preboot", "type": "prg" },
+        { "artifact": "showcfg.prg", "name": "showcfg", "type": "prg" },
+        { "artifact": "boot.prg", "name": "boot", "type": "prg" },
+        { "artifact": "launcher.prg", "name": "launcher", "type": "prg" },
+        { "artifact": "quicknotes.prg", "name": "quicknotes", "type": "prg" },
+        { "artifact": "clipmgr.prg", "name": "clipmgr", "type": "prg" },
+        { "artifact": "cal26.prg", "name": "cal26", "type": "prg" },
+        { "artifact": "obj/apps_cfg_petscii.seq", "name": "apps.cfg", "type": "seq" }
+      ],
+      "post_build": [
+        { "type": "seed_cal26_rel" }
+      ]
+    },
+    {
+      "index": 2,
+      "drive": 9,
+      "label": "readyos64b,ro",
+      "image_type": "d64",
+      "vice_drive_type": "1541",
+      "true_drive": true,
+      "contents": [
+        { "artifact": "editor.prg", "name": "editor", "type": "prg" },
+        { "artifact": "calcplus.prg", "name": "calcplus", "type": "prg" },
+        { "artifact": "tasklist.prg", "name": "tasklist", "type": "prg" },
+        { "artifact": "simplefiles.prg", "name": "simplefiles", "type": "prg" },
+        { "artifact": "game2048.prg", "name": "game2048", "type": "prg" },
+        { "artifact": "deminer.prg", "name": "deminer", "type": "prg" },
+        { "artifact": "obj/editor_help.seq", "name": "editor help", "type": "seq", "app": "editor" },
+        { "artifact": "obj/tasklist_sample.seq", "name": "example tasks", "type": "seq", "app": "tasklist" }
+      ]
+    }
+  ]
+}

@@ -2,28 +2,22 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 function Resolve-BuildSupportDir {
-    $candidate = $null
-
     if ($env:BUILD_SUPPORT_DIR -and (Test-Path -LiteralPath $env:BUILD_SUPPORT_DIR -PathType Container)) {
-        $candidate = $env:BUILD_SUPPORT_DIR
+        return (Resolve-Path -LiteralPath $env:BUILD_SUPPORT_DIR).Path
     }
-    elseif (Test-Path -LiteralPath 'build_support' -PathType Container) {
-        $candidate = 'build_support'
+    if (Test-Path -LiteralPath 'build_support' -PathType Container) {
+        return (Resolve-Path -LiteralPath 'build_support').Path
     }
-    elseif ($env:TOOLS_DIR -and (Test-Path -LiteralPath $env:TOOLS_DIR -PathType Container)) {
-        $candidate = $env:TOOLS_DIR
+    if ($env:TOOLS_DIR -and (Test-Path -LiteralPath $env:TOOLS_DIR -PathType Container)) {
+        return (Resolve-Path -LiteralPath $env:TOOLS_DIR).Path
     }
-    elseif (Test-Path -LiteralPath 'tools' -PathType Container) {
-        $candidate = 'tools'
+    if (Test-Path -LiteralPath 'tools' -PathType Container) {
+        return (Resolve-Path -LiteralPath 'tools').Path
     }
-    elseif (Test-Path -LiteralPath '../agenticdevharness/tools' -PathType Container) {
-        $candidate = '../agenticdevharness/tools'
+    if (Test-Path -LiteralPath '../agenticdevharness/tools' -PathType Container) {
+        return (Resolve-Path -LiteralPath '../agenticdevharness/tools').Path
     }
-    else {
-        throw 'Error: ReadyOS build support directory not found. Set BUILD_SUPPORT_DIR to override.'
-    }
-
-    return (Resolve-Path -LiteralPath $candidate).Path
+    throw 'Error: ReadyOS build support directory not found.'
 }
 
 function Configure-ViceEnv {
@@ -37,24 +31,23 @@ function Configure-ViceEnv {
     }
 
     $shareDir = '/opt/homebrew/share'
-    if (Test-Path -LiteralPath $shareDir -PathType Container) {
-        if ($env:XDG_DATA_DIRS) {
-            if (-not (":{0}:" -f $env:XDG_DATA_DIRS).Contains((":{0}:" -f $shareDir))) {
-                $env:XDG_DATA_DIRS = '{0}:{1}' -f $shareDir, $env:XDG_DATA_DIRS
-            }
+    if (-not (Test-Path -LiteralPath $shareDir -PathType Container)) {
+        return
+    }
+
+    if ($env:XDG_DATA_DIRS) {
+        if (-not (":{0}:" -f $env:XDG_DATA_DIRS).Contains((":{0}:" -f $shareDir))) {
+            $env:XDG_DATA_DIRS = '{0}:{1}' -f $shareDir, $env:XDG_DATA_DIRS
         }
-        else {
-            $env:XDG_DATA_DIRS = $shareDir
-        }
+    }
+    else {
+        $env:XDG_DATA_DIRS = $shareDir
     }
 }
 
 function Resolve-CommandPath {
     param(
-        [Parameter(Mandatory = $true)]
         [string[]]$Candidates,
-
-        [Parameter(Mandatory = $true)]
         [string]$ErrorMessage
     )
 
@@ -68,6 +61,85 @@ function Resolve-CommandPath {
     throw $ErrorMessage
 }
 
+function Invoke-PythonText {
+    param([string[]]$Args)
+    $result = & $script:PythonExe @Args
+    if ($LASTEXITCODE -ne 0) {
+        throw ("Command failed: python3 {0}" -f ($Args -join ' '))
+    }
+    return ($result | Out-String).Trim()
+}
+
+function Get-ProfileManifest {
+    param(
+        [string]$ProfileId,
+        [string]$VersionText,
+        [switch]$Latest
+    )
+
+    $args = @($script:ProfileTool, 'resolve', '--profile', $ProfileId)
+    if ($Latest) {
+        $args += '--latest'
+    }
+    else {
+        $args += @('--version', $VersionText)
+    }
+    return (Invoke-PythonText -Args $args | ConvertFrom-Json)
+}
+
+function Get-ViceAttachArgs {
+    param($Manifest)
+
+    $args = @()
+    foreach ($disk in $Manifest.disks) {
+        $drive = [string]$disk.drive
+        $args += @("-drive${drive}type", [string]$disk.vice_drive_type)
+        if ($disk.true_drive) {
+            $args += "-drive${drive}truedrive"
+        }
+        $args += @("-devicebackend${drive}", '0', "+busdevice${drive}", "-${drive}", [string]$disk.path)
+    }
+    return $args
+}
+
+function Show-Help {
+    @"
+ReadyOS Run Script (PowerShell)
+
+Usage: ./run.ps1 [flags] [option]
+
+Modes:
+  (none)         Run ReadyOS normally
+  test           Run REU test program standalone
+  debug          Run with VICE monitor breakpoints
+  warp           Run in warp mode
+  launcher       Run launcher.prg directly
+  editor         Run editor.prg directly
+  calcplus       Run calcplus.prg directly
+  hexview        Run hexview.prg directly
+  2048           Run game2048.prg directly
+  deminer        Run deminer.prg directly
+  cal26          Run cal26.prg directly
+  dizzy          Run dizzy.prg directly
+  readme         Run readme.prg directly
+  showcfg        Run BASIC APPS.CFG inspector
+  xfilechk       Run standalone IEC file-operation harness
+  monitor        Start with VICE monitor open
+  readyshell-mon Normal boot with remote monitor endpoints
+  noreu          Run boot without REU
+
+Flags:
+  --profile ID
+  --list-profiles
+  --skipbuild
+  --config PATH
+  --load-all 0|1
+  --run-first APP
+  --parse-trace-debug 0|1
+  --interactive
+"@ | Write-Host
+}
+
 function Validate-ParseTraceDebug {
     param([string]$Value)
     if ($Value -notin @('0', '1')) {
@@ -75,110 +147,88 @@ function Validate-ParseTraceDebug {
     }
 }
 
-function Current-ParseTraceDebug {
-    if ($script:ParseTraceDebug) {
-        return $script:ParseTraceDebug
+function Validate-LoadAll {
+    param([string]$Value)
+    if ($Value -notin @('0', '1')) {
+        throw ("Error: --load-all must be 0 or 1 (got '{0}')." -f $Value)
     }
-    if ($env:READYSHELL_PARSE_TRACE_DEBUG) {
-        return $env:READYSHELL_PARSE_TRACE_DEBUG
+}
+
+function Validate-RunFirst {
+    param([string]$Value)
+    if ($Value -notmatch '^[a-z0-9_.-]+$') {
+        throw ("Error: --run-first must be a lowercase prg token (got '{0}')." -f $Value)
     }
-    return '0'
+    if ($Value.EndsWith('.prg')) {
+        throw ("Error: --run-first must not include .prg (got '{0}')." -f $Value)
+    }
+    if ($Value.Length -gt 12) {
+        throw ("Error: --run-first must be 12 characters or fewer (got '{0}')." -f $Value)
+    }
 }
 
 function Current-ParseTraceLabel {
-    switch (Current-ParseTraceDebug) {
+    switch ($script:ParseTraceDebug) {
         '1' { return 'debug-trace (READYSHELL_OVERLAYSIZE=0x2480, __OVERLAYSTART__=0xA180)' }
-        '0' { return 'release/default (READYSHELL_OVERLAYSIZE=0x2440, __OVERLAYSTART__=0xA1C0)' }
-        default { return ('custom/unknown ({0})' -f (Current-ParseTraceDebug)) }
+        default { return 'release/default (READYSHELL_OVERLAYSIZE=0x2440, __OVERLAYSTART__=0xA1C0)' }
     }
 }
 
-function Update-DynamicVersion {
-    $genDir = Join-Path $script:RepoRoot 'src/generated'
-    New-Item -ItemType Directory -Force -Path $genDir | Out-Null
+function Assert-FileExists {
+    param([string]$Path, [string]$Kind)
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw ("Error: {0} not found: {1}" -f $Kind, $Path)
+    }
+}
 
-    $last = ''
-    if (Test-Path -LiteralPath $script:VersionStateFile) {
-        $state = Get-Content -LiteralPath $script:VersionStateFile -Raw
-        $match = [regex]::Match($state, '[A-Z]')
-        if ($match.Success) {
-            $last = $match.Value
+function Print-Info {
+    param([string]$RunMode, [string]$Target)
+    Write-Host '=== Ready OS ==='
+    Write-Host ''
+    Write-Host ("Mode: {0}" -f $RunMode)
+    Write-Host ("VICE: {0}" -f $script:ViceName)
+    Write-Host ("Profile: {0}" -f $script:ProfileManifest.display_name)
+    Write-Host ("Target: {0}" -f $Target)
+    foreach ($disk in $script:ProfileManifest.disks) {
+        Write-Host ("Drive {0}: {1}" -f $disk.drive, $disk.path)
+    }
+    Write-Host ("Build Support: {0}" -f $script:BuildSupportDir)
+    Write-Host ("ReadyShell parse trace: {0}" -f (Current-ParseTraceLabel))
+    Write-Host ''
+}
+
+function Start-ViceProcess {
+    param(
+        [string[]]$Arguments,
+        [string]$RedirectPath = ''
+    )
+
+    if ($IsMacOS) {
+        $quoteArg = {
+            param([string]$Value)
+            return "'" + ($Value -replace "'", "'""'""'") + "'"
         }
+
+        $commandParts = @('exec', (& $quoteArg $script:ViceExe))
+        foreach ($arg in $Arguments) {
+            $commandParts += (& $quoteArg $arg)
+        }
+        if ($RedirectPath) {
+            $commandParts += @('>', (& $quoteArg $RedirectPath), '2>&1')
+        }
+        Start-Process -FilePath '/bin/sh' -ArgumentList @('-lc', ($commandParts -join ' ')) | Out-Null
+        return
     }
 
-    if (-not $last) {
-        $next = 'A'
+    $startArgs = @{
+        FilePath = $script:ViceExe
+        ArgumentList = $Arguments
     }
-    elseif ($last -eq 'Z') {
-        $next = 'A'
+    if ($RedirectPath) {
+        $startArgs.RedirectStandardOutput = $RedirectPath
+        $startArgs.RedirectStandardError = $RedirectPath
     }
-    else {
-        $next = [char](([int][char]$last) + 1)
-    }
-
-    $script:RunVersionSuffix = [string]$next
-    $script:RunVersionText = '{0}{1}' -f $script:VersionBase, $script:RunVersionSuffix
-
-    Set-Content -LiteralPath $script:VersionStateFile -Value $script:RunVersionSuffix -Encoding ascii
-
-    $header = @(
-        '/* Auto-generated by run.ps1. Do not edit by hand. */',
-        '#ifndef READYOS_BUILD_VERSION_H',
-        '#define READYOS_BUILD_VERSION_H',
-        '',
-        ('#define READYOS_VERSION_BASE "{0}"' -f $script:VersionBase),
-        ('#define READYOS_VERSION_SUFFIX "{0}"' -f $script:RunVersionSuffix),
-        ('#define READYOS_VERSION_TEXT "{0}"' -f $script:RunVersionText),
-        ('#define READYOS_TITLE_TEXT "READY OS v{0}"' -f $script:RunVersionText),
-        ('#define READYOS_BOOT_VERSION_TEXT "PRECOG V{0}"' -f $script:RunVersionText),
-        '',
-        '#endif /* READYOS_BUILD_VERSION_H */'
-    )
-    Set-Content -LiteralPath $script:VersionHeaderFile -Value $header -Encoding ascii
-
-    $asm = @(
-        '; Auto-generated by run.ps1. Do not edit by hand.',
-        '',
-        'msg_version:',
-        ('    .byte "PRECOG V{0}"' -f $script:RunVersionText),
-        'msg_version_end:'
-    )
-    Set-Content -LiteralPath $script:VersionAsmFile -Value $asm -Encoding ascii
-}
-
-function Show-Help {
-    @'
-Ready OS Run Script (PowerShell)
-
-Usage: ./run.ps1 [flags] [option]
-
-Modes (option):
-  (none)         Run Ready OS normally (preboot.prg)
-  test           Run REU test program standalone
-  debug          Run with VICE monitor breakpoints at shim entry points
-  warp           Run in warp mode (max speed for loading)
-  launcher       Run launcher.prg directly (skip boot loader)
-  editor         Run editor.prg directly (standalone, no REU switching)
-  calcplus       Run calcplus.prg directly (standalone, no REU switching)
-  hexview        Run hexview.prg directly (standalone, no REU switching)
-  2048           Run game2048.prg directly (standalone, no REU switching)
-  deminer        Run deminer.prg directly (standalone, no REU switching)
-  cal26          Run cal26.prg directly (standalone, no REU switching)
-  dizzy          Run dizzy.prg directly (standalone, no REU switching)
-  readme         Run readme.prg directly (standalone, no REU switching)
-  showcfg        Run BASIC APPS.CFG inspector (drive 8)
-  monitor        Start with VICE monitor open immediately
-  readyshell-mon Normal boot + remote monitor sockets/logging for readyshell debugging
-  noreu          Run boot without REU (for testing error handling)
-  help           Show this help
-
-Flags:
-  --skipbuild                  Skip automatic build before run
-  --parse-trace-debug 0|1      Build ReadyShell in release(0) or debug-trace(1) profile
-  --parse-trace-debug=0|1      Same as above (equals syntax)
-  --interactive                Show a key-menu with common run combinations
-  -h, --help                   Show this help
-'@ | Write-Host
+    Start-Process @startArgs | Out-Null
 }
 
 function Run-InteractiveMenu {
@@ -201,226 +251,42 @@ ReadyOS interactive launcher
         '3' { $script:Mode = 'debug'; $script:ParseTraceDebug = '0'; $script:SkipBuild = $false }
         '4' { $script:Mode = 'debug'; $script:ParseTraceDebug = '1'; $script:SkipBuild = $false }
         '5' { $script:Mode = 'readyshell-mon'; $script:ParseTraceDebug = '1'; $script:SkipBuild = $false }
-        '6' { $script:Mode = ''; $script:ParseTraceDebug = $null; $script:SkipBuild = $true }
+        '6' { $script:Mode = ''; $script:SkipBuild = $true }
         'q' { exit 0 }
         'Q' { exit 0 }
         default { throw ("Invalid selection: '{0}'" -f $choice) }
     }
 }
 
-function Assert-FileExists {
-    param([string]$Path, [string]$Kind)
-    if (-not (Test-Path -LiteralPath $Path)) {
-        throw ("Error: {0} not found: {1}" -f $Kind, $Path)
-    }
-}
-
-function Check-Disk {
-    param([string]$Path)
-    Assert-FileExists -Path $Path -Kind 'Disk image'
-}
-
-function Check-Prg {
-    param([string]$Path)
-    Assert-FileExists -Path $Path -Kind 'Program file'
-}
-
-function Check-OSDisks {
-    Check-Disk $script:DiskFile1
-    Check-Disk $script:DiskFile2
-}
-
-function Ensure-Cal26RelSeeded {
-    if (-not (Test-Path -LiteralPath $script:DiskFile1)) {
-        return
-    }
-
-    $listing = & c1541 $script:DiskFile1 '-list' 2>$null | Out-String
-    $eventsMatch = [regex]::Match($listing, '(?im)^\s*(\d+)\s+"cal26\.rel"\s+rel\b')
-    $cfgMatch = [regex]::Match($listing, '(?im)^\s*(\d+)\s+"cal26cfg\.rel"\s+rel\b')
-
-    $eventsBlocks = if ($eventsMatch.Success) { [int]$eventsMatch.Groups[1].Value } else { 0 }
-    $cfgBlocks = if ($cfgMatch.Success) { [int]$cfgMatch.Groups[1].Value } else { 0 }
-
-    if ($eventsBlocks -gt 0 -and $cfgBlocks -gt 0) {
-        return
-    }
-
-    Write-Host ("Seeding/repairing CAL26 REL files on {0} ..." -f $script:DiskFile1)
-    & python3 (Join-Path $script:BuildSupportDir 'seed_cal26_rel.py') '--disk' $script:DiskFile1 *> $null
-
-    $listing = & c1541 $script:DiskFile1 '-list' 2>$null | Out-String
-    $eventsMatch = [regex]::Match($listing, '(?im)^\s*(\d+)\s+"cal26\.rel"\s+rel\b')
-    $cfgMatch = [regex]::Match($listing, '(?im)^\s*(\d+)\s+"cal26cfg\.rel"\s+rel\b')
-
-    $eventsBlocks = if ($eventsMatch.Success) { [int]$eventsMatch.Groups[1].Value } else { 0 }
-    $cfgBlocks = if ($cfgMatch.Success) { [int]$cfgMatch.Groups[1].Value } else { 0 }
-
-    if ($eventsBlocks -le 0 -or $cfgBlocks -le 0) {
-        throw 'Error: CAL26 data files not valid on disk after seeding.'
-    }
-}
-
-function Print-Info {
-    param(
-        [string]$RunMode,
-        [string]$Target
-    )
-
-    Write-Host '=== Ready OS ==='
-    Write-Host ''
-    Write-Host ("Mode: {0}" -f $RunMode)
-    Write-Host ("VICE: {0}" -f $script:ViceName)
-    Write-Host ("Target: {0}" -f $Target)
-    Write-Host ("Disk8: {0}" -f $script:DiskFile1)
-    Write-Host ("Disk9: {0}" -f $script:DiskFile2)
-    Write-Host ("Build Support: {0}" -f $script:BuildSupportDir)
-    Write-Host ("ReadyShell parse trace: {0}" -f (Current-ParseTraceLabel))
-    Write-Host ''
-}
-
-function New-TempDir {
-    param([string]$Prefix)
-    $path = Join-Path ([System.IO.Path]::GetTempPath()) ("{0}{1}" -f $Prefix, [System.Guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Force -Path $path | Out-Null
-    return $path
-}
-
-function Get-ManifestCount {
-    param([string]$ManifestPath)
-    if (-not (Test-Path -LiteralPath $ManifestPath)) {
-        return 0
-    }
-    return ((Get-Content -LiteralPath $ManifestPath | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Measure-Object).Count)
-}
-
 function Maybe-Build {
-    Update-DynamicVersion
+    if ($script:SkipBuild) {
+        $script:ProfileManifest = Get-ProfileManifest -ProfileId $script:ProfileId -Latest
+        return
+    }
+
+    $script:RunVersionText = Invoke-PythonText -Args @($script:VersionTool, '--next')
     Write-Host ("Build version: {0}" -f $script:RunVersionText)
+    Write-Host ("Profile: {0}" -f $script:ProfileId)
     Write-Host ("ReadyShell parse trace profile: {0}" -f (Current-ParseTraceLabel))
 
-    if ($script:ParseTraceDebug) {
-        $env:READYSHELL_PARSE_TRACE_DEBUG = $script:ParseTraceDebug
+    $makeArgs = @('-B', "BUILD_SUPPORT_DIR=$($script:BuildSupportDir)", "PROFILE=$($script:ProfileId)", "READYOS_VERSION_TEXT=$($script:RunVersionText)")
+    if ($script:ConfigSource) {
+        $makeArgs += "READYOS_CONFIG_SRC=$($script:ConfigSource)"
     }
-    elseif ($env:READYSHELL_PARSE_TRACE_DEBUG) {
-        Validate-ParseTraceDebug $env:READYSHELL_PARSE_TRACE_DEBUG
+    if ($script:ConfigLoadAll) {
+        $makeArgs += "READYOS_CONFIG_LOAD_ALL=$($script:ConfigLoadAll)"
     }
-
-    if ($script:SkipBuild) {
-        Write-Host 'Skipping build (--skipbuild): binaries keep their previous embedded version.'
-        if ($script:ParseTraceDebug) {
-            Write-Host 'Note: --parse-trace-debug affects build profile only. With --skipbuild, it does not rebuild binaries.'
-        }
-        Write-Host ''
-        return
+    if ($script:ConfigRunFirst) {
+        $makeArgs += "READYOS_CONFIG_RUN_FIRST=$($script:ConfigRunFirst)"
     }
+    $makeArgs += 'profile'
 
-    $preserveScript = Join-Path $script:BuildSupportDir 'preserve_d71_user_data.ps1'
-    $preserveDir1 = $null
-    $preservePrevDisk1 = $null
-    $preserveDir2 = $null
-    $preservePrevDisk2 = $null
-
-    try {
-        if (Test-Path -LiteralPath $script:DiskFile1) {
-            $preserveDir1 = New-TempDir -Prefix 'readyos_preserve_d8.'
-            $preservePrevDisk1 = Join-Path $preserveDir1 'previous.d71'
-            Copy-Item -LiteralPath $script:DiskFile1 -Destination $preservePrevDisk1 -Force
-            & pwsh -NoLogo -NoProfile -File $preserveScript backup $preservePrevDisk1 $preserveDir1
-            $count = Get-ManifestCount -ManifestPath (Join-Path $preserveDir1 'manifest.tsv')
-            if ($count -gt 0) {
-                Write-Host ("Preserving {0} user file(s) from existing disk 8..." -f $count)
-            }
-        }
-
-        if (Test-Path -LiteralPath $script:DiskFile2) {
-            $preserveDir2 = New-TempDir -Prefix 'readyos_preserve_d9.'
-            $preservePrevDisk2 = Join-Path $preserveDir2 'previous.d71'
-            Copy-Item -LiteralPath $script:DiskFile2 -Destination $preservePrevDisk2 -Force
-            & pwsh -NoLogo -NoProfile -File $preserveScript backup $preservePrevDisk2 $preserveDir2
-            $count = Get-ManifestCount -ManifestPath (Join-Path $preserveDir2 'manifest.tsv')
-            if ($count -gt 0) {
-                Write-Host ("Preserving {0} user file(s) from existing disk 9..." -f $count)
-            }
-        }
-
-        Write-Host 'Building fresh disk images (use --skipbuild to skip)...'
-        & $script:MakeExe '-B' "READYOS_USE_PWSH=1" "BUILD_SUPPORT_DIR=$($script:BuildSupportDir)" $script:DiskFile1 $script:DiskFile2
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Build failed during disk rebuild.'
-        }
-
-        Write-Host ''
-    }
-    catch {
-        if ($preservePrevDisk1 -and (Test-Path -LiteralPath $preservePrevDisk1)) {
-            Write-Host 'Restoring previous disk 8 image to keep user data...'
-            Copy-Item -LiteralPath $preservePrevDisk1 -Destination $script:DiskFile1 -Force
-        }
-        if ($preservePrevDisk2 -and (Test-Path -LiteralPath $preservePrevDisk2)) {
-            Write-Host 'Restoring previous disk 9 image to keep user data...'
-            Copy-Item -LiteralPath $preservePrevDisk2 -Destination $script:DiskFile2 -Force
-        }
-        throw
-    }
-    finally {
-        if ($preserveDir1) {
-            Remove-Item -LiteralPath $preserveDir1 -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        if ($preserveDir2) {
-            Remove-Item -LiteralPath $preserveDir2 -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
-
-function Start-ViceProcess {
-    param(
-        [string[]]$Arguments,
-        [string]$RedirectPath = ''
-    )
-
-    if ($IsMacOS) {
-        $quoteArg = {
-            param([string]$Value)
-            return "'" + ($Value -replace "'", "'""'""'") + "'"
-        }
-
-        $commandParts = @('exec', (& $quoteArg $script:ViceExe))
-        foreach ($arg in $Arguments) {
-            $commandParts += (& $quoteArg $arg)
-        }
-        if ($RedirectPath) {
-            $commandParts += @('>', (& $quoteArg $RedirectPath), '2>&1')
-        }
-
-        $startArgs = @{
-            FilePath = '/bin/sh'
-            ArgumentList = @('-lc', ($commandParts -join ' '))
-            PassThru = $true
-        }
-    }
-    else {
-        $startArgs = @{
-            FilePath = $script:ViceExe
-            ArgumentList = $Arguments
-            PassThru = $true
-        }
-
-        if ($RedirectPath) {
-            $startArgs.RedirectStandardOutput = $RedirectPath
-            $startArgs.RedirectStandardError = $RedirectPath
-        }
+    & $script:MakeExe @makeArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Build failed.'
     }
 
-    $process = Start-Process @startArgs
-    Start-Sleep -Seconds 1
-
-    if ($process.HasExited) {
-        throw ("VICE exited immediately with code {0}" -f $process.ExitCode)
-    }
-
-    Write-Host ("VICE launched (pid {0})." -f $process.Id)
-    return $process
+    $script:ProfileManifest = Get-ProfileManifest -ProfileId $script:ProfileId -VersionText $script:RunVersionText
 }
 
 $script:RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -429,8 +295,16 @@ Set-Location -LiteralPath $script:RepoRoot
 $script:BuildSupportDir = Resolve-BuildSupportDir
 Configure-ViceEnv
 
-$script:DiskFile1 = 'readyos.d71'
-$script:DiskFile2 = 'readyos_2.d71'
+$script:PythonExe = Resolve-CommandPath -Candidates @('python3', 'python') -ErrorMessage 'Error: python3/python not found in PATH'
+$script:ProfileTool = Join-Path $script:BuildSupportDir 'readyos_profiles.py'
+$script:VersionTool = Join-Path $script:BuildSupportDir 'update_build_version.py'
+$script:DefaultProfile = Invoke-PythonText -Args @($script:ProfileTool, 'default-id')
+$script:ProfileId = $script:DefaultProfile
+
+$script:ViceExe = Resolve-CommandPath -Candidates @('x64sc', 'x64') -ErrorMessage 'Error: VICE emulator not found (tried x64sc, x64)'
+$script:ViceName = Split-Path -Leaf $script:ViceExe
+$script:MakeExe = Resolve-CommandPath -Candidates @('make', 'gmake') -ErrorMessage 'Error: make/gmake not found in PATH'
+
 $script:PrebootPrg = 'preboot.prg'
 $script:TestPrg = 'test_reu.prg'
 $script:LauncherPrg = 'launcher.prg'
@@ -443,39 +317,24 @@ $script:Cal26Prg = 'cal26.prg'
 $script:DizzyPrg = 'dizzy.prg'
 $script:ReadmePrg = 'readme.prg'
 $script:ShowcfgPrg = 'showcfg.prg'
-
-$script:VersionBase = '0.1.7'
-$script:VersionStateFile = Join-Path ([System.IO.Path]::GetTempPath()) 'readyos_run_version_suffix.txt'
-$script:VersionHeaderFile = Join-Path $script:RepoRoot 'src/generated/build_version.h'
-$script:VersionAsmFile = Join-Path $script:RepoRoot 'src/generated/msg_version.inc'
+$script:XFilechkBootPrg = 'xfilechk_boot.prg'
+$script:XFilechkPrg = 'xfilechk.prg'
+$script:XFilechkDisk1 = 'xfilechk.d71'
+$script:XFilechkDisk2 = 'xfilechk_2.d71'
 $script:RemoteMonAddr = '127.0.0.1:6510'
 $script:BinaryMonAddr = '127.0.0.1:6502'
 $script:RemoteMonLog = 'logs/vice_remote_monitor.log'
 $script:ViceStdioLog = 'logs/vice_readyshell_mon.out'
 $script:ViceLogFile = 'logs/vice.log'
 
-$script:ViceExe = Resolve-CommandPath -Candidates @('x64sc', 'x64') -ErrorMessage 'Error: VICE emulator not found (tried x64sc, x64)'
-$script:ViceName = Split-Path -Leaf $script:ViceExe
-$script:MakeExe = Resolve-CommandPath -Candidates @('make', 'gmake') -ErrorMessage 'Error: make/gmake not found in PATH'
-
-$script:ViceOpts = @(
-    '-logfile', $script:ViceLogFile,
-    '-reu',
-    '-reusize', '16384',
-    '-drive8type', '1571',
-    '-drive8truedrive',
-    '-devicebackend8', '0',
-    '+busdevice8',
-    '-drive9type', '1571',
-    '-drive9truedrive',
-    '-devicebackend9', '0',
-    '+busdevice9'
-)
-
 $script:SkipBuild = $false
 $script:Mode = ''
-$script:ParseTraceDebug = $null
+$script:ParseTraceDebug = '0'
+$script:ConfigSource = ''
+$script:ConfigLoadAll = ''
+$script:ConfigRunFirst = ''
 $interactive = $false
+$listProfiles = $false
 
 for ($i = 0; $i -lt $args.Count; ) {
     $arg = $args[$i]
@@ -484,18 +343,51 @@ for ($i = 0; $i -lt $args.Count; ) {
             Show-Help
             exit 0
         }
+        '^--profile$' {
+            $script:ProfileId = $args[$i + 1]
+            $i += 2
+        }
+        '^--profile=(.+)$' {
+            $script:ProfileId = $Matches[1]
+            $i += 1
+        }
+        '^--list-profiles$' {
+            $listProfiles = $true
+            $i += 1
+        }
         '^--skipbuild$' {
             $script:SkipBuild = $true
             $i += 1
         }
-        '^--interactive$' {
-            $interactive = $true
+        '^--config$' {
+            $script:ConfigSource = $args[$i + 1]
+            $i += 2
+        }
+        '^--config=(.+)$' {
+            $script:ConfigSource = $Matches[1]
+            $i += 1
+        }
+        '^--load-all$' {
+            $script:ConfigLoadAll = $args[$i + 1]
+            Validate-LoadAll $script:ConfigLoadAll
+            $i += 2
+        }
+        '^--load-all=(.+)$' {
+            $script:ConfigLoadAll = $Matches[1]
+            Validate-LoadAll $script:ConfigLoadAll
+            $i += 1
+        }
+        '^--run-first$' {
+            $script:ConfigRunFirst = $args[$i + 1]
+            Validate-RunFirst $script:ConfigRunFirst
+            $i += 2
+        }
+        '^--run-first=(.+)$' {
+            $script:ConfigRunFirst = $Matches[1]
+            Validate-RunFirst $script:ConfigRunFirst
             $i += 1
         }
         '^--parse-trace-debug$' {
-            if ($i + 1 -ge $args.Count) {
-                throw 'Error: --parse-trace-debug requires value 0 or 1.'
-            }
             $script:ParseTraceDebug = $args[$i + 1]
             Validate-ParseTraceDebug $script:ParseTraceDebug
             $i += 2
@@ -503,6 +395,10 @@ for ($i = 0; $i -lt $args.Count; ) {
         '^--parse-trace-debug=(.+)$' {
             $script:ParseTraceDebug = $Matches[1]
             Validate-ParseTraceDebug $script:ParseTraceDebug
+            $i += 1
+        }
+        '^--interactive$' {
+            $interactive = $true
             $i += 1
         }
         default {
@@ -515,11 +411,17 @@ for ($i = 0; $i -lt $args.Count; ) {
     }
 }
 
-if ($script:ParseTraceDebug) {
-    $env:READYSHELL_PARSE_TRACE_DEBUG = $script:ParseTraceDebug
+if ($listProfiles) {
+    Invoke-PythonText -Args @($script:ProfileTool, 'list-ids') | Write-Host
+    exit 0
 }
-elseif ($env:READYSHELL_PARSE_TRACE_DEBUG) {
-    Validate-ParseTraceDebug $env:READYSHELL_PARSE_TRACE_DEBUG
+
+if ($script:SkipBuild -and ($script:ConfigSource -or $script:ConfigLoadAll -or $script:ConfigRunFirst)) {
+    throw 'Error: --skipbuild cannot be combined with --config, --load-all, or --run-first.'
+}
+
+if ($script:ConfigSource -and -not (Test-Path -LiteralPath $script:ConfigSource)) {
+    throw ("Error: config source not found: {0}" -f $script:ConfigSource)
 }
 
 if ($interactive) {
@@ -529,6 +431,12 @@ if ($interactive) {
     Run-InteractiveMenu
 }
 
+if ($script:Mode -ne 'xfilechk' -and $script:Mode -notin @('help', '-h', '--help')) {
+    Maybe-Build
+}
+
+$script:ViceAttachArgs = if ($script:ProfileManifest) { Get-ViceAttachArgs -Manifest $script:ProfileManifest } else { @() }
+
 switch ($script:Mode) {
     { $_ -in @('help', '-h', '--help') } {
         Show-Help
@@ -536,26 +444,18 @@ switch ($script:Mode) {
     }
 
     'test' {
-        Maybe-Build
-        Check-Prg $script:TestPrg
+        Assert-FileExists -Path $script:TestPrg -Kind 'Program file'
         Print-Info -RunMode 'REU Test' -Target $script:TestPrg
-        Write-Host 'Running standalone REU test program...'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-autostartprgmode', '1', $script:TestPrg)) | Out-Null
+        Start-ViceProcess @('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384', '-autostartprgmode', '1', $script:TestPrg)
     }
 
     'debug' {
-        Maybe-Build
-        Check-OSDisks
-        Ensure-Cal26RelSeeded
-        Check-Prg $script:PrebootPrg
-        Print-Info -RunMode 'Debug' -Target $script:PrebootPrg
-        Write-Host 'Debug mode - VICE monitor available (Alt+M)'
-        Write-Host ''
+        Assert-FileExists -Path ([string]$script:ProfileManifest.autostart_prg) -Kind 'Program file'
+        Print-Info -RunMode 'Debug' -Target $script:ProfileManifest.autostart_prg
         $debugFile = Join-Path ([System.IO.Path]::GetTempPath()) ("vice_debug_{0}.cmd" -f [System.Guid]::NewGuid().ToString('N'))
         try {
             Set-Content -LiteralPath $debugFile -Value @('break C809', 'break C80c', 'break C80f') -Encoding ascii
-            Start-ViceProcess ($script:ViceOpts + @('-8', $script:DiskFile1, '-9', $script:DiskFile2, '-moncommands', $debugFile, '-autostart', $script:PrebootPrg)) | Out-Null
+            Start-ViceProcess (@('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384') + $script:ViceAttachArgs + @('-moncommands', $debugFile, '-autostart', [string]$script:ProfileManifest.autostart_prg))
         }
         finally {
             Remove-Item -LiteralPath $debugFile -Force -ErrorAction SilentlyContinue
@@ -563,180 +463,123 @@ switch ($script:Mode) {
     }
 
     'warp' {
-        Maybe-Build
-        Check-OSDisks
-        Ensure-Cal26RelSeeded
-        Check-Prg $script:PrebootPrg
-        Print-Info -RunMode 'Warp Mode' -Target $script:PrebootPrg
-        Write-Host 'Warp mode enabled - max speed loading'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-warp', '-8', $script:DiskFile1, '-9', $script:DiskFile2, '-autostart', $script:PrebootPrg)) | Out-Null
+        Assert-FileExists -Path ([string]$script:ProfileManifest.autostart_prg) -Kind 'Program file'
+        Print-Info -RunMode 'Warp Mode' -Target $script:ProfileManifest.autostart_prg
+        Start-ViceProcess (@('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384') + $script:ViceAttachArgs + @('-warp', '-autostart', [string]$script:ProfileManifest.autostart_prg))
     }
 
     'launcher' {
-        Maybe-Build
-        Check-OSDisks
-        Ensure-Cal26RelSeeded
-        Check-Prg $script:LauncherPrg
+        Assert-FileExists -Path $script:LauncherPrg -Kind 'Program file'
         Print-Info -RunMode 'Direct Launch' -Target $script:LauncherPrg
-        Write-Host 'Running launcher directly (skipping boot loader)'
-        Write-Host 'Note: Shim will NOT be installed - REU switching will not work.'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-8', $script:DiskFile1, '-9', $script:DiskFile2, '-autostartprgmode', '1', $script:LauncherPrg)) | Out-Null
+        Start-ViceProcess (@('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384') + $script:ViceAttachArgs + @('-autostartprgmode', '1', $script:LauncherPrg))
     }
 
     'editor' {
-        Maybe-Build
-        Check-Prg $script:EditorPrg
+        Assert-FileExists -Path $script:EditorPrg -Kind 'Program file'
         Print-Info -RunMode 'Standalone' -Target $script:EditorPrg
-        Write-Host 'Running editor standalone (no REU, no shim)'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-autostartprgmode', '1', $script:EditorPrg)) | Out-Null
+        Start-ViceProcess @('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384', '-autostartprgmode', '1', $script:EditorPrg)
     }
 
     'calcplus' {
-        Maybe-Build
-        Check-Prg $script:CalcplusPrg
+        Assert-FileExists -Path $script:CalcplusPrg -Kind 'Program file'
         Print-Info -RunMode 'Standalone' -Target $script:CalcplusPrg
-        Write-Host 'Running calculator plus standalone (no REU, no shim)'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-autostartprgmode', '1', $script:CalcplusPrg)) | Out-Null
+        Start-ViceProcess @('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384', '-autostartprgmode', '1', $script:CalcplusPrg)
     }
 
     'hexview' {
-        Maybe-Build
-        Check-Prg $script:HexviewPrg
+        Assert-FileExists -Path $script:HexviewPrg -Kind 'Program file'
         Print-Info -RunMode 'Standalone' -Target $script:HexviewPrg
-        Write-Host 'Running hex viewer standalone (no REU, no shim)'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-autostartprgmode', '1', $script:HexviewPrg)) | Out-Null
+        Start-ViceProcess @('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384', '-autostartprgmode', '1', $script:HexviewPrg)
     }
 
     '2048' {
-        Maybe-Build
-        Check-Prg $script:Game2048Prg
+        Assert-FileExists -Path $script:Game2048Prg -Kind 'Program file'
         Print-Info -RunMode 'Standalone' -Target $script:Game2048Prg
-        Write-Host 'Running 2048 standalone (no REU, no shim)'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-autostartprgmode', '1', $script:Game2048Prg)) | Out-Null
+        Start-ViceProcess @('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384', '-autostartprgmode', '1', $script:Game2048Prg)
     }
 
     'deminer' {
-        Maybe-Build
-        Check-Prg $script:DeminerPrg
+        Assert-FileExists -Path $script:DeminerPrg -Kind 'Program file'
         Print-Info -RunMode 'Standalone' -Target $script:DeminerPrg
-        Write-Host 'Running Deminer standalone (no REU, no shim)'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-autostartprgmode', '1', $script:DeminerPrg)) | Out-Null
+        Start-ViceProcess @('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384', '-autostartprgmode', '1', $script:DeminerPrg)
     }
 
     'cal26' {
-        Maybe-Build
-        Check-Disk $script:DiskFile1
-        Ensure-Cal26RelSeeded
-        Check-Prg $script:Cal26Prg
+        Assert-FileExists -Path $script:Cal26Prg -Kind 'Program file'
         Print-Info -RunMode 'Standalone' -Target $script:Cal26Prg
-        Write-Host 'Running CAL26 standalone (no REU, no shim, disk attached)'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-8', $script:DiskFile1, '-autostartprgmode', '1', $script:Cal26Prg)) | Out-Null
+        Start-ViceProcess (@('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384') + $script:ViceAttachArgs + @('-autostartprgmode', '1', $script:Cal26Prg))
     }
 
     'dizzy' {
-        Maybe-Build
-        Check-Disk $script:DiskFile1
-        Check-Prg $script:DizzyPrg
+        Assert-FileExists -Path $script:DizzyPrg -Kind 'Program file'
         Print-Info -RunMode 'Standalone' -Target $script:DizzyPrg
-        Write-Host 'Running DIZZY standalone (no REU, no shim)'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-8', $script:DiskFile1, '-autostartprgmode', '1', $script:DizzyPrg)) | Out-Null
+        Start-ViceProcess (@('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384') + $script:ViceAttachArgs + @('-autostartprgmode', '1', $script:DizzyPrg))
     }
 
     'readme' {
-        Maybe-Build
-        Check-Prg $script:ReadmePrg
+        Assert-FileExists -Path $script:ReadmePrg -Kind 'Program file'
         Print-Info -RunMode 'Standalone' -Target $script:ReadmePrg
-        Write-Host 'Running README app standalone (no REU, no shim)'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-autostartprgmode', '1', $script:ReadmePrg)) | Out-Null
+        Start-ViceProcess @('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384', '-autostartprgmode', '1', $script:ReadmePrg)
     }
 
     'showcfg' {
-        Maybe-Build
-        Check-Disk $script:DiskFile1
-        Check-Prg $script:ShowcfgPrg
+        Assert-FileExists -Path $script:ShowcfgPrg -Kind 'Program file'
         Print-Info -RunMode 'Catalog Inspector' -Target $script:ShowcfgPrg
-        Write-Host 'Running BASIC APPS.CFG inspector (reads apps.cfg from drive 8)'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-8', $script:DiskFile1, '-9', $script:DiskFile2, '-autostartprgmode', '1', $script:ShowcfgPrg)) | Out-Null
+        Start-ViceProcess (@('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384') + $script:ViceAttachArgs + @('-autostartprgmode', '1', $script:ShowcfgPrg))
+    }
+
+    'xfilechk' {
+        $version = Invoke-PythonText -Args @($script:VersionTool, '--next')
+        Write-Host ("Build version: {0}" -f $version)
+        if (-not $script:SkipBuild) {
+            & $script:MakeExe '-B' "BUILD_SUPPORT_DIR=$($script:BuildSupportDir)" $script:XFilechkBootPrg $script:XFilechkPrg $script:XFilechkDisk1 $script:XFilechkDisk2
+            if ($LASTEXITCODE -ne 0) {
+                throw 'xfilechk build failed.'
+            }
+        }
+        Start-ViceProcess @(
+            '-logfile', $script:ViceLogFile,
+            '-reu', '-reusize', '16384',
+            '-drive8type', '1571', '-drive8truedrive', '-devicebackend8', '0', '+busdevice8', '-8', $script:XFilechkDisk1,
+            '-drive9type', '1571', '-drive9truedrive', '-devicebackend9', '0', '+busdevice9', '-9', $script:XFilechkDisk2,
+            '-autostart', $script:XFilechkBootPrg
+        )
     }
 
     'monitor' {
-        Maybe-Build
-        Check-OSDisks
-        Ensure-Cal26RelSeeded
-        Check-Prg $script:PrebootPrg
-        Print-Info -RunMode 'Monitor' -Target $script:PrebootPrg
-        Write-Host 'Starting with monitor open...'
-        Write-Host ''
-        Start-ViceProcess ($script:ViceOpts + @('-initbreak', '0xC80D', '-8', $script:DiskFile1, '-9', $script:DiskFile2, '-autostart', $script:PrebootPrg)) | Out-Null
+        Assert-FileExists -Path ([string]$script:ProfileManifest.autostart_prg) -Kind 'Program file'
+        Print-Info -RunMode 'Monitor' -Target $script:ProfileManifest.autostart_prg
+        Start-ViceProcess (@('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384') + $script:ViceAttachArgs + @('-initbreak', '0xC80D', '-autostart', [string]$script:ProfileManifest.autostart_prg))
     }
 
     'readyshell-mon' {
-        Maybe-Build
-        Check-OSDisks
-        Ensure-Cal26RelSeeded
-        Check-Prg $script:PrebootPrg
+        Assert-FileExists -Path ([string]$script:ProfileManifest.autostart_prg) -Kind 'Program file'
         New-Item -ItemType Directory -Force -Path 'logs' | Out-Null
         Set-Content -LiteralPath $script:RemoteMonLog -Value $null -Encoding ascii
         Set-Content -LiteralPath $script:ViceStdioLog -Value $null -Encoding ascii
-        Print-Info -RunMode 'Readyshell Remote Monitor' -Target $script:PrebootPrg
-        Write-Host ("Starting ReadyOS with remote monitor endpoints enabled:")
-        Write-Host ("  text monitor:   {0}" -f $script:RemoteMonAddr)
-        Write-Host ("  binary monitor: {0}" -f $script:BinaryMonAddr)
-        Write-Host ("  text log:       {0}" -f $script:RemoteMonLog)
-        Write-Host ("  VICE stdio log: {0}" -f $script:ViceStdioLog)
-        Write-Host ''
-        Start-ViceProcess -Arguments ($script:ViceOpts + @(
-            '-remotemonitor',
-            '-remotemonitoraddress', $script:RemoteMonAddr,
-            '-binarymonitor',
-            '-binarymonitoraddress', $script:BinaryMonAddr,
-            '-monlog',
-            '-monlogname', $script:RemoteMonLog,
-            '-8', $script:DiskFile1,
-            '-9', $script:DiskFile2,
-            '-autostart', $script:PrebootPrg
-        )) -RedirectPath $script:ViceStdioLog | Out-Null
+        Print-Info -RunMode 'Readyshell Remote Monitor' -Target $script:ProfileManifest.autostart_prg
+        Start-ViceProcess -Arguments (
+            @('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384') +
+            $script:ViceAttachArgs +
+            @(
+                '-remotemonitor', '-remotemonitoraddress', $script:RemoteMonAddr,
+                '-binarymonitor', '-binarymonitoraddress', $script:BinaryMonAddr,
+                '-monlog', '-monlogname', $script:RemoteMonLog,
+                '-autostart', [string]$script:ProfileManifest.autostart_prg
+            )
+        ) -RedirectPath $script:ViceStdioLog
     }
 
     'noreu' {
-        Maybe-Build
-        Check-OSDisks
-        Ensure-Cal26RelSeeded
-        Check-Prg $script:PrebootPrg
-        Print-Info -RunMode 'No REU' -Target $script:PrebootPrg
-        Write-Host 'Running WITHOUT REU (testing error handling)'
-        Write-Host ''
-        Start-ViceProcess (@('-8', $script:DiskFile1, '-9', $script:DiskFile2, '-autostart', $script:PrebootPrg)) | Out-Null
+        Assert-FileExists -Path ([string]$script:ProfileManifest.autostart_prg) -Kind 'Program file'
+        Print-Info -RunMode 'No REU' -Target $script:ProfileManifest.autostart_prg
+        Start-ViceProcess ($script:ViceAttachArgs + @('-autostart', [string]$script:ProfileManifest.autostart_prg))
     }
 
     '' {
-        Maybe-Build
-        Check-OSDisks
-        Ensure-Cal26RelSeeded
-        Check-Prg $script:PrebootPrg
-        Print-Info -RunMode 'Normal' -Target $script:PrebootPrg
-        @(
-            'Instructions:',
-            '  1. preboot.prg loads/runs setd71.prg; setd71 sets drives 8/9 to 1571 mode, then loads boot.prg',
-            '  2. Boot loader installs shim and loads launcher',
-            '  3. Select ''LOAD TO REU'' and press RETURN to preload apps',
-            '  4. Select an app (including 2048 and deminer) and press RETURN to launch',
-            '  5. Press CTRL+B to return to launcher',
-            '  6. Press F2/F4 to switch between apps',
-            ''
-        ) | Write-Host
-        Start-ViceProcess ($script:ViceOpts + @('-8', $script:DiskFile1, '-9', $script:DiskFile2, '-autostart', $script:PrebootPrg)) | Out-Null
+        Assert-FileExists -Path ([string]$script:ProfileManifest.autostart_prg) -Kind 'Program file'
+        Print-Info -RunMode 'Normal' -Target $script:ProfileManifest.autostart_prg
+        Start-ViceProcess (@('-logfile', $script:ViceLogFile, '-reu', '-reusize', '16384') + $script:ViceAttachArgs + @('-autostart', [string]$script:ProfileManifest.autostart_prg))
     }
 
     default {
