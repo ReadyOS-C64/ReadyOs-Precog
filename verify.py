@@ -206,15 +206,24 @@ def parse_apps_catalog(path):
         if cleaned is not None:
             logical.append((line_no, cleaned))
 
+    apps_section = []
+    in_apps = False
+    for line_no, line in logical:
+        if line.startswith("[") and line.endswith("]"):
+            in_apps = (line == "[apps]")
+            continue
+        if in_apps:
+            apps_section.append((line_no, line))
+
     entries = []
     i = 0
-    while i < len(logical):
-        entry_no, entry_line = logical[i]
+    while i < len(apps_section):
+        entry_no, entry_line = apps_section[i]
         i += 1
-        parts = [p.strip() for p in entry_line.split(":", 2)]
-        if len(parts) != 3:
+        parts = [p.strip() for p in entry_line.split(":")]
+        if len(parts) not in (3, 4):
             raise ValueError(f"{path}:{entry_no}: malformed catalog line: {entry_line!r}")
-        drive_raw, prg, label = parts
+        drive_raw, prg, label = parts[:3]
         if not drive_raw.isdigit():
             raise ValueError(f"{path}:{entry_no}: invalid drive token: {drive_raw!r}")
         drive = int(drive_raw, 10)
@@ -225,9 +234,9 @@ def parse_apps_catalog(path):
             raise ValueError(f"{path}:{entry_no}: empty display name")
         if len(label) > 31:
             raise ValueError(f"{path}:{entry_no}: display name too long ({len(label)} > 31)")
-        if i >= len(logical):
+        if i >= len(apps_section):
             raise ValueError(f"{path}:{entry_no}: missing description for entry: {entry_line!r}")
-        desc_no, desc = logical[i]
+        desc_no, desc = apps_section[i]
         i += 1
         if len(desc) == 0:
             raise ValueError(f"{path}:{desc_no}: empty description")
@@ -407,22 +416,31 @@ def parse_apps_catalog_bytes(raw):
     logical = [clean(line) for line in lines]
     logical = [line for line in logical if line]
 
+    apps_section = []
+    in_apps = False
+    for line in logical:
+        if line.startswith("[") and line.endswith("]"):
+            in_apps = (line == "[apps]")
+            continue
+        if in_apps:
+            apps_section.append(line)
+
     entries = []
     i = 0
-    while i < len(logical):
-        entry_line = logical[i]
+    while i < len(apps_section):
+        entry_line = apps_section[i]
         i += 1
-        parts = [p.strip() for p in entry_line.split(":", 2)]
-        if len(parts) != 3:
+        parts = [p.strip() for p in entry_line.split(":")]
+        if len(parts) not in (3, 4):
             raise ValueError(f"malformed disk catalog line: {entry_line!r}")
-        drive_raw, prg, label = parts
+        drive_raw, prg, label = parts[:3]
         if not drive_raw.isdigit():
             raise ValueError(f"invalid drive token in disk catalog: {drive_raw!r}")
         drive = int(drive_raw, 10)
         prg_norm = normalize_catalog_prg_token(prg)
-        if i >= len(logical):
+        if i >= len(apps_section):
             raise ValueError(f"missing description in disk catalog for: {entry_line!r}")
-        desc = logical[i]
+        desc = apps_section[i]
         i += 1
         entries.append({"drive": drive, "prg": prg_norm, "label": label, "desc": desc})
 
@@ -685,7 +703,7 @@ def main():
         all_ok &= check("catalog rejects .prg extension", reject_prg_ext)
 
     try:
-        catalog_entries = parse_apps_catalog(os.path.join("cfg", "apps_catalog.txt"))
+        catalog_entries = parse_apps_catalog(os.path.join("cfg", "readyos_config.ini"))
     except (FileNotFoundError, ValueError) as ex:
         all_ok &= check("apps catalog parse", False, str(ex))
     else:

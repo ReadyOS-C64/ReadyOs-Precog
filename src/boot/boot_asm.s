@@ -42,6 +42,17 @@ ptr2_lo         = $09
 ptr2_hi         = $0A
 ; $0B-$0D: KERNAL I/O vars (LDTND, DFLTN, DFLTO) - DO NOT USE
 
+BOOT_TITLE_ROW  = $06A8
+BOOT_TITLE_COL  = $DAA8
+TITLE_VARIANT_LEN = (msg_variant_end - msg_variant)
+TITLE_VERSION_LEN = (msg_version_end - msg_version)
+TITLE_TEXT_LEN = (TITLE_VARIANT_LEN + 1 + TITLE_VERSION_LEN)
+TITLE_FRAME_LEN = (TITLE_TEXT_LEN + 4)
+TITLE_LEFT_COL = ((40 - TITLE_FRAME_LEN) / 2)
+TITLE_TEXT_COL = (TITLE_LEFT_COL + 2)
+TITLE_VERSION_COL = (TITLE_TEXT_COL + TITLE_VARIANT_LEN + 1)
+TITLE_RIGHT_COL = (TITLE_LEFT_COL + TITLE_FRAME_LEN - 1)
+
 ;=============================================================================
 ; Boot entry point
 ;=============================================================================
@@ -274,24 +285,42 @@ start:
     sta cursor_visible
 
     ;=================================================================
-    ; Step 4b: Display version text at row 17 with PETSCII spinner cells
+    ; Step 4b: Display variant + version text at row 17 with PETSCII spinner
+    ;          cells. The variant is baked at build time from the config file,
+    ;          so boot keeps its original simple, resident-only memory shape.
     ;=================================================================
     ldx #0
-    lda spinner_chars,x       ; seed left spinner with frame 0
-    sta $06A8 + 10            ; row 17, col 10 (1 blank before version text)
-    lda spinner_chars_ccw,x   ; seed right spinner with mirrored frame 0
-    sta $06A8 + 12 + (msg_version_end - msg_version) + 1
-    lda #13                   ; light green, matching the boot cursor
-    sta $DAA8 + 10
-    sta $DAA8 + 12 + (msg_version_end - msg_version) + 1
+    lda spinner_chars,x
+    sta BOOT_TITLE_ROW + TITLE_LEFT_COL
+    lda spinner_chars_ccw,x
+    sta BOOT_TITLE_ROW + TITLE_RIGHT_COL
+    lda #13
+    sta BOOT_TITLE_COL + TITLE_LEFT_COL
+    sta BOOT_TITLE_COL + TITLE_RIGHT_COL
+
+    lda #$20
+    sta BOOT_TITLE_ROW + TITLE_LEFT_COL + 1
+    sta BOOT_TITLE_ROW + TITLE_RIGHT_COL - 1
+
+    ldx #0
+@write_variant:
+    lda msg_variant,x
+    jsr ascii_to_screen
+    sta BOOT_TITLE_ROW + TITLE_TEXT_COL,x
+    inx
+    cpx #TITLE_VARIANT_LEN
+    bne @write_variant
+
+    lda #$20
+    sta BOOT_TITLE_ROW + TITLE_TEXT_COL + TITLE_VARIANT_LEN
 
     ldx #0
 @write_ver:
     lda msg_version,x
     jsr ascii_to_screen
-    sta $06A8 + 12,x        ; row 17 ($0400+680=$06A8), col 12
+    sta BOOT_TITLE_ROW + TITLE_VERSION_COL,x
     inx
-    cpx #(msg_version_end - msg_version)
+    cpx #TITLE_VERSION_LEN
     bne @write_ver
 
     ;=================================================================
@@ -765,9 +794,9 @@ raster_irq_handler:
     adc anim_spinner_style
     tax
     lda spinner_chars,x
-    sta $06A8 + 10
+    sta BOOT_TITLE_ROW + TITLE_LEFT_COL
     lda spinner_chars_ccw,x
-    sta $06A8 + 12 + (msg_version_end - msg_version) + 1
+    sta BOOT_TITLE_ROW + TITLE_RIGHT_COL
 
     ; Advance shadow phase and update shadow positions
     inc anim_shadow_phase
@@ -908,6 +937,7 @@ msg_ready:
 msg_ready_end:
 
 .include "../generated/msg_version.inc"
+.include "../generated/msg_variant.inc"
 
 err_msg:
     .byte 13, "    LOAD ERROR!", 13, 0

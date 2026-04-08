@@ -62,6 +62,7 @@ READMEAPP = readme.prg
 READYSHELL = readyshell.prg
 VERSION_HEADER = $(GEN_DIR)/build_version.h
 VERSION_ASM_INC = $(GEN_DIR)/msg_version.inc
+VARIANT_ASM_INC = $(GEN_DIR)/msg_variant.inc
 README_DATA_C = $(GEN_DIR)/readme_pages.c
 README_DATA_H = $(GEN_DIR)/readme_pages.h
 XRELCHK = xrelchk.prg
@@ -84,7 +85,10 @@ DISK2 = readyos_2.d71
 XFILECHK_DISK1 = $(HARNESS_OUT_DIR)/xfilechk.d71
 XFILECHK_DISK2 = $(HARNESS_OUT_DIR)/xfilechk_2.d71
 DISK = $(DISK1)
-CATALOG_SRC = cfg/apps_catalog.txt
+READYOS_CONFIG_SRC ?= cfg/readyos_config.ini
+READYOS_CONFIG_LOAD_ALL ?=
+READYOS_CONFIG_RUN_FIRST ?=
+CATALOG_SRC = $(READYOS_CONFIG_SRC)
 CATALOG_SEQ = $(OBJ_DIR)/apps_cfg_petscii.seq
 EDITOR_HELP_SRC = cfg/editor_help.txt
 EDITOR_HELP_SEQ = $(OBJ_DIR)/editor_help.seq
@@ -224,7 +228,7 @@ all: $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $
 	@ls -la *.prg $(DISK1) $(DISK2)
 
 # Boot loader (assembly version for size control)
-$(BOOT): $(BOOT_DIR)/boot_asm.s $(VERSION_ASM_INC)
+$(BOOT): $(BOOT_DIR)/boot_asm.s $(VERSION_ASM_INC) $(CATALOG_SEQ)
 	$(AS) -o obj/boot.o $<
 	$(LD) -C $(CFG_DIR)/boot_asm.cfg -o $@ obj/boot.o
 
@@ -245,9 +249,12 @@ $(XFILECHK_BOOT): $(BOOT_DIR)/xfilechk_boot.bas
 $(SHOWCFG): $(BOOT_DIR)/showcfg.bas
 	$(PETCAT) -w2 -o $@ $<
 
-# Build apps.cfg payload in strict lowercase PETASCII
+# Build apps.cfg payload from sectioned config source
 $(CATALOG_SEQ): $(CATALOG_SRC) $(BUILD_SUPPORT_DIR)/build_apps_catalog_petscii.py
-	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_apps_catalog_petscii.py --input $(CATALOG_SRC) --output $@
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_apps_catalog_petscii.py --input $(CATALOG_SRC) --output $@ \
+		--variant-asm-output $(VARIANT_ASM_INC) \
+		$(if $(strip $(READYOS_CONFIG_LOAD_ALL)),--override-load-all $(READYOS_CONFIG_LOAD_ALL),) \
+		$(if $(strip $(READYOS_CONFIG_RUN_FIRST)),--override-run-first $(READYOS_CONFIG_RUN_FIRST),)
 
 # Build plain-text lowercase PETASCII SEQ payloads
 $(EDITOR_HELP_SEQ): $(EDITOR_HELP_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
@@ -483,6 +490,7 @@ clean:
 	rm -f $(OBJ_DIR)/*.map
 	rm -rf $(READYSHELL_OBJ_DIR)
 	rm -f $(CATALOG_SEQ)
+	rm -f $(VARIANT_ASM_INC)
 	rm -f $(EDITOR_HELP_SEQ)
 	rm -f *.prg
 	rm -f $(READYSHELL_OVL1_PRG) $(READYSHELL_OVL2_PRG) $(READYSHELL_OVL3_PRG) \

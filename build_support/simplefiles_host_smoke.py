@@ -19,9 +19,9 @@ def fail(msg: str) -> int:
 
 
 def main() -> int:
-    catalog = (ROOT / "cfg" / "apps_catalog.txt").read_text(encoding="utf-8")
+    catalog = (ROOT / "cfg" / "readyos_config.ini").read_text(encoding="utf-8")
     if "9:simplefiles:simple files" not in catalog:
-        return fail("apps_catalog.txt missing simplefiles entry")
+        return fail("readyos_config.ini missing simplefiles entry")
 
     spec = json.loads((ROOT / "build_support" / "memory_map_spec.json").read_text(encoding="utf-8"))
     if "obj/simplefiles.map" not in spec.get("map_files", []):
