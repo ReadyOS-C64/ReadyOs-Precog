@@ -233,6 +233,11 @@ Public supporting docs in `docs/` currently include:
 - `docs/quicknotes_seq_format.md`
 - `docs/simplecells_seq_format.md`
 
+Rendered documentation exports in `docs/` currently include:
+
+- [ReadyOS SHIM Architecture Report (HTML)](docs/ReadyOS%20SHIM%20Architecture%20Report%20%280.1.8%20%3A%20local%200.1.8G%29.html)
+- [ReadyOS SHIM Architecture Report (PDF)](docs/ReadyOS%20SHIM%20Architecture%20Report%20%280.1.8%20%3A%20local%200.1.8G%29.pdf)
+
 ## Repository Layout
 
 - `src/boot`: bootloader and BASIC boot helpers
