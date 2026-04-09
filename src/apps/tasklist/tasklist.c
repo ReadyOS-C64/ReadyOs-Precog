@@ -58,6 +58,8 @@
 #define LFN_FILE         2
 #define LFN_CMD          15
 #define CR               0x0D
+#define OPEN_DIALOG_RC_OK     0u
+#define OPEN_DIALOG_RC_CANCEL 1u
 
 /* Tree drawing characters */
 #define TREE_BRANCH  0x6B  /* TUI_T_RIGHT */
@@ -156,11 +158,13 @@ static const unsigned char indent_colors[] = {
 
 /* File browser data - shared with note edit via union to save memory */
 union {
-    struct {
-        DirPageEntry dir_entries[MAX_DIR_ENTRIES];
-        char dir_display[MAX_DIR_ENTRIES][21];
-        const char *dir_ptrs[MAX_DIR_ENTRIES];
-        unsigned char dir_count;
+    union {
+        struct {
+            DirPageEntry dir_entries[MAX_DIR_ENTRIES];
+            char dir_display[MAX_DIR_ENTRIES][21];
+            const char *dir_ptrs[MAX_DIR_ENTRIES];
+            unsigned char dir_count;
+        } browser;
         char save_buf[17];
     } file;
     struct {
@@ -198,7 +202,7 @@ static void copy_task_to_clipboard(unsigned char view_pos);
 static void paste_from_clipboard(unsigned char view_pos);
 static unsigned char read_directory(unsigned char start_index,
                                     unsigned char *out_total);
-static unsigned char show_open_dialog(void);
+static unsigned char show_open_dialog(DirPageEntry *out_entry);
 static unsigned char show_save_dialog(void);
 static unsigned char file_load(const char *name);
 static unsigned char file_save(const char *name);
@@ -1265,48 +1269,52 @@ static void note_compact(void) {
  *---------------------------------------------------------------------------*/
 
 static void build_dir_display(unsigned char idx) {
-    unsigned char i, len;
+    unsigned char i;
+    unsigned char len;
     const char *type_text;
 
-    strcpy(shared.file.dir_display[idx], shared.file.dir_entries[idx].name);
-    len = strlen(shared.file.dir_display[idx]);
+    strcpy(shared.file.browser.dir_display[idx],
+           shared.file.browser.dir_entries[idx].name);
+    len = strlen(shared.file.browser.dir_display[idx]);
 
-    for (i = len; i < 17; ++i) {
-        shared.file.dir_display[idx][i] = ' ';
+    for (i = len; i < 17u; ++i) {
+        shared.file.browser.dir_display[idx][i] = ' ';
     }
 
-    type_text = dir_page_type_text(shared.file.dir_entries[idx].type);
-    shared.file.dir_display[idx][17] = type_text[0];
-    shared.file.dir_display[idx][18] = type_text[1];
-    shared.file.dir_display[idx][19] = type_text[2];
-    shared.file.dir_display[idx][20] = 0;
+    type_text = dir_page_type_text(shared.file.browser.dir_entries[idx].type);
+    shared.file.browser.dir_display[idx][17] = type_text[0];
+    shared.file.browser.dir_display[idx][18] = type_text[1];
+    shared.file.browser.dir_display[idx][19] = type_text[2];
+    shared.file.browser.dir_display[idx][20] = 0;
 }
 
 static unsigned char read_directory(unsigned char start_index,
                                     unsigned char *out_total) {
     unsigned char idx;
 
-    shared.file.dir_count = 0;
+    shared.file.browser.dir_count = 0;
     if (dir_page_read(storage_device_get_default(),
                       start_index,
                       DIR_PAGE_TYPE_ANY,
-                      shared.file.dir_entries,
+                      shared.file.browser.dir_entries,
                       MAX_DIR_ENTRIES,
-                      &shared.file.dir_count,
+                      &shared.file.browser.dir_count,
                       out_total) != DIR_PAGE_RC_OK) {
         if (out_total != 0) {
-            *out_total = 0;
+            *out_total = 0u;
         }
-        return 0;
+        return 0u;
     }
-    for (idx = 0; idx < shared.file.dir_count; ++idx) {
+
+    for (idx = 0u; idx < shared.file.browser.dir_count; ++idx) {
         build_dir_display(idx);
-        shared.file.dir_ptrs[idx] = shared.file.dir_display[idx];
+        shared.file.browser.dir_ptrs[idx] = shared.file.browser.dir_display[idx];
     }
-    return 1;
+
+    return 1u;
 }
 
-static unsigned char show_open_dialog(void) {
+static unsigned char show_open_dialog(DirPageEntry *out_entry) {
     TuiRect win;
     TuiMenu menu;
     unsigned char key;
@@ -1314,10 +1322,11 @@ static unsigned char show_open_dialog(void) {
     unsigned char selected;
     unsigned char page_start;
     unsigned char total_count;
+    unsigned char rel_index;
 
-    selected = 0;
-    page_start = 0;
-    total_count = 0;
+    selected = 0u;
+    page_start = 0u;
+    total_count = 0u;
 
     while (1) {
         tui_clear(TUI_COLOR_BLUE);
@@ -1336,8 +1345,8 @@ static unsigned char show_open_dialog(void) {
         tui_puts(1, 22, "DRIVE:", TUI_COLOR_GRAY3);
         tui_print_uint(8, 22, storage_device_get_default(), TUI_COLOR_CYAN);
 
-        menu_ready = 0;
-        if (total_count == 0 || shared.file.dir_count == 0) {
+        menu_ready = 0u;
+        if (total_count == 0u || shared.file.browser.dir_count == 0u) {
             tui_puts(7, 10, "NO FILES FOUND ON DISK", TUI_COLOR_LIGHTRED);
             tui_puts(1, 24, "F3:DRV RET:OPEN STOP:CANCEL", TUI_COLOR_GRAY3);
         } else {
@@ -1345,12 +1354,14 @@ static unsigned char show_open_dialog(void) {
             tui_puts(15, 22, "FILE(S)", TUI_COLOR_GRAY3);
             tui_puts(1, 24, "UP/DN SEL F3:DRV RET:OPEN STOP", TUI_COLOR_GRAY3);
 
-            tui_menu_init(&menu, 1, 2, 38, 18, shared.file.dir_ptrs, shared.file.dir_count);
+            tui_menu_init(&menu, 1, 2, 38, 18,
+                          shared.file.browser.dir_ptrs,
+                          shared.file.browser.dir_count);
             menu.selected = (unsigned char)(selected - page_start);
             menu.item_color = TUI_COLOR_WHITE;
             menu.sel_color = TUI_COLOR_CYAN;
             tui_menu_draw(&menu);
-            menu_ready = 1;
+            menu_ready = 1u;
         }
 
         while (1) {
@@ -1359,13 +1370,13 @@ static unsigned char show_open_dialog(void) {
             if (key == TUI_KEY_F3) {
                 storage_device_set_default(
                     storage_device_toggle_8_9(storage_device_get_default()));
-                selected = 0;
-                page_start = 0;
+                selected = 0u;
+                page_start = 0u;
                 break;
             }
 
             if (key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
-                return 255;
+                return OPEN_DIALOG_RC_CANCEL;
             }
 
             if (!menu_ready) {
@@ -1373,36 +1384,46 @@ static unsigned char show_open_dialog(void) {
             }
 
             if (key == TUI_KEY_RETURN) {
-                return (unsigned char)(selected - page_start);
+                rel_index = (unsigned char)(selected - page_start);
+                strcpy(out_entry->name, shared.file.browser.dir_entries[rel_index].name);
+                out_entry->type = shared.file.browser.dir_entries[rel_index].type;
+                return OPEN_DIALOG_RC_OK;
             }
 
             if (key == TUI_KEY_HOME) {
-                selected = 0;
-                page_start = 0;
-                break;
-            }
-            if (key == TUI_KEY_UP) {
-                if (selected > 0) {
-                    --selected;
-                    if (selected < page_start) {
-                        page_start = selected;
-                        break;
-                    }
-                    menu.selected = (unsigned char)(selected - page_start);
-                    tui_menu_draw(&menu);
+                if (selected != 0u || page_start != 0u) {
+                    selected = 0u;
+                    page_start = 0u;
+                    break;
                 }
                 continue;
             }
-            if (key == TUI_KEY_DOWN) {
-                if ((unsigned char)(selected + 1u) < total_count) {
-                    ++selected;
-                    if (selected >= (unsigned char)(page_start + shared.file.dir_count)) {
-                        page_start = (unsigned char)(selected - shared.file.dir_count + 1u);
-                        break;
-                    }
-                    menu.selected = (unsigned char)(selected - page_start);
-                    tui_menu_draw(&menu);
+
+            if (key == TUI_KEY_UP) {
+                if (selected == 0u) {
+                    continue;
                 }
+                --selected;
+                if (selected < page_start) {
+                    page_start = (unsigned char)(page_start - MAX_DIR_ENTRIES);
+                    break;
+                }
+                menu.selected = (unsigned char)(selected - page_start);
+                tui_menu_draw(&menu);
+                continue;
+            }
+
+            if (key == TUI_KEY_DOWN) {
+                if ((unsigned char)(selected + 1u) >= total_count) {
+                    continue;
+                }
+                ++selected;
+                if (selected >= (unsigned char)(page_start + shared.file.browser.dir_count)) {
+                    page_start = (unsigned char)(page_start + MAX_DIR_ENTRIES);
+                    break;
+                }
+                menu.selected = (unsigned char)(selected - page_start);
+                tui_menu_draw(&menu);
             }
         }
     }
@@ -2198,8 +2219,9 @@ static void tasklist_loop(void) {
             case TUI_KEY_F7:
                 /* Open */
                 {
-                    unsigned char result = show_open_dialog();
-                    if (result != 255 && result < shared.file.dir_count) {
+                    DirPageEntry selected_entry;
+
+                    if (show_open_dialog(&selected_entry) == OPEN_DIALOG_RC_OK) {
                         if (modified) {
                             if (!show_confirm("DISCARD CHANGES?")) {
                                 tasklist_draw();
@@ -2208,7 +2230,7 @@ static void tasklist_loop(void) {
                         }
                         tui_clear(TUI_COLOR_BLUE);
                         tui_puts(14, 12, "LOADING...", TUI_COLOR_YELLOW);
-                        if (file_load(shared.file.dir_entries[result].name) != 0) {
+                        if (file_load(selected_entry.name) != 0) {
                             show_message("LOAD ERROR!", TUI_COLOR_LIGHTRED);
                         }
                     }

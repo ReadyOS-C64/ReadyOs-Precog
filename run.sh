@@ -502,7 +502,11 @@ print_info() {
 }
 
 start_vice() {
-    "$VICE" "${FAST_VICE_ARGS[@]}" "$@"
+    if [ "${#FAST_VICE_ARGS[@]}" -gt 0 ]; then
+        "$VICE" "${FAST_VICE_ARGS[@]}" "$@"
+        return
+    fi
+    "$VICE" "$@"
 }
 
 configure_fast_vice_args

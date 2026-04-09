@@ -3,9 +3,9 @@
   "display_name": "precog (dual d64)",
   "kind": "dual-d64",
   "variant_boot_name": "precog dual d64",
-  "version_text": "0.1.8E",
+  "version_text": "0.1.8L",
   "catalog_source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/cfg/profiles/precog-dual-d64.ini",
-  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8e-dual-d64-preboot.prg",
+  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8l-dual-d64-preboot.prg",
   "autostart_disk_prg": "preboot.prg",
   "preboot_mode": "boot",
   "disks": [
@@ -15,7 +15,7 @@
       "image_type": "d64",
       "vice_drive_type": "1541",
       "true_drive": true,
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8e-dual-d64_1.d64"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8l-dual-d64_1.d64"
     },
     {
       "index": 2,
@@ -23,7 +23,7 @@
       "image_type": "d64",
       "vice_drive_type": "1541",
       "true_drive": true,
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8e-dual-d64_2.d64"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8l-dual-d64_2.d64"
     }
   ],
   "boot_prgs": [
@@ -31,13 +31,13 @@
       "stem": "preboot",
       "disk_name": "preboot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/preboot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8e-dual-d64-preboot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8l-dual-d64-preboot.prg"
     },
     {
       "stem": "boot",
       "disk_name": "boot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/boot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8e-dual-d64-boot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d64/readyos-v0.1.8l-dual-d64-boot.prg"
     }
   ],
   "apps": [

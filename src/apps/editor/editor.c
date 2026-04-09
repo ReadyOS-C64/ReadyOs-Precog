@@ -12,7 +12,7 @@
 #include <string.h>
 
 #include "../../lib/clipboard.h"
-#include "../../lib/dir_page.h"
+#include "../../lib/file_dialog.h"
 #include "../../lib/reu_mgr.h"
 #include "../../lib/resume_state.h"
 #include "../../lib/storage_device.h"
@@ -55,8 +55,6 @@
 #define KEY_CTRL_P 16
 
 /* File I/O */
-#define MAX_DIR_ENTRIES 18
-#define DIR_NAME_LEN    17    /* 16 char C64 filename + null */
 #define IO_BUF_SIZE     64
 #define LFN_DIR         1
 #define LFN_FILE        2
@@ -89,14 +87,11 @@ static char filename[16];
 static unsigned char sel_anchor_x;
 static unsigned char sel_anchor_y;
 static unsigned char has_selection;
-static char clip_text_buf[CLIP_TEXT_BUF_SIZE + 1];
-
-/* File browser data */
-static DirPageEntry dir_entries[MAX_DIR_ENTRIES];
-static char dir_display[MAX_DIR_ENTRIES][21];  /* "FILENAME      PRG" for menu */
-static const char *dir_ptrs[MAX_DIR_ENTRIES];
-static unsigned char dir_count;
-static char save_buf[17];
+static union {
+    char clip_text_buf[CLIP_TEXT_BUF_SIZE + 1];
+    FileDialogState dialog;
+    char save_buf[17];
+} file_scratch;
 static char find_buf[FIND_LEN + 1];
 static unsigned char resume_ready;
 
@@ -183,9 +178,7 @@ static void paste_from_clipboard(void);
 static unsigned char show_find_dialog(void);
 static unsigned char find_next_match(void);
 static void new_file(void);
-static unsigned char read_directory(unsigned char start_index,
-                                    unsigned char *out_total);
-static unsigned char show_open_dialog(void);
+static unsigned char show_open_dialog(DirPageEntry *out_entry);
 static unsigned char file_load(const char *name);
 static unsigned char file_save(const char *name);
 static unsigned char show_save_dialog(void);
@@ -1020,18 +1013,18 @@ static void copy_to_clipboard(void) {
             }
 
             for (col = from_col; col < to_col && out_len < CLIP_TEXT_BUF_SIZE; ++col) {
-                clip_text_buf[out_len] = text_buffer[line_idx][col];
+                file_scratch.clip_text_buf[out_len] = text_buffer[line_idx][col];
                 ++out_len;
             }
 
             if (line_idx != end_y && out_len < CLIP_TEXT_BUF_SIZE) {
-                clip_text_buf[out_len] = CR;
+                file_scratch.clip_text_buf[out_len] = CR;
                 ++out_len;
             }
         }
 
         if (out_len > 0) {
-            clip_copy(CLIP_TYPE_TEXT, clip_text_buf, out_len);
+            clip_copy(CLIP_TYPE_TEXT, file_scratch.clip_text_buf, out_len);
         }
         return;
     }
@@ -1047,21 +1040,21 @@ static void paste_from_clipboard(void) {
     unsigned int i;
 
     if (clip_item_count() == 0) return;
-    len = clip_paste(0, clip_text_buf, CLIP_TEXT_BUF_SIZE);
+    len = clip_paste(0, file_scratch.clip_text_buf, CLIP_TEXT_BUF_SIZE);
     if (len > 0) {
-        clip_text_buf[len] = 0;
+        file_scratch.clip_text_buf[len] = 0;
         clear_selection();
 
         /* Insert pasted text at cursor */
         for (i = 0; i < len; ++i) {
-            if ((unsigned char)clip_text_buf[i] == CR) {
+            if ((unsigned char)file_scratch.clip_text_buf[i] == CR) {
                 if (line_count >= MAX_LINES) {
                     break;
                 }
                 handle_return();
-            } else if ((unsigned char)clip_text_buf[i] >= 32 &&
-                       (unsigned char)clip_text_buf[i] < 128) {
-                handle_char((unsigned char)clip_text_buf[i]);
+            } else if ((unsigned char)file_scratch.clip_text_buf[i] >= 32 &&
+                       (unsigned char)file_scratch.clip_text_buf[i] < 128) {
+                handle_char((unsigned char)file_scratch.clip_text_buf[i]);
             }
         }
     }
@@ -1071,151 +1064,16 @@ static void paste_from_clipboard(void) {
  * File I/O
  *---------------------------------------------------------------------------*/
 
-static void build_dir_display(unsigned char idx) {
-    unsigned char i, len;
-    const char *type_text;
+static unsigned char show_open_dialog(DirPageEntry *out_entry) {
+    static const FileDialogConfig cfg = {
+        "OPEN FILE",
+        "OPEN",
+        "NO FILES FOUND ON DISK",
+        DIR_PAGE_TYPE_ANY,
+        1u
+    };
 
-    /* Copy filename */
-    strcpy(dir_display[idx], dir_entries[idx].name);
-    len = strlen(dir_display[idx]);
-
-    /* Pad with spaces to column 17 */
-    for (i = len; i < 17; ++i) {
-        dir_display[idx][i] = ' ';
-    }
-
-    /* Append file type */
-    type_text = dir_page_type_text(dir_entries[idx].type);
-    dir_display[idx][17] = type_text[0];
-    dir_display[idx][18] = type_text[1];
-    dir_display[idx][19] = type_text[2];
-    dir_display[idx][20] = 0;
-}
-
-static unsigned char read_directory(unsigned char start_index,
-                                    unsigned char *out_total) {
-    unsigned char idx;
-
-    dir_count = 0;
-    if (dir_page_read(storage_device_get_default(),
-                      start_index,
-                      DIR_PAGE_TYPE_ANY,
-                      dir_entries,
-                      MAX_DIR_ENTRIES,
-                      &dir_count,
-                      out_total) != DIR_PAGE_RC_OK) {
-        if (out_total != 0) {
-            *out_total = 0;
-        }
-        return 0;
-    }
-    for (idx = 0; idx < dir_count; ++idx) {
-        build_dir_display(idx);
-        dir_ptrs[idx] = dir_display[idx];
-    }
-    return 1;
-}
-
-static unsigned char show_open_dialog(void) {
-    TuiRect win;
-    TuiMenu menu;
-    unsigned char key;
-    unsigned char menu_ready;
-    unsigned char selected;
-    unsigned char page_start;
-    unsigned char total_count;
-
-    selected = 0;
-    page_start = 0;
-    total_count = 0;
-
-    while (1) {
-        tui_clear(TUI_COLOR_BLUE);
-
-        win.x = 0;
-        win.y = 0;
-        win.w = 40;
-        win.h = 24;
-        tui_window_title(&win, "OPEN FILE", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
-
-        tui_puts(10, 11, "READING DISK...", TUI_COLOR_YELLOW);
-        (void)read_directory(page_start, &total_count);
-        tui_clear_line(11, 1, 38, TUI_COLOR_WHITE);
-
-        tui_clear_line(22, 1, 38, TUI_COLOR_GRAY3);
-        tui_puts(1, 22, "DRIVE:", TUI_COLOR_GRAY3);
-        tui_print_uint(8, 22, storage_device_get_default(), TUI_COLOR_CYAN);
-
-        menu_ready = 0;
-        if (total_count == 0 || dir_count == 0) {
-            tui_puts(7, 10, "NO FILES FOUND ON DISK", TUI_COLOR_LIGHTRED);
-            tui_puts(1, 24, "F3:DRV RET:OPEN STOP:CANCEL", TUI_COLOR_GRAY3);
-        } else {
-            tui_print_uint(12, 22, total_count, TUI_COLOR_GRAY3);
-            tui_puts(15, 22, "FILE(S)", TUI_COLOR_GRAY3);
-            tui_puts(1, 24, "UP/DN SEL F3:DRV RET:OPEN STOP", TUI_COLOR_GRAY3);
-
-            tui_menu_init(&menu, 1, 2, 38, 18, dir_ptrs, dir_count);
-            menu.selected = (unsigned char)(selected - page_start);
-            menu.item_color = TUI_COLOR_WHITE;
-            menu.sel_color = TUI_COLOR_CYAN;
-            tui_menu_draw(&menu);
-            menu_ready = 1;
-        }
-
-        while (1) {
-            key = tui_getkey();
-
-            if (key == TUI_KEY_F3) {
-                storage_device_set_default(
-                    storage_device_toggle_8_9(storage_device_get_default()));
-                selected = 0;
-                page_start = 0;
-                break;
-            }
-
-            if (key == TUI_KEY_RUNSTOP || key == TUI_KEY_LARROW) {
-                return 255;
-            }
-
-            if (!menu_ready) {
-                continue;
-            }
-
-            if (key == TUI_KEY_RETURN) {
-                return (unsigned char)(selected - page_start);
-            }
-
-            if (key == TUI_KEY_HOME) {
-                selected = 0;
-                page_start = 0;
-                break;
-            }
-            if (key == TUI_KEY_UP) {
-                if (selected > 0) {
-                    --selected;
-                    if (selected < page_start) {
-                        page_start = selected;
-                        break;
-                    }
-                    menu.selected = (unsigned char)(selected - page_start);
-                    tui_menu_draw(&menu);
-                }
-                continue;
-            }
-            if (key == TUI_KEY_DOWN) {
-                if ((unsigned char)(selected + 1u) < total_count) {
-                    ++selected;
-                    if (selected >= (unsigned char)(page_start + dir_count)) {
-                        page_start = (unsigned char)(selected - dir_count + 1u);
-                        break;
-                    }
-                    menu.selected = (unsigned char)(selected - page_start);
-                    tui_menu_draw(&menu);
-                }
-            }
-        }
-    }
+    return file_dialog_pick(&file_scratch.dialog, &cfg, out_entry);
 }
 
 static unsigned char file_load(const char *name) {
@@ -1381,12 +1239,12 @@ static unsigned char show_save_dialog(void) {
     tui_puts(7, 10, "FILENAME:", TUI_COLOR_WHITE);
 
     /* Init first (this clears the buffer) */
-    tui_input_init(&input, 7, 11, 20, 16, save_buf, TUI_COLOR_CYAN);
+    tui_input_init(&input, 7, 11, 20, 16, file_scratch.save_buf, TUI_COLOR_CYAN);
 
     /* THEN pre-fill with current filename (after init cleared it) */
     if (strcmp(filename, "UNTITLED") != 0) {
-        strcpy(save_buf, filename);
-        input.cursor = strlen(save_buf);
+        strcpy(file_scratch.save_buf, filename);
+        input.cursor = strlen(file_scratch.save_buf);
     }
 
     tui_input_draw(&input);
@@ -1411,13 +1269,13 @@ static unsigned char show_save_dialog(void) {
 
         if (tui_input_key(&input, key)) {
             /* RETURN was pressed */
-            if (save_buf[0] == 0) {
+            if (file_scratch.save_buf[0] == 0) {
                 continue;  /* Empty name, ignore */
             }
 
             /* Show saving status on a clean save dialog */
             tui_puts(7, 12, "SAVING...", TUI_COLOR_YELLOW);
-            if (file_save(save_buf) != 0) {
+            if (file_save(file_scratch.save_buf) != 0) {
                 show_message("SAVE ERROR!", TUI_COLOR_LIGHTRED);
                 return 0;
             }
@@ -1636,8 +1494,9 @@ static void editor_loop(void) {
 
             case KEY_OPEN:
                 {
-                    unsigned char result = show_open_dialog();
-                    if (result != 255 && result < dir_count) {
+                    DirPageEntry selected_entry;
+
+                    if (show_open_dialog(&selected_entry) == FILE_DIALOG_RC_OK) {
                         if (modified) {
                             if (!show_confirm("DISCARD CHANGES?")) {
                                 editor_draw();
@@ -1646,7 +1505,7 @@ static void editor_loop(void) {
                         }
                         tui_clear(TUI_COLOR_BLUE);
                         tui_puts(14, 12, "LOADING...", TUI_COLOR_YELLOW);
-                        if (file_load(dir_entries[result].name) != 0) {
+                        if (file_load(selected_entry.name) != 0) {
                             show_message("LOAD ERROR!", TUI_COLOR_LIGHTRED);
                         }
                     }
