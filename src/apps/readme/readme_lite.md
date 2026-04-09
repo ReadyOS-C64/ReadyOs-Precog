@@ -10,6 +10,8 @@ Current snapshot:
   Ultimate turbo workflows
 - Media layout: profile-based release media under `releases/<version>/<profile>/` with external `helpme.md`
   instructions for the selected build
+- Local artifact filenames may include an internal trailing build letter
+  such as `0.1.8k`; the public release line is still **0.1.8**
 - New since 0.1.5: **quicknotes**, **simple files**, **simple cells**,
   and **deminer**
 
@@ -136,6 +138,10 @@ Recent additions:
 Disk layout:
 - The exact disk image names depend on the selected build profile.
 - Drive assignments are documented in the external profile `helpme.md`.
+- The main release variants are:
+  - `precog-dual-d71`: full app set on two `1571` disks
+  - `precog-d81`: full app set on one `1581` disk
+  - `precog-dual-d64`: reduced app set on two `1541` disks
 
 ### Boot-Side Apps
 

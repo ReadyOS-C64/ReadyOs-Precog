@@ -1,10 +1,10 @@
 # ReadyOS
 
 ReadyOS PRECOG is an experimental REU-first environment for a modern
-Commodore 64 setup. It is aimed first at the Commodore 64 Ultimate, but it is
-also designed to run well in VICE with REU enabled, which makes it a practical
-fit for THEC64 Mini / Maxi style workflows too. PRECOG `0.1.8` is the current
-experimental release line.
+Commodore 64 setup. It is aimed first at Commodore 64 Ultimate-family
+hardware, but it is also designed to run well in VICE with REU enabled, which
+makes it a practical fit for THEC64 Mini / Maxi style workflows too. PRECOG
+`0.1.8` is the current public release line.
 
 What if a Commodore 64 could feel ready, not just nostalgic? ReadyOS treats
 waiting as the enemy. It is a keyboard-first, full-screen terminal-style
@@ -19,16 +19,21 @@ At a glance:
 - practical secondary path: VICE with REU enabled
 - tuned to stay usable from `1MHz` up through `48MHz`
 - ships as profile-based media builds with REU-backed app switching
+- local artifact filenames may include an extra trailing letter such as
+  `0.1.8k`; that suffix is an internal build/debug stamp, not a separate public release
 
 Project overview: https://readyos.notion.site/
 
 ## Getting Started
 
-Use the profile-specific disk images from the selected release folder:
+The canonical release layout is:
 
 - `releases/<version>/precog-dual-d71/`
 - `releases/<version>/precog-d81/`
 - `releases/<version>/precog-dual-d64/`
+
+Older checked-in snapshot folders such as `release/` or `Releases/` should be
+treated as historical artifacts, not the current build target.
 
 Tested targets:
 
@@ -51,12 +56,28 @@ Boot sequence:
 ## Current Status
 
 - Base release: `0.1.8`
-- Local builds use the existing rolling suffix flow
+- Local builds use the existing rolling suffix flow for artifact filenames only
 - Builds release media per profile
 - Launcher catalog currently contains `15` apps
 - Runtime reserves `24` app slots in REU
 - ReadyOS runs on its own; UltimateBuddy remains an optional companion concept,
   not a runtime dependency
+
+## Release Variants
+
+ReadyOS now ships the same runtime in three media variants because the target
+drive types and disk capacities are different.
+
+| Profile | Media | Why It Exists | Boot Flow | App Set |
+| --- | --- | --- | --- | --- |
+| `precog-dual-d71` | two `D71` images on drives `8` and `9` | default full-content profile for `1571` setups and the main local verification target | `PREBOOT -> SETD71 -> BOOT` | full current app catalog |
+| `precog-d81` | one `D81` image on drive `8` | full-content single-disk profile for `1581`/`D81` setups | `PREBOOT -> BOOT` | full current app catalog |
+| `precog-dual-d64` | two `D64` images on drives `8` and `9` | reduced profile for `1541`-compatible capacity limits | `PREBOOT -> BOOT` | curated subset of the current app catalog |
+
+The dual-D64 profile is intentionally smaller. Right now it keeps the core
+productivity path that fits on two `D64`s: `editor`, `quicknotes`,
+`calcplus`, `clipmgr`, `tasklist`, `simplefiles`, `game2048`, `deminer`, and
+`cal26`.
 
 ## App Catalog
 
@@ -136,12 +157,19 @@ Main entry points:
   PowerShell entry point for the same workflow
 - `bash ./run.sh --profile precog-d81`
   build and launch a non-default profile
+- `bash ./run.sh --list-profiles`
+  print the known release profile ids
+- `bash ./run.sh --build-all`
+  build every release profile and exit
 - `bash ./run.sh --skipbuild`
   launch using the latest built artifacts for the selected profile
 - `make`
   build the default profile release package
 - `make release-all`
   build all release profiles with one version stamp
+- `make audit-release-assets`
+  extract packaged `SEQ`/`REL` files from every built image and compare them
+  against the source of truth
 - `make verify`
   run the repo verification and host smoke checks
 
@@ -162,8 +190,17 @@ Generated build-owned assets include:
 - `src/generated/build_version.h` and `src/generated/msg_version.inc` from the
   local run/build flow
 
+Authoritative editable support payloads now live in `cfg/authoritative/`.
+That includes the shipped SEQ and REL support files such as `editor help`,
+`example tasks`, `myquicknotes`, `clipset1`, `clipset3`, `sheet2`,
+`cal26.rel`, `cal26cfg.rel`, `dizzy.rel`, and `dizzycfg.rel`.
+
 Normal profile rebuilds preserve non-managed user files from the prior
 profile build while replacing build-owned artifacts in `releases/<version>/<profile>/`.
+
+The packaged release audit extracts those internal `SEQ` and `REL` files from
+the built images and checks them byte-for-byte against `cfg/authoritative/`
+plus the generated `apps.cfg`.
 
 Public supporting docs in `docs/` currently include:
 

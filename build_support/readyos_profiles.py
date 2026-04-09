@@ -601,6 +601,7 @@ def write_authoritative_support_file(entry: Dict[str, object], target_disk: Path
 def build_help_text(profile: Dict[str, object],
                     resolved: Dict[str, object],
                     entries: List[Dict[str, object]]) -> str:
+    public_version = public_release_version(str(resolved["version_text"]))
     vice_parts: List[str] = ["x64sc", "-reu", "-reusize", "16384"]
     for disk in resolved["disks"]:
         drive = str(disk["drive"])
@@ -619,12 +620,22 @@ def build_help_text(profile: Dict[str, object],
     vice_command = " ".join(vice_parts)
     preboot_mode = str(resolved["preboot_mode"])
     disk_count = len(resolved["disks"])
+    variant_notes = {
+        "dual-d71": "Default full-content profile for two 1571 drives. This is the main local run and verification target.",
+        "d81": "Full-content single-disk profile for 1581/D81 setups where the entire current app set fits on one disk.",
+        "dual-d64": "Reduced-content profile for two 1541 drives. It keeps the core productivity apps that fit on dual D64 media.",
+    }
 
     lines = [
         f"# {profile['display_name']}",
         "",
-        f"- Version: `{resolved['version_text']}`",
+        f"- Release Line: `{public_version}`",
+        f"- Artifact Build: `{resolved['version_text']}`",
         f"- Kind: `{profile['kind']}`",
+        "",
+        "## Why This Variant Exists",
+        "",
+        f"- {variant_notes.get(str(profile['kind']), 'Profile-specific ReadyOS media layout.')}",
         "",
         "## Artifacts",
         "",
@@ -632,7 +643,7 @@ def build_help_text(profile: Dict[str, object],
     for disk in resolved["disks"]:
         lines.append(f"- Drive {disk['drive']}: `{Path(disk['path']).name}`")
     for boot_prg in boot_prgs:
-        lines.append(f"- Host PRG: `{Path(str(boot_prg['path'])).name}`")
+        lines.append(f"- Host-Side Boot PRG: `{Path(str(boot_prg['path'])).name}`")
     lines.extend([
         "",
         "## Included Apps",
@@ -645,6 +656,7 @@ def build_help_text(profile: Dict[str, object],
         "## VICE Setup",
         "",
         "- Enable REU with `16MB`.",
+        "- The host-side boot PRGs are convenience autostart files. The disk copy of `PREBOOT` is still the normal disk-side bootstrap.",
     ])
     for disk in resolved["disks"]:
         true_drive_suffix = " with true drive enabled" if disk.get("true_drive") else ""
@@ -686,6 +698,7 @@ def build_help_text(profile: Dict[str, object],
         "",
         "- Copy the listed disk image files to the target storage.",
         "- Enable the REU and set it to `16MB`.",
+        "- The host-side boot PRGs are optional convenience files for emulator launching; the disk-side `PREBOOT` entry is the standard hardware boot path.",
     ])
     if preboot_mode == "setd71":
         lines.extend([

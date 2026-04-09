@@ -1,15 +1,20 @@
 # precog (dual d71)
 
-- Version: `0.1.8D`
+- Release Line: `0.1.8`
+- Artifact Build: `0.1.8D`
 - Kind: `dual-d71`
+
+## Why This Variant Exists
+
+- Default full-content profile for two 1571 drives. This is the main local run and verification target.
 
 ## Artifacts
 
 - Drive 8: `readyos-v0.1.8d-dual-d71_1.d71`
 - Drive 9: `readyos-v0.1.8d-dual-d71_2.d71`
-- Host PRG: `readyos-v0.1.8d-dual-d71-preboot.prg`
-- Host PRG: `readyos-v0.1.8d-dual-d71-boot.prg`
-- Host PRG: `readyos-v0.1.8d-dual-d71-setd71.prg`
+- Host-Side Boot PRG: `readyos-v0.1.8d-dual-d71-preboot.prg`
+- Host-Side Boot PRG: `readyos-v0.1.8d-dual-d71-boot.prg`
+- Host-Side Boot PRG: `readyos-v0.1.8d-dual-d71-setd71.prg`
 
 ## Included Apps
 
@@ -32,6 +37,7 @@
 ## VICE Setup
 
 - Enable REU with `16MB`.
+- The host-side boot PRGs are convenience autostart files. The disk copy of `PREBOOT` is still the normal disk-side bootstrap.
 - Configure drive 8 as `1571` with true drive enabled and attach `readyos-v0.1.8d-dual-d71_1.d71`.
 - Configure drive 9 as `1571` with true drive enabled and attach `readyos-v0.1.8d-dual-d71_2.d71`.
 
@@ -54,6 +60,6 @@ x64sc -reu -reusize 16384 -drive8type 1571 -drive8truedrive -devicebackend8 0 +b
 
 - Copy the listed disk image files to the target storage.
 - Enable the REU and set it to `16MB`.
+- The host-side boot PRGs are optional convenience files for emulator launching; the disk-side `PREBOOT` entry is the standard hardware boot path.
 - Attach both disk images before boot and use `1571`-compatible drive assignments for the two-disk set.
 - Boot with `LOAD "PREBOOT",8` then `RUN`; this variant then chains through `SETD71` before loading `BOOT`.
-
