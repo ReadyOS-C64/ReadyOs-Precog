@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ReadyOS Memory/Size Comparison (0.1.5 vs 0.1.8)</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --ink: #1e2a35;
+      --muted: #5f7182;
+      --line: #d8e2ec;
+      --accent: #0f4c81;
+      --good: #167d44;
+      --warn: #a35a00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #eef3f8, #f8fafc);
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+    header {
+      padding: 28px 34px;
+      background: #0f2740;
+      color: #fff;
+    }
+    header h1 { margin: 0; font-size: 26px; }
+    header p { margin: 8px 0 0; color: #cad8e4; line-height: 1.45; }
+    main { padding: 22px 28px 40px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(15,39,64,0.06);
+    }
+    h2 { margin: 0 0 10px; font-size: 18px; color: #11293d; }
+    p, li { line-height: 1.45; }
+    .small { color: var(--muted); font-size: 13px; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(170px, 1fr));
+      gap: 10px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fbfdff;
+    }
+    .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+    .v { font-size: 17px; font-weight: 700; margin-top: 4px; }
+    .ok, .note {
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+    .ok { border-left: 4px solid var(--good); background: #ecfdf3; }
+    .note { border-left: 4px solid #d9822b; background: #fff7ed; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 6px 7px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    th { background: #f0f4f8; color: #102a43; }
+    .delta-pos { color: #7a1a1a; font-weight: 600; }
+    .delta-neg { color: #0f6b36; font-weight: 600; }
+    .table-wrap { overflow-x: auto; }
+    code { background: #f0f4f8; padding: 1px 4px; border-radius: 4px; }
+    footer { color: var(--muted); font-size: 12px; margin-top: 8px; }
+    @media (max-width: 1100px) {
+      .cards { grid-template-columns: repeat(2, minmax(170px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>ReadyOS Memory/Size Comparison: 0.1.5 vs 0.1.8</h1>
+  <p>
+    Comparative artifact report for the old 0.1.5-era baseline versus the
+    current 0.1.8 runtime. The numeric tables below remain artifact-driven, but
+    they now distinguish between the old comparable subset and the current-only
+    apps that were added after that baseline. Architectural notes in this
+    report have also been updated to match the current launcher + shim + REU
+    contract.
+  </p>
+</header>
+<main>
+  <section>
+    <h2>Executive Summary</h2>
+    <div class="cards">
+      <div class="card"><div class="k">Compared subset old</div><div class="v">330147 B</div><div class="small">322.41 KiB</div></div>
+      <div class="card"><div class="k">Compared subset now</div><div class="v">328112 B</div><div class="small">320.42 KiB</div></div>
+      <div class="card"><div class="k">Subset delta</div><div class="v delta-neg">-2035 B</div><div class="small">-1.99 KiB</div></div>
+      <div class="card"><div class="k">Full current catalog</div><div class="v">443869 B</div><div class="small">433.47 KiB</div></div>
+      <div class="card"><div class="k">App window</div><div class="v">46592 B</div><div class="small">45.50 KiB per app</div></div>
+      <div class="card"><div class="k">Shim contract</div><div class="v">0xC800-0xC9FF</div><div class="small">512 B resident</div></div>
+    </div>
+    <div class="ok">
+      <strong>Current 0.1.8 runtime reality:</strong> the active app window is
+      <code>$1000-$C5FF</code>, shared metadata lives in
+      <code>$C600-$C7FF</code>, and the resident shim lives in
+      <code>$C800-$C9FF</code>.
+    </div>
+    <div class="note">
+      <strong>Bank 0 correction:</strong> in current runtime terms, REU bank
+      <code>0</code> is launcher-owned. It is not a generic “system metadata
+      bank”; shared allocator and clipboard metadata are in C64 RAM.
+    </div>
+    <div class="note">
+      <strong>Comparison scope correction:</strong> the historical 0.1.5 table
+      only covers the apps that existed in that baseline snapshot. Current-only
+      apps such as <code>quicknotes</code>, <code>simplefiles</code>,
+      <code>simplecells</code>, and <code>deminer</code> are broken out
+      separately below so the old/new totals stay honest.
+    </div>
+  </section>
+
+  <section>
+    <h2>Current 0.1.8 Memory Contract Notes</h2>
+    <ul>
+      <li>App runtime window: <code>0x1000-0xC5FF</code> (46592 bytes).</li>
+      <li>REU metadata/system RAM: <code>0xC600-0xC7FF</code>.</li>
+      <li>Shared hotkey bindings: <code>0xC7E0-0xC7E8</code>.</li>
+      <li>Shim resident window: <code>0xC800-0xC9FF</code>.</li>
+      <li>Bank <code>0</code> split: snapshot <code>0x0000-0xB5FF</code>, resume tail <code>0xB600-0xFFFF</code>.</li>
+      <li>Clipboard metadata lives in RAM; active clipboard payloads allocate one dynamic REU bank per item rather than using one packed shared bank.</li>
+      <li>Bitmap-tracked app-slot namespace: banks <code>0-23</code>.</li>
+      <li>Dynamic allocator start: bank <code>24</code>.</li>
+      <li>ReadyShell fixed banks: <code>0x40-0x43</code>.</li>
+      <li>Shipped media is profile-driven: <code>cfg/profiles/*.ini</code> generates the selected profile’s <code>apps.cfg</code> on drive <code>8</code>.</li>
+    </ul>
+    <p class="small">
+      These runtime facts supersede older low-bank, “system/launcher”, and
+      “single shared clipboard bank” wording in earlier private reports.
+    </p>
+  </section>
+
+  <section>
+    <h2>Baseline-Comparable App Set</h2>
+    <p class="small">
+      These rows compare the legacy 0.1.5 subset against the current tree using
+      the same app names. The current columns were rechecked from the present
+      root PRGs and <code>obj/*.map</code> files.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>App</th>
+            <th>PRG old B</th><th>PRG old KiB</th>
+            <th>PRG now B</th><th>PRG now KiB</th>
+            <th>Δ PRG B</th>
+            <th>Obj old B</th><th>Obj old KiB</th>
+            <th>Obj now B</th><th>Obj now KiB</th>
+            <th>Δ Obj B</th>
+            <th>BSS old B</th><th>BSS old KiB</th>
+            <th>BSS now B</th><th>BSS now KiB</th>
+            <th>Δ BSS B</th>
+            <th>Used old B</th><th>Used old KiB</th>
+            <th>Used now B</th><th>Used now KiB</th>
+            <th>Head old B</th><th>Head old KiB</th>
+            <th>Head now B</th><th>Head now KiB</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>launcher</td><td>20831</td><td>20.34 KiB</td><td>31090</td><td>30.36 KiB</td><td class="delta-pos">10259</td><td>20829</td><td>20.34 KiB</td><td>31088</td><td>30.36 KiB</td><td class="delta-pos">10259</td><td>63</td><td>0.06 KiB</td><td>4717</td><td>4.61 KiB</td><td class="delta-pos">4654</td><td>20892</td><td>20.40 KiB</td><td>35807</td><td>34.97 KiB</td><td>25700</td><td>25.10 KiB</td><td>10785</td><td>10.53 KiB</td></tr>
+          <tr><td>editor</td><td>21297</td><td>20.80 KiB</td><td>23347</td><td>22.80 KiB</td><td class="delta-pos">2050</td><td>21295</td><td>20.80 KiB</td><td>23345</td><td>22.80 KiB</td><td class="delta-pos">2050</td><td>9151</td><td>8.94 KiB</td><td>10632</td><td>10.38 KiB</td><td class="delta-pos">1481</td><td>30446</td><td>29.73 KiB</td><td>33979</td><td>33.18 KiB</td><td>16146</td><td>15.77 KiB</td><td>12613</td><td>12.32 KiB</td></tr>
+          <tr><td>calcplus</td><td>37888</td><td>37.00 KiB</td><td>37135</td><td>36.26 KiB</td><td class="delta-neg">-753</td><td>37886</td><td>37.00 KiB</td><td>37133</td><td>36.26 KiB</td><td class="delta-neg">-753</td><td>1292</td><td>1.26 KiB</td><td>1321</td><td>1.29 KiB</td><td class="delta-pos">29</td><td>39178</td><td>38.26 KiB</td><td>38456</td><td>37.55 KiB</td><td>7414</td><td>7.24 KiB</td><td>8136</td><td>7.95 KiB</td></tr>
+          <tr><td>hexview</td><td>15228</td><td>14.87 KiB</td><td>14911</td><td>14.56 KiB</td><td class="delta-neg">-317</td><td>15226</td><td>14.87 KiB</td><td>14909</td><td>14.56 KiB</td><td class="delta-neg">-317</td><td>63</td><td>0.06 KiB</td><td>101</td><td>0.10 KiB</td><td class="delta-pos">38</td><td>15289</td><td>14.93 KiB</td><td>15012</td><td>14.66 KiB</td><td>31303</td><td>30.57 KiB</td><td>31580</td><td>30.84 KiB</td></tr>
+          <tr><td>clipmgr</td><td>22209</td><td>21.69 KiB</td><td>32506</td><td>31.74 KiB</td><td class="delta-pos">10297</td><td>22207</td><td>21.69 KiB</td><td>32504</td><td>31.74 KiB</td><td class="delta-pos">10297</td><td>1660</td><td>1.62 KiB</td><td>1619</td><td>1.58 KiB</td><td class="delta-neg">-41</td><td>23867</td><td>23.31 KiB</td><td>34125</td><td>33.33 KiB</td><td>22725</td><td>22.19 KiB</td><td>12467</td><td>12.17 KiB</td></tr>
+          <tr><td>reuviewer</td><td>14893</td><td>14.54 KiB</td><td>15175</td><td>14.82 KiB</td><td class="delta-pos">282</td><td>14891</td><td>14.54 KiB</td><td>15173</td><td>14.82 KiB</td><td class="delta-pos">282</td><td>14</td><td>0.01 KiB</td><td>51</td><td>0.05 KiB</td><td class="delta-pos">37</td><td>14905</td><td>14.56 KiB</td><td>15226</td><td>14.87 KiB</td><td>31687</td><td>30.94 KiB</td><td>31366</td><td>30.63 KiB</td></tr>
+          <tr><td>tasklist</td><td>35934</td><td>35.09 KiB</td><td>30544</td><td>29.83 KiB</td><td class="delta-neg">-5390</td><td>35932</td><td>35.09 KiB</td><td>30542</td><td>29.83 KiB</td><td class="delta-neg">-5390</td><td>9046</td><td>8.83 KiB</td><td>8944</td><td>8.73 KiB</td><td class="delta-neg">-102</td><td>44978</td><td>43.92 KiB</td><td>39488</td><td>38.56 KiB</td><td>1614</td><td>1.58 KiB</td><td>7104</td><td>6.94 KiB</td></tr>
+          <tr><td>game2048</td><td>19640</td><td>19.18 KiB</td><td>17264</td><td>16.86 KiB</td><td class="delta-neg">-2376</td><td>19638</td><td>19.18 KiB</td><td>17262</td><td>16.86 KiB</td><td class="delta-neg">-2376</td><td>1146</td><td>1.12 KiB</td><td>1203</td><td>1.17 KiB</td><td class="delta-pos">57</td><td>20784</td><td>20.30 KiB</td><td>18467</td><td>18.03 KiB</td><td>25808</td><td>25.20 KiB</td><td>28125</td><td>27.47 KiB</td></tr>
+          <tr><td>cal26</td><td>41228</td><td>40.26 KiB</td><td>32134</td><td>31.38 KiB</td><td class="delta-neg">-9094</td><td>41226</td><td>40.26 KiB</td><td>32132</td><td>31.38 KiB</td><td class="delta-neg">-9094</td><td>4765</td><td>4.65 KiB</td><td>4803</td><td>4.69 KiB</td><td class="delta-pos">38</td><td>45991</td><td>44.91 KiB</td><td>36937</td><td>36.07 KiB</td><td>601</td><td>0.59 KiB</td><td>9655</td><td>9.43 KiB</td></tr>
+          <tr><td>dizzy</td><td>38513</td><td>37.61 KiB</td><td>37506</td><td>36.63 KiB</td><td class="delta-neg">-1007</td><td>38511</td><td>37.61 KiB</td><td>37504</td><td>36.63 KiB</td><td class="delta-neg">-1007</td><td>6295</td><td>6.15 KiB</td><td>6327</td><td>6.18 KiB</td><td class="delta-pos">32</td><td>44806</td><td>43.76 KiB</td><td>43833</td><td>42.81 KiB</td><td>1786</td><td>1.74 KiB</td><td>2759</td><td>2.69 KiB</td></tr>
+          <tr><td>readme</td><td>21704</td><td>21.20 KiB</td><td>20914</td><td>20.42 KiB</td><td class="delta-neg">-790</td><td>21702</td><td>21.19 KiB</td><td>20912</td><td>20.42 KiB</td><td class="delta-neg">-790</td><td>13</td><td>0.01 KiB</td><td>48</td><td>0.05 KiB</td><td class="delta-pos">35</td><td>21715</td><td>21.21 KiB</td><td>20962</td><td>20.47 KiB</td><td>24877</td><td>24.29 KiB</td><td>25630</td><td>25.03 KiB</td></tr>
+          <tr><td>readyshell</td><td>40782</td><td>39.83 KiB</td><td>35586</td><td>34.75 KiB</td><td class="delta-neg">-5196</td><td>40780</td><td>39.82 KiB</td><td>35584</td><td>34.75 KiB</td><td class="delta-neg">-5196</td><td>3530</td><td>3.45 KiB</td><td>171</td><td>0.17 KiB</td><td class="delta-neg">-3359</td><td>44310</td><td>43.27 KiB</td><td>35701</td><td>34.86 KiB</td><td>2282</td><td>2.23 KiB</td><td>10891</td><td>10.64 KiB</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Current-Only Apps Outside The 0.1.5 Baseline</h2>
+    <p class="small">
+      These apps are part of the current 15-app launcher-visible set, but they
+      were not present in the old 0.1.5 snapshot that anchors the comparison
+      table above.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>App</th>
+            <th>PRG now B</th><th>PRG now KiB</th>
+            <th>BSS now B</th><th>BSS now KiB</th>
+            <th>Used now B</th><th>Used now KiB</th>
+            <th>Head now B</th><th>Head now KiB</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>quicknotes</td><td>29349</td><td>28.66 KiB</td><td>6783</td><td>6.62 KiB</td><td>36132</td><td>35.29 KiB</td><td>10460</td><td>10.21 KiB</td></tr>
+          <tr><td>simplefiles</td><td>30497</td><td>29.78 KiB</td><td>4397</td><td>4.29 KiB</td><td>34856</td><td>34.04 KiB</td><td>11736</td><td>11.46 KiB</td></tr>
+          <tr><td>simplecells</td><td>34473</td><td>33.67 KiB</td><td>2142</td><td>2.09 KiB</td><td>36577</td><td>35.72 KiB</td><td>10015</td><td>9.78 KiB</td></tr>
+          <tr><td>deminer</td><td>21438</td><td>20.94 KiB</td><td>4276</td><td>4.18 KiB</td><td>25714</td><td>25.11 KiB</td><td>20878</td><td>20.39 KiB</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Current Contract Checks</h2>
+    <div class="ok">
+      Current docs now reflect the conditional ReadyShell overlay contract:
+      release overlay size <code>$2440</code>, debug overlay size
+      <code>$2480</code>.
+    </div>
+    <ul>
+      <li>launcher catalog is generated from the selected <code>cfg/profiles/*.ini</code> catalog to <code>apps.cfg</code> on drive <code>8</code></li>
+      <li>launcher catalog is read from <code>apps.cfg</code> by launcher only</li>
+      <li>launcher usually restores cached catalog state from bank <code>0</code> resume tail rather than rereading disk on app return</li>
+      <li>loaded-state tracking uses shim bitmap bytes at <code>$C836-$C838</code></li>
+    </ul>
+  </section>
+
+  <footer>
+    Current columns and current-only app rows were rechecked from the present
+    tree on April 8, 2026. Architecture notes and labels have been synced to
+    the current ReadyOS 0.1.8 / local 0.1.8G runtime reality.
+  </footer>
+</main>
+</body>
+</html>
