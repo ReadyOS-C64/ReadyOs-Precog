@@ -8,7 +8,7 @@ Current snapshot:
 - Base release: **0.1.8**
 - Runtime target: clean behavior from stock-speed C64 use up through
   Ultimate turbo workflows
-- Media layout: profile-based release media with external `helpme.md`
+- Media layout: profile-based release media under `releases/<version>/<profile>/` with external `helpme.md`
   instructions for the selected build
 - New since 0.1.5: **quicknotes**, **simple files**, **simple cells**,
   and **deminer**

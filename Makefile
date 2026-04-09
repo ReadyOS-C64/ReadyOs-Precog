@@ -528,6 +528,12 @@ release-all: prepare-version
 		$(MAKE) PROFILE="$$profile" READYOS_VERSION_TEXT="$$VERSION_TEXT" profile; \
 	done
 
+audit-profile-assets:
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/audit_release_seq_rel.py --profile "$(PROFILE)"
+
+audit-release-assets:
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/audit_release_seq_rel.py
+
 # Clean
 clean:
 	rm -f $(OBJ_DIR)/*.o
@@ -550,6 +556,7 @@ clean:
 # Verify all generated binaries and memory layout constraints
 verify: profile
 	python3 verify.py --profile "$(PROFILE)"
+	python3 $(BUILD_SUPPORT_DIR)/audit_release_seq_rel.py --profile "$(PROFILE)"
 	python3 $(BUILD_SUPPORT_DIR)/editor_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/simplefiles_host_smoke.py
@@ -595,7 +602,7 @@ help:
 	@echo "Targets:"
 	@echo "  all         - Build the selected profile release package (default)"
 	@echo "  profiles    - List available build/run profiles"
-	@echo "  profile     - Build one profile under release/<profile>"
+	@echo "  profile     - Build one profile under releases/<version>/<profile>"
 	@echo "                Use PROFILE=<id> (default: $(PROFILE))"
 	@echo "  release-all - Build every release profile with one version stamp"
 	@echo "  clean       - Remove built files"
@@ -632,9 +639,9 @@ help:
 	@echo "  readme.prg   - Project README app (loads at \$$1000)"
 	@echo "  readyshell.prg - ReadyShell app (loads at \$$1000, overlays rsovl1/2/3 on disk 1)"
 	@echo "  $(XFILECHK) - Standalone IEC file-operation harness (loads at \$$0801)"
-	@echo "  release/<profile>/readyos-v<version>-<kind>[_n].<ext>"
+	@echo "  releases/<version>/<profile>/readyos-v<version>-<kind>[_n].<ext>"
 	@echo "              - Versioned disk images for the selected profile"
-	@echo "  release/<profile>/helpme.md"
+	@echo "  releases/<version>/<profile>/helpme.md"
 	@echo "              - Profile-specific run instructions"
 	@echo "  $(XFILECHK_DISK1) - Standalone harness drive 8 disk (boot+harness+src fixture)"
 	@echo "  $(XFILECHK_DISK2) - Standalone harness drive 9 disk (test fixture)"

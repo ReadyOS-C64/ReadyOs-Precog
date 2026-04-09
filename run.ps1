@@ -131,6 +131,7 @@ Modes:
 Flags:
   --profile ID
   --list-profiles
+  --build-all
   --skipbuild
   --config PATH
   --load-all 0|1
@@ -259,6 +260,18 @@ ReadyOS interactive launcher
 }
 
 function Maybe-Build {
+    if ($script:BuildAll) {
+        $script:RunVersionText = Invoke-PythonText -Args @($script:VersionTool, '--next')
+        Write-Host ("Build version: {0}" -f $script:RunVersionText)
+        Write-Host 'Building all release profiles'
+        Write-Host ("ReadyShell parse trace profile: {0}" -f (Current-ParseTraceLabel))
+        & $script:MakeExe '-B' "BUILD_SUPPORT_DIR=$($script:BuildSupportDir)" "READYOS_VERSION_TEXT=$($script:RunVersionText)" 'release-all'
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Build failed.'
+        }
+        return
+    }
+
     if ($script:SkipBuild) {
         $script:ProfileManifest = Get-ProfileManifest -ProfileId $script:ProfileId -Latest
         return
@@ -328,6 +341,7 @@ $script:ViceStdioLog = 'logs/vice_readyshell_mon.out'
 $script:ViceLogFile = 'logs/vice.log'
 
 $script:SkipBuild = $false
+$script:BuildAll = $false
 $script:Mode = ''
 $script:ParseTraceDebug = '0'
 $script:ConfigSource = ''
@@ -353,6 +367,10 @@ for ($i = 0; $i -lt $args.Count; ) {
         }
         '^--list-profiles$' {
             $listProfiles = $true
+            $i += 1
+        }
+        '^--build-all$' {
+            $script:BuildAll = $true
             $i += 1
         }
         '^--skipbuild$' {
@@ -416,6 +434,14 @@ if ($listProfiles) {
     exit 0
 }
 
+if ($script:BuildAll -and $script:SkipBuild) {
+    throw 'Error: --build-all cannot be combined with --skipbuild.'
+}
+
+if ($script:BuildAll -and $script:Mode) {
+    throw ("Error: --build-all cannot be combined with an explicit mode ('{0}')." -f $script:Mode)
+}
+
 if ($script:SkipBuild -and ($script:ConfigSource -or $script:ConfigLoadAll -or $script:ConfigRunFirst)) {
     throw 'Error: --skipbuild cannot be combined with --config, --load-all, or --run-first.'
 }
@@ -433,6 +459,10 @@ if ($interactive) {
 
 if ($script:Mode -ne 'xfilechk' -and $script:Mode -notin @('help', '-h', '--help')) {
     Maybe-Build
+}
+
+if ($script:BuildAll) {
+    exit 0
 }
 
 $script:ViceAttachArgs = if ($script:ProfileManifest) { Get-ViceAttachArgs -Manifest $script:ProfileManifest } else { @() }

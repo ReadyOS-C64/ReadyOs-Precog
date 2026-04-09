@@ -26,9 +26,9 @@ Project overview: https://readyos.notion.site/
 
 Use the profile-specific disk images from the selected release folder:
 
-- `release/precog-dual-d71/`
-- `release/precog-d81/`
-- `release/precog-dual-d64/`
+- `releases/<version>/precog-dual-d71/`
+- `releases/<version>/precog-d81/`
+- `releases/<version>/precog-dual-d64/`
 
 Tested targets:
 
@@ -41,7 +41,7 @@ Recommended setup:
 
 - enable the REU
 - set REU size to `16MB`
-- follow the `helpme.md` inside the selected release profile directory
+- follow the `helpme.md` inside the selected `releases/<version>/<profile>/` directory
 
 Boot sequence:
 
@@ -163,7 +163,7 @@ Generated build-owned assets include:
   local run/build flow
 
 Normal profile rebuilds preserve non-managed user files from the prior
-profile build while replacing build-owned artifacts in `release/<profile>/`.
+profile build while replacing build-owned artifacts in `releases/<version>/<profile>/`.
 
 Public supporting docs in `docs/` currently include:
 

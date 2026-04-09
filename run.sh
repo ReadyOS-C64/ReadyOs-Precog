@@ -81,6 +81,7 @@ CONFIG_OVERRIDE_LOAD_ALL=""
 CONFIG_OVERRIDE_RUN_FIRST=""
 RUN_VERSION_TEXT=""
 SKIP_BUILD=0
+BUILD_ALL=0
 MODE=""
 PARSE_TRACE_DEBUG=""
 INTERACTIVE=0
@@ -186,6 +187,7 @@ show_help() {
     echo "Flags:"
     echo "  --profile ID                Select release profile (default: $DEFAULT_PROFILE)"
     echo "  --list-profiles             List available profiles and exit"
+    echo "  --build-all                 Build every release profile and exit"
     echo "  --skipbuild                 Skip automatic build before run"
     echo "  --config PATH               Override the profile's catalog source"
     echo "  --load-all 0|1              Override launcher auto-preload in generated apps.cfg"
@@ -240,6 +242,10 @@ while [ $# -gt 0 ]; do
             ;;
         --list-profiles)
             LIST_PROFILES=1
+            shift
+            ;;
+        --build-all)
+            BUILD_ALL=1
             shift
             ;;
         --skipbuild)
@@ -304,6 +310,16 @@ if [ "$LIST_PROFILES" -eq 1 ]; then
     exit 0
 fi
 
+if [ "$BUILD_ALL" -eq 1 ] && [ "$SKIP_BUILD" -eq 1 ]; then
+    echo "Error: --build-all cannot be combined with --skipbuild."
+    exit 1
+fi
+
+if [ "$BUILD_ALL" -eq 1 ] && [ -n "$MODE" ]; then
+    echo "Error: --build-all cannot be combined with explicit mode '$MODE'."
+    exit 1
+fi
+
 if [ -n "$PARSE_TRACE_DEBUG" ]; then
     export READYSHELL_PARSE_TRACE_DEBUG="$PARSE_TRACE_DEBUG"
 elif [ -n "${READYSHELL_PARSE_TRACE_DEBUG:-}" ]; then
@@ -348,6 +364,15 @@ PY
 }
 
 maybe_build() {
+    if [ "$BUILD_ALL" -eq 1 ]; then
+        RUN_VERSION_TEXT="$(python3 "$VERSION_TOOL" --next)"
+        echo "Build version: $RUN_VERSION_TEXT"
+        echo "Building all release profiles"
+        echo "ReadyShell parse trace profile: $(current_parse_trace_label)"
+        make -B "BUILD_SUPPORT_DIR=$BUILD_SUPPORT_DIR" "READYOS_VERSION_TEXT=$RUN_VERSION_TEXT" release-all
+        return
+    fi
+
     if [ "$SKIP_BUILD" -eq 1 ]; then
         echo "Skipping build (--skipbuild)."
         load_profile_env latest
@@ -434,6 +459,15 @@ esac
 case "${MODE:-}" in
     help|-h|--help)
         show_help
+        ;;
+    "")
+        if [ "$BUILD_ALL" -eq 1 ]; then
+            exit 0
+        fi
+        check_profile_disks
+        check_prg "$PROFILE_AUTOSTART_PRG"
+        print_info "Normal" "$PROFILE_AUTOSTART_PRG"
+        start_vice -logfile "$VICE_LOG_FILE" -reu -reusize 16384 "${PROFILE_VICE_ATTACH_ARGS[@]}" -autostart "$PROFILE_AUTOSTART_PRG"
         ;;
     test)
         check_prg "$TEST_PRG"
@@ -548,12 +582,6 @@ case "${MODE:-}" in
         check_prg "$PROFILE_AUTOSTART_PRG"
         print_info "No REU" "$PROFILE_AUTOSTART_PRG"
         start_vice "${PROFILE_VICE_ATTACH_ARGS[@]}" -autostart "$PROFILE_AUTOSTART_PRG"
-        ;;
-    "")
-        check_profile_disks
-        check_prg "$PROFILE_AUTOSTART_PRG"
-        print_info "Normal" "$PROFILE_AUTOSTART_PRG"
-        start_vice -logfile "$VICE_LOG_FILE" -reu -reusize 16384 "${PROFILE_VICE_ATTACH_ARGS[@]}" -autostart "$PROFILE_AUTOSTART_PRG"
         ;;
     *)
         echo "Unknown option: ${MODE:-}"

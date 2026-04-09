@@ -20,7 +20,8 @@ import build_apps_catalog_petscii as apps_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES_DIR = ROOT / "cfg" / "profiles"
-RELEASE_DIR = ROOT / "release"
+RELEASES_DIR = ROOT / "releases"
+LEGACY_RELEASE_DIR = ROOT / "release"
 AUTHORITATIVE_PROFILE_ID = "precog-dual-d71"
 AUTHORITATIVE_DATA_DIR = ROOT / "cfg" / "authoritative"
 BOOTSTRAP_D71_BY_DRIVE = {
@@ -181,18 +182,57 @@ def profile_catalog_source(profile: Dict[str, object]) -> Path:
     return ROOT / str(profile["catalog_source"])
 
 
-def profile_output_dir(profile: Dict[str, object]) -> Path:
-    return RELEASE_DIR / str(profile["id"])
+def public_release_version(version_text: str) -> str:
+    if version_text and version_text[-1].isalpha():
+        return version_text[:-1]
+    return version_text
 
 
-def profile_manifest_path(profile: Dict[str, object]) -> Path:
-    return profile_output_dir(profile) / "manifest.json"
+def release_version_dir(version_text: str) -> Path:
+    return RELEASES_DIR / public_release_version(version_text).lower()
+
+
+def profile_output_dir(profile: Dict[str, object], version_text: str) -> Path:
+    return release_version_dir(version_text) / str(profile["id"])
+
+
+def profile_manifest_path(profile: Dict[str, object], version_text: str) -> Path:
+    return profile_output_dir(profile, version_text) / "manifest.json"
+
+
+def legacy_profile_output_dir(profile: Dict[str, object]) -> Path:
+    return LEGACY_RELEASE_DIR / str(profile["id"])
+
+
+def legacy_profile_manifest_path(profile: Dict[str, object]) -> Path:
+    return legacy_profile_output_dir(profile) / "manifest.json"
 
 
 def read_current_version_text() -> str:
     from update_build_version import read_current_version
 
     return read_current_version()
+
+
+def latest_manifest_path(profile_id: str) -> Path:
+    profile = load_profile(profile_id)
+    current_manifest = profile_manifest_path(profile, read_current_version_text())
+    if current_manifest.is_file():
+        return current_manifest
+
+    candidates: List[Path] = []
+    for path in RELEASES_DIR.glob(f"*/{profile_id}/manifest.json"):
+        if path.is_file():
+            candidates.append(path)
+    if candidates:
+        candidates.sort(key=lambda path: path.stat().st_mtime_ns, reverse=True)
+        return candidates[0]
+
+    legacy_manifest = legacy_profile_manifest_path(profile)
+    if legacy_manifest.is_file():
+        return legacy_manifest
+
+    fail(f"no current build manifest for profile: {profile_id}")
 
 
 def build_disk_filename(profile: Dict[str, object], disk: Dict[str, object], version_text: str) -> str:
@@ -237,17 +277,17 @@ def boot_prg_specs(profile: Dict[str, object], version_text: str, output_dir: Pa
 
 def resolve_profile(profile_id: str, version_text: str | None, latest: bool) -> Dict[str, object]:
     profile = load_profile(profile_id)
-    output_dir = profile_output_dir(profile)
-    manifest_path = profile_manifest_path(profile)
 
     if latest:
-        if not manifest_path.exists():
-            fail(f"no current build manifest for profile: {profile_id}")
+        manifest_path = latest_manifest_path(profile_id)
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         return manifest
 
     if not version_text:
         version_text = read_current_version_text()
+
+    output_dir = profile_output_dir(profile, version_text)
+    manifest_path = profile_manifest_path(profile, version_text)
 
     system_cfg, _launcher_cfg, _apps = apps_catalog.parse_source(str(profile_catalog_source(profile)))
     disks = []
@@ -807,6 +847,36 @@ def print_shell_exports(profile_id: str, version_text: str) -> None:
           ")")
 
 
+def migrate_legacy_release_tree(version_text: str) -> None:
+    version_dir = release_version_dir(version_text)
+    ensure_dir(version_dir)
+
+    for profile_id in list_profile_ids():
+        profile = load_profile(profile_id)
+        legacy_dir = legacy_profile_output_dir(profile)
+        if not legacy_dir.is_dir():
+            continue
+        target_dir = profile_output_dir(profile, version_text)
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        shutil.copytree(legacy_dir, target_dir)
+
+        manifest_path = target_dir / "manifest.json"
+        if manifest_path.is_file():
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["version_text"] = version_text
+            manifest["catalog_source"] = str(profile_catalog_source(profile))
+            manifest["output_dir"] = str(target_dir)
+            manifest["manifest_path"] = str(manifest_path)
+            if "autostart_prg" in manifest:
+                manifest["autostart_prg"] = str(target_dir / Path(str(manifest["autostart_prg"])).name)
+            for disk in manifest.get("disks", []):
+                disk["path"] = str(target_dir / Path(str(disk["path"])).name)
+            for boot_prg in manifest.get("boot_prgs", []):
+                boot_prg["path"] = str(target_dir / Path(str(boot_prg["path"])).name)
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -838,6 +908,9 @@ def main() -> int:
     build_parser.add_argument("--override-load-all")
     build_parser.add_argument("--override-run-first")
 
+    migrate_parser = sub.add_parser("migrate-legacy-release")
+    migrate_parser.add_argument("--version", required=True)
+
     args = ap.parse_args()
 
     try:
@@ -866,6 +939,9 @@ def main() -> int:
         if args.cmd == "build-release":
             build_release(args.profile, args.version, args.catalog_source,
                           args.override_load_all, args.override_run_first)
+            return 0
+        if args.cmd == "migrate-legacy-release":
+            migrate_legacy_release_tree(args.version)
             return 0
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
