@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple Files ONCE/BSS Resume Headroom Report (0.1.8W)</title>
+  <style>
+    :root {
+      --bg: #0c141b;
+      --panel: #10202c;
+      --panel-2: #132734;
+      --ink: #e6f1fb;
+      --muted: #9cb7ca;
+      --line: #33546c;
+      --accent: #7ad0c0;
+      --accent-2: #f2be6b;
+      --hot: #8bb8ff;
+      --warn: #ff9f7a;
+      --ok: #83e3a1;
+      --bad: #ff8a8a;
+      --mono: "Menlo", "Consolas", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", "Trebuchet MS", Arial, sans-serif;
+      background:
+        radial-gradient(1000px 700px at 0% -10%, rgba(79, 143, 180, 0.22), transparent 55%),
+        radial-gradient(900px 700px at 100% 0%, rgba(122, 208, 192, 0.15), transparent 48%),
+        linear-gradient(180deg, #091017, #0c141b);
+    }
+    header {
+      padding: 28px 24px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(122,208,192,0.09), rgba(0,0,0,0));
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.45rem, 4.2vw, 2.2rem);
+      letter-spacing: .02em;
+    }
+    .sub {
+      margin: 10px 0 0;
+      max-width: 106ch;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    main {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+    section {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.20);
+    }
+    h2 {
+      margin: 2px 0 8px;
+      font-size: 1.05rem;
+      color: #d8edff;
+    }
+    h3 {
+      margin: 10px 0 8px;
+      font-size: .94rem;
+      color: #d9edff;
+    }
+    p, li { line-height: 1.45; }
+    code, .mono { font-family: var(--mono); }
+    code {
+      padding: 1px 4px;
+      border-radius: 4px;
+      background: rgba(10, 21, 32, 0.72);
+      color: #e9f7ff;
+    }
+    .small { font-size: .84rem; }
+    .muted { color: var(--muted); }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 9px;
+    }
+    .card {
+      border: 1px solid #385b74;
+      border-radius: 10px;
+      padding: 9px 10px;
+      background: rgba(8, 17, 24, 0.32);
+    }
+    .k {
+      font-size: .74rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .v {
+      margin-top: 4px;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .delta-good { color: var(--ok); font-weight: 700; }
+    .delta-warn { color: var(--warn); font-weight: 700; }
+    .delta-bad { color: var(--bad); font-weight: 700; }
+    .notice, .ok, .risk {
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+    .notice {
+      border-left: 4px solid var(--accent-2);
+      background: rgba(242, 190, 107, 0.10);
+    }
+    .ok {
+      border-left: 4px solid var(--ok);
+      background: rgba(131, 227, 161, 0.10);
+    }
+    .risk {
+      border-left: 4px solid var(--bad);
+      background: rgba(255, 138, 138, 0.10);
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .mem-row {
+      display: grid;
+      grid-template-columns: 190px 1fr 105px;
+      border: 1px solid #355671;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 7px;
+    }
+    .mem-row > div { padding: 8px; }
+    .mem-row > div:not(:last-child) { border-right: 1px solid #2d4b63; }
+    .mem-range { background: rgba(19, 34, 47, 0.86); }
+    .mem-note { background: rgba(17, 29, 39, 0.55); }
+    .mem-size { background: rgba(19, 34, 47, 0.86); color: #b8d6ed; text-align: right; }
+    .m-app .mem-range, .m-app .mem-size { background: rgba(122,208,192,0.18); }
+    .m-meta .mem-range, .m-meta .mem-size { background: rgba(242,190,107,0.18); }
+    .m-shim .mem-range, .m-shim .mem-size { background: rgba(139,184,255,0.18); }
+    .m-io .mem-range, .m-io .mem-size { background: rgba(255,159,122,0.18); }
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .84rem;
+    }
+    th, td {
+      border: 1px solid #2d4b64;
+      padding: 6px 7px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    th {
+      background: #13293d;
+      color: #dbedff;
+    }
+    td.num { text-align: right; font-family: var(--mono); }
+    td.good { color: var(--ok); font-weight: 700; }
+    td.warn { color: var(--warn); font-weight: 700; }
+    td.bad { color: var(--bad); font-weight: 700; }
+    pre {
+      margin: 0;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #355a77;
+      background: #0a1520;
+      color: #d8eaff;
+      overflow-x: auto;
+      font-size: .8rem;
+      line-height: 1.35;
+      white-space: pre-wrap;
+    }
+    footer {
+      padding: 0 16px 18px;
+      color: var(--muted);
+      font-size: .82rem;
+    }
+    @media (max-width: 1100px) {
+      .cards { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+      .grid-2 { grid-template-columns: 1fr; }
+      .mem-row { grid-template-columns: 1fr; }
+      .mem-row > div:not(:last-child) { border-right: 0; border-bottom: 1px solid #2d4b63; }
+      .mem-size { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Simple Files ONCE/BSS Resume Headroom Report: 0.1.8W</h1>
+  <p class="sub">
+    Artifact-backed report for the Simple Files crash-to-BASIC reentry
+    investigation. The hard acceptance criterion is preserved: ReadyOS quick
+    app changing must resume Simple Files from REU and must not force a disk
+    reload when the current app snapshot is valid.
+  </p>
+</header>
+<main>
+  <section>
+    <h2>Executive Summary</h2>
+    <div class="cards">
+      <div class="card"><div class="k">Root cause</div><div class="v">ONCE/BSS overlap</div><div class="small muted">cc65 startup destroyed before warm reentry</div></div>
+      <div class="card"><div class="k">Bad BSS start</div><div class="v mono">$86FB</div><div class="small muted">same as ONCE run address</div></div>
+      <div class="card"><div class="k">Fixed BSS start</div><div class="v mono">$8721</div><div class="small muted">after ONCE size $26</div></div>
+      <div class="card"><div class="k">Headroom cost</div><div class="v delta-warn">-38 B</div><div class="small muted">$2D68 to $2D42</div></div>
+      <div class="card"><div class="k">Resume result</div><div class="v delta-good">warm pass</div><div class="small muted">D71 0.1.8W VICE proof</div></div>
+    </div>
+    <div class="risk">
+      <strong>Failure mode:</strong> commit <code>e0255e5</code> added a
+      Simple Files linker config that reserves stack space but starts
+      <code>BSS</code> at <code>__ONCE_RUN__</code>. That makes BSS overwrite
+      the cc65 <code>ONCE</code> startup block at runtime. On first disk load
+      the app can still start, but the REU snapshot later contains clobbered
+      startup bytes. On reentry the shim restores those bytes and jumps to
+      <code>$1000</code>; cc65 startup fails before <code>main()</code> and the
+      machine returns to BASIC.
+    </div>
+    <div class="ok">
+      <strong>Fix:</strong> start BSS at
+      <code>__ONCE_RUN__ + __ONCE_SIZE__</code>. This keeps the ONCE code intact
+      inside the REU snapshot and keeps the existing fast warm-resume path.
+      The only memory tradeoff is the correct 38-byte ONCE reservation.
+    </div>
+    <div class="notice">
+      <strong>24-app hypothesis checked:</strong> the 15-to-24 app-bank change
+      was plausible, but it was not the root cause. The current memory contract
+      check confirms <code>SHIM_REU_BANK_APP_COUNT = 24</code>, first dynamic
+      REU bank <code>24</code>, and snapshot length <code>$B600</code>.
+    </div>
+  </section>
+
+  <section>
+    <h2>ReadyOS Memory Dimension</h2>
+    <div class="mem-row m-app">
+      <div class="mem-range mono">$1000-$C5FF</div>
+      <div class="mem-note">Active app window saved/restored by the shim. Simple Files and cc65 startup live here.</div>
+      <div class="mem-size mono">$B600</div>
+    </div>
+    <div class="mem-row m-meta">
+      <div class="mem-range mono">$C600-$C7FF</div>
+      <div class="mem-note">Shared ReadyOS metadata window outside the app snapshot.</div>
+      <div class="mem-size mono">$0200</div>
+    </div>
+    <div class="mem-row m-shim">
+      <div class="mem-range mono">$C800-$C9FF</div>
+      <div class="mem-note">Resident shim jump table/data. App code must not depend on this as normal BSS/data storage.</div>
+      <div class="mem-size mono">$0200</div>
+    </div>
+    <div class="mem-row m-io">
+      <div class="mem-range mono">$D000-$DFFF</div>
+      <div class="mem-note">C64 I/O and ROM-visible area, not part of the app working region.</div>
+      <div class="mem-size mono">$1000</div>
+    </div>
+    <p class="small muted">
+      Simple Files uses a custom cc65 app config with <code>__HIMEM__ = $C600</code>
+      and <code>__STACKSIZE__ = $0070</code>. The effective stack floor is
+      <code>$C590</code>, so BSS/headroom accounting below measures free space
+      from one byte after BSS to <code>$C58F</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Before/After Segment Facts</h2>
+    <p class="small muted">
+      The "before" row is reconstructed from the checked-in pre-fix linker
+      expression and the same Simple Files segment sizes. The "after" row is
+      from the rebuilt <code>obj/simplefiles.map</code> generated by the
+      0.1.8W D71 run.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>State</th>
+            <th>Config expression</th>
+            <th>ONCE range</th>
+            <th>BSS range</th>
+            <th>BSS bytes</th>
+            <th>Overlap</th>
+            <th>High water</th>
+            <th>Stack floor</th>
+            <th>Headroom</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Before</td>
+            <td><code>start = __ONCE_RUN__</code></td>
+            <td class="num">$86FB-$8720</td>
+            <td class="num">$86FB-$9827</td>
+            <td class="num">$112D / 4397</td>
+            <td class="bad">ONCE fully overlapped ($26 / 38 B)</td>
+            <td class="num">$9827</td>
+            <td class="num">$C590</td>
+            <td class="num">$2D68 / 11624 B</td>
+          </tr>
+          <tr>
+            <td>After</td>
+            <td><code>start = __ONCE_RUN__ + __ONCE_SIZE__</code></td>
+            <td class="num">$86FB-$8720</td>
+            <td class="num">$8721-$984D</td>
+            <td class="num">$112D / 4397</td>
+            <td class="good">none</td>
+            <td class="num">$984D</td>
+            <td class="num">$C590</td>
+            <td class="num">$2D42 / 11586 B</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="notice">
+      <strong>Headroom interpretation:</strong> the apparent pre-fix headroom
+      was inflated by 38 bytes because BSS was illegally placed on top of ONCE.
+      The post-fix build consumes those 38 bytes honestly. This is not a
+      regression in usable memory; it is the cost of making the existing
+      cc65 startup bytes durable across ReadyOS REU save/restore.
+    </div>
+  </section>
+
+  <section>
+    <h2>Simple Files Fixed Map</h2>
+    <pre>Segment list from obj/simplefiles.map after the fix:
+
+STARTUP  $1000-$1032  $0033
+CODE     $1033-$81D3  $71A1
+RODATA   $81D4-$86A0  $04CD
+DATA     $86A1-$86DE  $003E
+INIT     $86DF-$86FA  $001C
+ONCE     $86FB-$8720  $0026
+BSS      $8721-$984D  $112D
+
+PRG payload through ONCE: $7721 / 30497 B
+PRG file with load address: 30499 B
+Runtime high-water including BSS: $984D
+Stack reserve: $C590-$C5FF ($70 / 112 B)
+Post-BSS headroom to stack floor: $2D42 / 11586 B</pre>
+  </section>
+
+  <section>
+    <h2>Resume Path Evidence</h2>
+    <div class="grid-2">
+      <div>
+        <h3>Failure before the fix</h3>
+        <ul>
+          <li>First disk launch entered Simple Files normally because ONCE bytes were present immediately after load.</li>
+          <li>Runtime BSS then reused <code>$86FB-$8720</code>, overwriting the ONCE startup block.</li>
+          <li>Returning to launcher saved the active app window <code>$1000-$C5FF</code> to the app REU bank, including the corrupted ONCE range.</li>
+          <li>Warm reentry restored the corrupted snapshot and jumped to <code>$1000</code>.</li>
+          <li>Temporary instrumentation showed <code>main()</code> was not reached after reentry, isolating the fault to cc65 startup before app code.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Proof after the fix</h3>
+        <ul>
+          <li>Built through <code>bash ./run.sh --profile precog-dual-d71 readyshell-mon</code>, producing the 0.1.8W D71 run.</li>
+          <li>Loaded Simple Files in the ReadyOS launcher, not by direct app launch.</li>
+          <li>Injected Ctrl+B through the C64 keyboard buffer; ReadyOS returned to the launcher.</li>
+          <li>Injected Return from the launcher; Simple Files resumed from the app snapshot.</li>
+          <li>Sampled again after 23 seconds; screen remained in Simple Files, not BASIC.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ok">
+      <strong>Acceptance result:</strong> the fix honors the quick app changing
+      requirement. It does not force a reload on valid resume; it repairs the
+      snapshot so the existing REU restore path can safely reenter cc65 startup.
+    </div>
+  </section>
+
+  <section>
+    <h2>Collateral Config Check</h2>
+    <p>
+      Simple Cells used the same stack-reserving linker pattern and had the
+      same latent ONCE/BSS overlap. It has been fixed with the same expression.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>App</th>
+            <th>ONCE range</th>
+            <th>Fixed BSS range</th>
+            <th>BSS bytes</th>
+            <th>Post-fix headroom</th>
+            <th>Delta vs unsafe layout</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>simplefiles</td>
+            <td class="num">$86FB-$8720</td>
+            <td class="num">$8721-$984D</td>
+            <td class="num">4397</td>
+            <td class="num">$2D42 / 11586 B</td>
+            <td class="warn">-38 B, removes ONCE overlap</td>
+          </tr>
+          <tr>
+            <td>simplecells</td>
+            <td class="num">$9683-$96A8</td>
+            <td class="num">$96A9-$9F06</td>
+            <td class="num">2142</td>
+            <td class="num">$2689 / 9865 B</td>
+            <td class="warn">-38 B, removes ONCE overlap</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Verification Commands</h2>
+    <pre>python3 build_support/verify_memory_map.py
+Result: MEMORY MAP VERIFICATION PASSED
+
+python3 build_support/verify_resume_contract.py
+Result: RESUME CONTRACT CHECKS PASSED
+
+python3 build_support/simplefiles_host_smoke.py
+Result: [OK] simplefiles wiring smoke
+
+git diff --check
+Result: clean
+
+VICE D71 warm reentry probe
+Result: Ctrl+B returned to launcher; Return resumed Simple Files; no BASIC drop after 23 seconds.</pre>
+  </section>
+</main>
+<footer>
+  Generated from the 0.1.8W local ReadyOS D71 investigation. The key source
+  change is in cfg/ready_app_simplefiles.cfg and cfg/ready_app_simplecells.cfg.
+</footer>
+</body>
+</html>

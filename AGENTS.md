@@ -7,6 +7,7 @@
 
 - Prefer `unsigned char` / `unsigned int`; avoid `long` and heavy stack locals in hot paths.
 - cc65 uses a software stack and reserves critical zero-page runtime addresses (`$02-$1B`); do not stomp ZP runtime pointers (especially `sp`).
+- In cc65 linker configs, never start `BSS` at `__ONCE_RUN__`; use `__ONCE_RUN__ + __ONCE_SIZE__` so warm REU resume does not restore a BSS-clobbered startup block.
 - Keep inline asm conservative and explicit (`__asm__` form preferred). For cc65 placeholders, use `%v` (global symbol), `%o` (stack offset), `%w` (16-bit immediate), etc, only when needed.
 - When crossing C/asm boundaries, keep calling-convention assumptions explicit and minimal; avoid complex inline asm that depends on unstable stack layout.
 
