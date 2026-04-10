@@ -5,6 +5,7 @@ verify_memory_map.py
 Hard memory-map contract checks for ReadyOS:
 - app/runtime RAM windows
 - shim/REU-reserved boundary discipline
+- cc65 ONCE/BSS disjointness for warm-resumed apps
 - ReadyShell overlay window + overlay fit
 - REU and resume constants
 - fixed-address literal allowlist discipline
@@ -41,6 +42,10 @@ def intersects(a_start, a_end, b_start, b_end):
     return not (a_end < b_start or b_end < a_start)
 
 
+def fmt_range(start, end):
+    return f"${start:04X}..${end:04X}"
+
+
 def parse_map_segments(map_path: Path):
     txt = map_path.read_text(encoding="utf-8", errors="replace")
     lines = txt.splitlines()
@@ -73,9 +78,8 @@ def parse_map_segments(map_path: Path):
 
 def parse_map_symbol(txt, symbol):
     m = re.search(
-        rf"^\s*{re.escape(symbol)}\s+([0-9A-F]{{6}})\s+(?:REA|RLA|RLZ)\b",
+        rf"(?<!\S){re.escape(symbol)}\s+([0-9A-F]{{6}})\s+(?:REA|RLA|RLZ)\b",
         txt,
-        flags=re.MULTILINE,
     )
     if not m:
         raise ValueError(f"symbol not found: {symbol}")
@@ -271,6 +275,22 @@ def main():
                 f"{hex(start)}..{hex(end)} vs {hex(io_start)}..{hex(io_end)}",
             )
 
+        if "ONCE" in segs and "BSS" in segs:
+            once_start, once_end, _once_size = segs["ONCE"]
+            bss_start, bss_end, _bss_size = segs["BSS"]
+            once_range = fmt_range(once_start, once_end)
+            bss_range = fmt_range(bss_start, bss_end)
+            ok &= check(
+                f"{rel}:ONCE/BSS disjoint",
+                not intersects(once_start, once_end, bss_start, bss_end),
+                f"ONCE={once_range} BSS={bss_range}",
+            )
+            ok &= check(
+                f"{rel}:BSS after ONCE",
+                bss_start > once_end,
+                f"ONCE={once_range} BSS={bss_range}",
+            )
+
         if rel.endswith("readyshell.map"):
             try:
                 overlay_start = parse_map_symbol(txt, "__OVERLAYSTART__")
@@ -280,12 +300,35 @@ def main():
                 continue
 
             overlay_window = himem - overlay_start
+            overlay_loadaddr = overlay_start - 2
             ok &= check("readyshell himem", himem == overlay_himem_expected, hex(himem))
             ok &= check(
                 "readyshell overlay window size (profile)",
                 overlay_window in overlay_size_allow,
                 f"{hex(overlay_window)} allowed={','.join(hex(v) for v in sorted(overlay_size_allow))}",
             )
+            if "BSS" in segs:
+                _bss_start, bss_end, _bss_size = segs["BSS"]
+                ok &= check(
+                    "readyshell BSS below overlay load address",
+                    bss_end < overlay_loadaddr,
+                    f"BSS ends ${bss_end:04X}; overlay load address starts ${overlay_loadaddr:04X}",
+                )
+            for ovl_addr_name in ("OVL1ADDR", "OVL2ADDR", "OVL3ADDR"):
+                if ovl_addr_name not in segs:
+                    ok &= check(f"readyshell:{ovl_addr_name} exists", False)
+                    continue
+                start, end, size = segs[ovl_addr_name]
+                ok &= check(
+                    f"readyshell:{ovl_addr_name} size",
+                    size == 2,
+                    f"{fmt_range(start, end)} size=${size:04X}",
+                )
+                ok &= check(
+                    f"readyshell:{ovl_addr_name} range",
+                    start == overlay_loadaddr and end == overlay_start - 1,
+                    f"{fmt_range(start, end)} expected {fmt_range(overlay_loadaddr, overlay_start - 1)}",
+                )
             for ovl_name in ("OVERLAY1", "OVERLAY2", "OVERLAY3"):
                 if ovl_name not in segs:
                     ok &= check(f"readyshell:{ovl_name} exists", False)
