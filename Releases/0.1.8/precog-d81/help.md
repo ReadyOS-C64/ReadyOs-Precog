@@ -1,7 +1,7 @@
 # precog (d81)
 
 - Release Line: `0.1.8`
-- Artifact Build: `0.1.8A`
+- Artifact Build: `0.1.8Q`
 - Kind: `d81`
 
 ## Why This Variant Exists
@@ -10,9 +10,9 @@
 
 ## Artifacts
 
-- Drive 8: `readyos-v0.1.8a-d81.d81`
-- Host-Side Boot PRG: `readyos-v0.1.8a-d81-preboot.prg`
-- Host-Side Boot PRG: `readyos-v0.1.8a-d81-boot.prg`
+- Drive 8: `readyos-v0.1.8q-d81.d81`
+- Host-Side Boot PRG: `readyos-v0.1.8q-d81-preboot.prg`
+- Host-Side Boot PRG: `readyos-v0.1.8q-d81-boot.prg`
 
 ## Included Apps
 
@@ -36,21 +36,21 @@
 
 - Enable REU with `16MB`.
 - The host-side boot PRGs are convenience autostart files. The disk copy of `PREBOOT` is still the normal disk-side bootstrap.
-- Configure drive 8 as `1581` with true drive enabled and attach `readyos-v0.1.8a-d81.d81`.
+- Configure drive 8 as `1581` with true drive enabled and attach `readyos-v0.1.8q-d81.d81`.
 
 ### VICE Command Example
 
-- Autostart target: `readyos-v0.1.8a-d81-preboot.prg`
+- Autostart target: `readyos-v0.1.8q-d81-preboot.prg`
 
 ```sh
-x64sc -reu -reusize 16384 -drive8type 1581 -drive8truedrive -devicebackend8 0 +busdevice8 -8 readyos-v0.1.8a-d81.d81 -autostart readyos-v0.1.8a-d81-preboot.prg
+x64sc -reu -reusize 16384 -drive8type 1581 -drive8truedrive -devicebackend8 0 +busdevice8 -8 readyos-v0.1.8q-d81.d81 -autostart readyos-v0.1.8q-d81-preboot.prg
 ```
 
 ## Boot
 
 - This profile uses the direct boot chain `PREBOOT -> BOOT`.
 - There is no `SETD71` stage for this variant.
-- Attach the single disk on drive `8`, then autostart `readyos-v0.1.8a-d81-preboot.prg` or run `LOAD "PREBOOT",8` then `RUN`.
+- Attach the single disk on drive `8`, then autostart `readyos-v0.1.8q-d81-preboot.prg` or run `LOAD "PREBOOT",8` then `RUN`.
 
 ## C64 Ultimate
 

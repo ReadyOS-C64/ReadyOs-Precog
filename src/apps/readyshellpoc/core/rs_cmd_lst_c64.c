@@ -16,8 +16,8 @@
 #define LST_MAX_RECORDS (RS_CMD_SCRATCH_LEN / LST_RECORD_SIZE)
 #define LST_NAME_OFF 2u
 #define LST_NAME_LEN 17u
-#define LST_EXT_OFF 19u
-#define LST_EXT_LEN 8u
+#define LST_TYPE_OFF 19u
+#define LST_TYPE_LEN 4u
 
 static unsigned char g_lst_buf[LST_RECORD_SIZE];
 
@@ -40,28 +40,28 @@ static void lst_name_from_dirent(const char* in, char* out, unsigned short max) 
   out[j] = '\0';
 }
 
-static void lst_ext_from_name(const char* name, char* ext, unsigned short max) {
+static void lst_type_to_text(unsigned char type, char* out, unsigned short max) {
+  const char* text;
   unsigned short i;
-  unsigned short dot;
-  unsigned short j;
-  i = 0u;
-  dot = 0xFFFFu;
-  while (name[i] != '\0') {
-    if (name[i] == '.') {
-      dot = i;
-    }
-    ++i;
-  }
-  if (dot == 0xFFFFu || name[dot + 1u] == '\0') {
-    ext[0] = '\0';
+  if (!out || max == 0u) {
     return;
   }
-  j = 0u;
-  i = (unsigned short)(dot + 1u);
-  while (name[i] != '\0' && j + 1u < max) {
-    ext[j++] = name[i++];
+  switch (type) {
+    case CBM_T_SEQ: text = "SEQ"; break;
+    case CBM_T_PRG: text = "PRG"; break;
+    case CBM_T_USR: text = "USR"; break;
+    case CBM_T_REL: text = "REL"; break;
+    case CBM_T_DIR: text = "DIR"; break;
+    case CBM_T_CBM: text = "CBM"; break;
+    case CBM_T_DEL: text = "DEL"; break;
+    default: text = "DEL"; break;
   }
-  ext[j] = '\0';
+  i = 0u;
+  while (text[i] != '\0' && i + 1u < max) {
+    out[i] = text[i];
+    ++i;
+  }
+  out[i] = '\0';
 }
 
 static void lst_clear_record(void) {
@@ -73,7 +73,7 @@ static void lst_clear_record(void) {
 
 static int lst_write_record(unsigned short index,
                             const char* name,
-                            const char* ext,
+                            const char* type,
                             unsigned short blocks) {
   unsigned short i;
   unsigned long off;
@@ -84,10 +84,10 @@ static int lst_write_record(unsigned short index,
     g_lst_buf[LST_NAME_OFF + i] = (unsigned char)name[i];
   }
   g_lst_buf[LST_NAME_OFF + LST_NAME_LEN - 1u] = '\0';
-  for (i = 0u; i + 1u < LST_EXT_LEN && ext[i] != '\0'; ++i) {
-    g_lst_buf[LST_EXT_OFF + i] = (unsigned char)ext[i];
+  for (i = 0u; i + 1u < LST_TYPE_LEN && type[i] != '\0'; ++i) {
+    g_lst_buf[LST_TYPE_OFF + i] = (unsigned char)type[i];
   }
-  g_lst_buf[LST_EXT_OFF + LST_EXT_LEN - 1u] = '\0';
+  g_lst_buf[LST_TYPE_OFF + LST_TYPE_LEN - 1u] = '\0';
   off = RS_CMD_SCRATCH_OFF + ((unsigned long)index * (unsigned long)LST_RECORD_SIZE);
   return rs_reu_write(off, g_lst_buf, LST_RECORD_SIZE);
 }
@@ -130,7 +130,7 @@ static int lst_begin(RSCommandFrame* frame) {
   count = 0u;
   for (;;) {
     char name[20];
-    char ext[8];
+    char type[4];
     st = cbm_readdir(1, &ent);
     if (st != 0u) {
       break;
@@ -140,8 +140,8 @@ static int lst_begin(RSCommandFrame* frame) {
       return -3;
     }
     lst_name_from_dirent(ent.name, name, sizeof(name));
-    lst_ext_from_name(name, ext, sizeof(ext));
-    if (lst_write_record(count, name, ext, ent.size) != 0) {
+    lst_type_to_text(ent.type, type, sizeof(type));
+    if (lst_write_record(count, name, type, ent.size) != 0) {
       cbm_closedir(1);
       return -1;
     }
@@ -158,7 +158,7 @@ static int lst_begin(RSCommandFrame* frame) {
 static int lst_item(RSCommandFrame* frame) {
   RSValue vname;
   RSValue vblocks;
-  RSValue vext;
+  RSValue vtype;
   unsigned short blocks;
 
   if (!frame || !frame->out || frame->index >= frame->count) {
@@ -176,9 +176,9 @@ static int lst_item(RSCommandFrame* frame) {
 
   rs_cmd_value_init_false(&vname);
   rs_cmd_value_init_false(&vblocks);
-  rs_cmd_value_init_false(&vext);
+  rs_cmd_value_init_false(&vtype);
   if (rs_cmd_value_init_string(&vname, (const char*)(g_lst_buf + LST_NAME_OFF)) != 0 ||
-      rs_cmd_value_init_string(&vext, (const char*)(g_lst_buf + LST_EXT_OFF)) != 0) {
+      rs_cmd_value_init_string(&vtype, (const char*)(g_lst_buf + LST_TYPE_OFF)) != 0) {
     rs_cmd_value_free(frame->out);
     return -1;
   }
@@ -186,15 +186,15 @@ static int lst_item(RSCommandFrame* frame) {
 
   if (rs_cmd_object_set(frame->out, "NAME", &vname) != 0 ||
       rs_cmd_object_set(frame->out, "BLOCKS", &vblocks) != 0 ||
-      rs_cmd_object_set(frame->out, "EXT", &vext) != 0) {
+      rs_cmd_object_set(frame->out, "TYPE", &vtype) != 0) {
     rs_cmd_value_free(&vname);
-    rs_cmd_value_free(&vext);
+    rs_cmd_value_free(&vtype);
     rs_cmd_value_free(frame->out);
     return -1;
   }
 
   rs_cmd_value_free(&vname);
-  rs_cmd_value_free(&vext);
+  rs_cmd_value_free(&vtype);
   return 0;
 }
 
