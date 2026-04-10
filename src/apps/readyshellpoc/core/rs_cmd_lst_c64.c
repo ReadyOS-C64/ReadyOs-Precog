@@ -14,6 +14,10 @@
 
 #define LST_RECORD_SIZE 28u
 #define LST_MAX_RECORDS (RS_CMD_SCRATCH_LEN / LST_RECORD_SIZE)
+#define LST_NAME_OFF 2u
+#define LST_NAME_LEN 17u
+#define LST_EXT_OFF 19u
+#define LST_EXT_LEN 8u
 
 static unsigned char g_lst_buf[LST_RECORD_SIZE];
 
@@ -76,12 +80,14 @@ static int lst_write_record(unsigned short index,
   lst_clear_record();
   g_lst_buf[0] = (unsigned char)(blocks & 0xFFu);
   g_lst_buf[1] = (unsigned char)((blocks >> 8u) & 0xFFu);
-  for (i = 0u; i < 17u && name[i] != '\0'; ++i) {
-    g_lst_buf[2u + i] = (unsigned char)name[i];
+  for (i = 0u; i + 1u < LST_NAME_LEN && name[i] != '\0'; ++i) {
+    g_lst_buf[LST_NAME_OFF + i] = (unsigned char)name[i];
   }
-  for (i = 0u; i < 8u && ext[i] != '\0'; ++i) {
-    g_lst_buf[19u + i] = (unsigned char)ext[i];
+  g_lst_buf[LST_NAME_OFF + LST_NAME_LEN - 1u] = '\0';
+  for (i = 0u; i + 1u < LST_EXT_LEN && ext[i] != '\0'; ++i) {
+    g_lst_buf[LST_EXT_OFF + i] = (unsigned char)ext[i];
   }
+  g_lst_buf[LST_EXT_OFF + LST_EXT_LEN - 1u] = '\0';
   off = RS_CMD_SCRATCH_OFF + ((unsigned long)index * (unsigned long)LST_RECORD_SIZE);
   return rs_reu_write(off, g_lst_buf, LST_RECORD_SIZE);
 }
@@ -171,8 +177,8 @@ static int lst_item(RSCommandFrame* frame) {
   rs_cmd_value_init_false(&vname);
   rs_cmd_value_init_false(&vblocks);
   rs_cmd_value_init_false(&vext);
-  if (rs_cmd_value_init_string(&vname, (const char*)(g_lst_buf + 2u)) != 0 ||
-      rs_cmd_value_init_string(&vext, (const char*)(g_lst_buf + 19u)) != 0) {
+  if (rs_cmd_value_init_string(&vname, (const char*)(g_lst_buf + LST_NAME_OFF)) != 0 ||
+      rs_cmd_value_init_string(&vext, (const char*)(g_lst_buf + LST_EXT_OFF)) != 0) {
     rs_cmd_value_free(frame->out);
     return -1;
   }
