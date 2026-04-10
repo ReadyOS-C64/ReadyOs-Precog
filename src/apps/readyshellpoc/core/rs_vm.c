@@ -536,6 +536,9 @@ static int rs_vm_exec_command_stage(RSVM* vm,
       return -1;
     }
     rs_vm_free_args(args, arg_count);
+    if (stage_index + 1u >= pipeline->count) {
+      return 0;
+    }
     if (has_item) {
       return rs_vm_exec_pipeline_from(vm,
                                       pipeline,

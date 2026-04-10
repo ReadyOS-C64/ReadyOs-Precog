@@ -77,8 +77,9 @@ typedef struct {
 } ReadyShellRuntimeState;
 
 #define RS_RUNTIME_ADDR 0xCA00u
-#define RS_HEAP_ADDR 0xCE00u
-#define RS_HEAP_SIZE 0x0200u
+#define RS_RUNTIME_LIMIT_ADDR 0xD000u
+#define RS_HEAP_ADDR 0x9C00u
+#define RS_HEAP_SIZE 0x0400u
 
 #define RS_RUNTIME ((ReadyShellRuntimeState*)RS_RUNTIME_ADDR)
 #define g_vm (RS_RUNTIME->vm)

@@ -663,6 +663,10 @@ static int vm_cmd_prt(RSVM* vm,
     return -1;
   }
 
+  if (stage_index + 1u >= pipeline->count) {
+    return 0;
+  }
+
   if (has_current && current) {
     return vm_exec_pipeline_from(vm,
                                  pipeline,

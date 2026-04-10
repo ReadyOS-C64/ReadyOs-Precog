@@ -4,7 +4,7 @@
 #include "rs_value.h"
 
 #ifdef __CC65__
-#define RS_VARS_MAX 16
+#define RS_VARS_MAX 24
 #else
 #define RS_VARS_MAX 128
 #endif

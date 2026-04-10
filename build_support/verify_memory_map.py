@@ -88,7 +88,7 @@ def parse_map_symbol(txt, symbol):
 
 def parse_define(path: Path, name: str):
     src = path.read_text(encoding="utf-8", errors="replace")
-    m = re.search(rf"#define\s+{re.escape(name)}\s+([0-9xXa-fA-F]+)", src)
+    m = re.search(rf"#define\s+{re.escape(name)}\s+([0-9xXa-fA-F]+)[uUlL]*\b", src)
     if not m:
         raise ValueError(f"{name} missing in {path}")
     return int(m.group(1), 0)
@@ -295,17 +295,50 @@ def main():
             try:
                 overlay_start = parse_map_symbol(txt, "__OVERLAYSTART__")
                 himem = parse_map_symbol(txt, "__HIMEM__")
+                rs_src = ROOT / "src" / "apps" / "readyshellpoc" / "readyshellpoc.c"
+                rs_vars_h = ROOT / "src" / "apps" / "readyshellpoc" / "core" / "rs_vars.h"
+                rs_runtime_addr = parse_define(rs_src, "RS_RUNTIME_ADDR")
+                rs_runtime_limit = parse_define(rs_src, "RS_RUNTIME_LIMIT_ADDR")
+                rs_heap_addr = parse_define(rs_src, "RS_HEAP_ADDR")
+                rs_heap_size = parse_define(rs_src, "RS_HEAP_SIZE")
+                rs_vars_max = parse_define(rs_vars_h, "RS_VARS_MAX")
             except ValueError as ex:
                 ok &= check("readyshell overlay symbols", False, str(ex))
                 continue
 
             overlay_window = himem - overlay_start
             overlay_loadaddr = overlay_start - 2
+            rs_heap_end = rs_heap_addr + rs_heap_size - 1
             ok &= check("readyshell himem", himem == overlay_himem_expected, hex(himem))
             ok &= check(
                 "readyshell overlay window size (profile)",
                 overlay_window in overlay_size_allow,
                 f"{hex(overlay_window)} allowed={','.join(hex(v) for v in sorted(overlay_size_allow))}",
+            )
+            ok &= check(
+                "readyshell runtime high-RAM base",
+                rs_runtime_addr >= shim_end + 1 and rs_runtime_addr < io_start,
+                f"{fmt_range(rs_runtime_addr, rs_runtime_limit - 1)}",
+            )
+            ok &= check(
+                "readyshell runtime high-RAM limit",
+                rs_runtime_limit <= io_start,
+                f"{fmt_range(rs_runtime_addr, rs_runtime_limit - 1)} vs I/O starts ${io_start:04X}",
+            )
+            ok &= check(
+                "readyshell C64 variable slots",
+                rs_vars_max >= 24,
+                f"RS_VARS_MAX={rs_vars_max}",
+            )
+            ok &= check(
+                "readyshell heap below BASIC/overlay window",
+                rs_heap_addr >= app_start and rs_heap_end < 0xA000,
+                f"{fmt_range(rs_heap_addr, rs_heap_end)}",
+            )
+            ok &= check(
+                "readyshell heap below overlay load address",
+                rs_heap_end < overlay_loadaddr,
+                f"heap={fmt_range(rs_heap_addr, rs_heap_end)} overlay_load=${overlay_loadaddr:04X}",
             )
             if "BSS" in segs:
                 _bss_start, bss_end, _bss_size = segs["BSS"]
@@ -313,6 +346,11 @@ def main():
                     "readyshell BSS below overlay load address",
                     bss_end < overlay_loadaddr,
                     f"BSS ends ${bss_end:04X}; overlay load address starts ${overlay_loadaddr:04X}",
+                )
+                ok &= check(
+                    "readyshell BSS below heap",
+                    bss_end < rs_heap_addr,
+                    f"BSS ends ${bss_end:04X}; heap starts ${rs_heap_addr:04X}",
                 )
             for ovl_addr_name in ("OVL1ADDR", "OVL2ADDR", "OVL3ADDR"):
                 if ovl_addr_name not in segs:

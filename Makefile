@@ -561,6 +561,7 @@ verify: profile
 	python3 $(BUILD_SUPPORT_DIR)/editor_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/simplefiles_host_smoke.py
+	$(MAKE) readyshell-vm-smoke-host
 	python3 $(BUILD_SUPPORT_DIR)/verify_resume_contract.py
 	python3 $(BUILD_SUPPORT_DIR)/verify_memory_map.py
 
@@ -581,6 +582,39 @@ readyshell-parse-smoke-host:
 		$(READYSHELL_CORE_DIR)/rs_errors.c \
 		-o /tmp/readyshell_parse_smoke
 	/tmp/readyshell_parse_smoke
+
+readyshell-vm-smoke-host:
+	$(CLANG) -std=c99 -Wall -Wextra -I. -I$(READYSHELL_CORE_DIR) \
+		$(BUILD_SUPPORT_DIR)/readyshell_vm_smoke.c \
+		$(READYSHELL_CORE_DIR)/rs_vm.c \
+		$(READYSHELL_CORE_DIR)/rs_parse.c \
+		$(READYSHELL_CORE_DIR)/rs_lexer.c \
+		$(READYSHELL_CORE_DIR)/rs_token.c \
+		$(READYSHELL_CORE_DIR)/rs_errors.c \
+		$(READYSHELL_CORE_DIR)/rs_value.c \
+		$(READYSHELL_CORE_DIR)/rs_vars.c \
+		$(READYSHELL_CORE_DIR)/rs_cmd.c \
+		$(READYSHELL_CORE_DIR)/rs_pipe.c \
+		$(READYSHELL_CORE_DIR)/rs_format.c \
+		$(READYSHELL_CORE_DIR)/rs_serialize.c \
+		-o /tmp/readyshell_vm_smoke
+	/tmp/readyshell_vm_smoke
+	$(CLANG) -std=c99 -Wall -Wextra -I. -I$(READYSHELL_CORE_DIR) \
+		-I$(READYSHELL_PLATFORM_DIR) -I$(READYSHELL_PLATFORM_C64_DIR) \
+		$(BUILD_SUPPORT_DIR)/readyshell_vm_smoke.c \
+		$(READYSHELL_CORE_DIR)/rs_vm_c64.c \
+		$(READYSHELL_CORE_DIR)/rs_parse.c \
+		$(READYSHELL_CORE_DIR)/rs_lexer.c \
+		$(READYSHELL_CORE_DIR)/rs_token.c \
+		$(READYSHELL_CORE_DIR)/rs_errors.c \
+		$(READYSHELL_CORE_DIR)/rs_value.c \
+		$(READYSHELL_CORE_DIR)/rs_vars.c \
+		$(READYSHELL_CORE_DIR)/rs_cmd.c \
+		$(READYSHELL_CORE_DIR)/rs_pipe.c \
+		$(READYSHELL_CORE_DIR)/rs_format.c \
+		$(READYSHELL_CORE_DIR)/rs_serialize.c \
+		-o /tmp/readyshell_vm_smoke_c64
+	/tmp/readyshell_vm_smoke_c64
 
 editor-smoke-host:
 	python3 $(BUILD_SUPPORT_DIR)/editor_host_smoke.py
@@ -616,6 +650,7 @@ help:
 	@echo "  fullcheck   - Clean rebuild and deep binary verification"
 	@echo "  editor-smoke-host - Run Editor host-side smoke checks"
 	@echo "  tasklist-smoke-host - Run Tasklist host-side smoke checks"
+	@echo "  readyshell-vm-smoke-host - Run ReadyShell VM/pipeline host smoke checks"
 	@echo "  seed-cal26  - Seed CAL26 REL files on readyos.d71 with sample events"
 	@echo "  launcher-verbose - Rebuild launcher with verbose config diagnostics"
 	@echo "  run         - Run Ready OS through run.sh for PROFILE=<id>"
@@ -664,4 +699,4 @@ probe-rel:
 launcher-verbose:
 	$(MAKE) LAUNCHER_CFG_VERBOSE=1 $(LAUNCHER)
 
-.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-parse-smoke-host editor-smoke-host tasklist-smoke-host programs prepare-version profile profiles release-all FORCE
+.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-parse-smoke-host readyshell-vm-smoke-host editor-smoke-host tasklist-smoke-host programs prepare-version profile profiles release-all FORCE
