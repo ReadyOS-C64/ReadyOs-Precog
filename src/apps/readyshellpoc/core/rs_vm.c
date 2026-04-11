@@ -255,21 +255,15 @@ static int rs_vm_eval_expr(RSVM* vm,
     if (rs_vm_eval_expr(vm, expr->as.prop.target, at, has_at, &left, err) != 0) {
       return -1;
     }
-    if (left.tag != RS_VAL_OBJECT) {
+    if (!rs_value_is_object_like(&left)) {
       rs_value_free(&left);
       rs_value_init_false(out);
       return 0;
     }
-    found = rs_value_object_get(&left, expr->as.prop.name);
-    if (!found) {
+    if (rs_value_object_get_copy(&left, expr->as.prop.name, out) != 0) {
       rs_value_free(&left);
       rs_value_init_false(out);
       return 0;
-    }
-    if (rs_value_clone(out, found) != 0) {
-      rs_value_free(&left);
-      rs_vm_err(err, "out of memory");
-      return -1;
     }
     rs_value_free(&left);
     return 0;
@@ -288,8 +282,8 @@ static int rs_vm_eval_expr(RSVM* vm,
       rs_vm_err(err, "index must be numeric");
       return -1;
     }
-    if (left.tag == RS_VAL_ARRAY && u1 < left.as.array.count) {
-      if (rs_value_clone(out, &left.as.array.items[u1]) != 0) {
+    if (rs_value_is_array_like(&left) && u1 < rs_value_array_count(&left)) {
+      if (rs_value_array_get(&left, u1, out) != 0) {
         rs_value_free(&left);
         rs_value_free(&right);
         rs_vm_err(err, "out of memory");
@@ -441,8 +435,8 @@ static void rs_vm_free_args(RSValue* args, unsigned short arg_count) {
 }
 
 static const char* rs_vm_value_cstr(const RSValue* v, char* scratch, unsigned short max) {
-  if (v->tag == RS_VAL_STR) {
-    return v->as.str.bytes;
+  if (rs_value_is_string_like(v) && rs_value_string_copy(v, scratch, max) == 0) {
+    return scratch;
   }
   if (rs_format_value(v, scratch, max) < 0) {
     return "";
@@ -488,10 +482,12 @@ static int rs_vm_parse_top_args(const RSValue* args,
 }
 
 static int rs_vm_get_sel_name(const RSValue* value, const char** out_name) {
-  if (!value || !out_name || value->tag != RS_VAL_STR) {
+  static char name_buf[256];
+  if (!value || !out_name || !rs_value_is_string_like(value) ||
+      rs_value_string_copy(value, name_buf, sizeof(name_buf)) != 0) {
     return -1;
   }
-  *out_name = value->as.str.bytes;
+  *out_name = name_buf;
   return 0;
 }
 
@@ -549,8 +545,9 @@ static int rs_vm_cmd_sel(RSVM* vm,
                          unsigned short arg_count,
                          RSExecOptions* opt,
                          RSError* err) {
-  const RSValue* found;
   RSValue result;
+  RSValue found;
+  char name_buf[256];
   const char* name;
   unsigned short i;
   int rc;
@@ -566,41 +563,47 @@ static int rs_vm_cmd_sel(RSVM* vm,
       return -1;
     }
   }
-  if (!has_item || !item || item->tag != RS_VAL_OBJECT) {
+  if (!has_item || !item || !rs_value_is_object_like(item)) {
     return 0;
   }
 
   if (arg_count == 1u) {
-    name = args[0].as.str.bytes;
-    found = rs_value_object_get(item, name);
-    if (!found) {
+    rs_value_init_false(&found);
+    name = rs_vm_value_cstr(&args[0], name_buf, sizeof(name_buf));
+    if (!name || rs_value_object_get_copy(item, name, &found) != 0) {
+      rs_value_free(&found);
       return 0;
     }
-    return rs_vm_emit_value(vm,
-                            pipeline,
-                            (unsigned short)(stage_index + 1u),
-                            found,
-                            opt,
-                            err);
+    rc = rs_vm_emit_value(vm,
+                          pipeline,
+                          (unsigned short)(stage_index + 1u),
+                          &found,
+                          opt,
+                          err);
+    rs_value_free(&found);
+    return rc;
   }
 
   rs_value_init_false(&result);
+  rs_value_init_false(&found);
   if (rs_value_object_new(&result) != 0) {
     rs_vm_err(err, "out of memory");
     return -1;
   }
   for (i = 0; i < arg_count; ++i) {
-    name = args[i].as.str.bytes;
-    found = rs_value_object_get(item, name);
-    if (!found) {
+    name = rs_vm_value_cstr(&args[i], name_buf, sizeof(name_buf));
+    if (!name || rs_value_object_get_copy(item, name, &found) != 0) {
+      rs_value_free(&found);
       rs_value_free(&result);
       return 0;
     }
-    if (rs_value_object_set(&result, name, found) != 0) {
+    if (rs_value_object_set(&result, name, &found) != 0) {
+      rs_value_free(&found);
       rs_value_free(&result);
       rs_vm_err(err, "out of memory");
       return -1;
     }
+    rs_value_free(&found);
   }
 
   rc = rs_vm_emit_value(vm,

@@ -82,6 +82,7 @@ int rs_vars_set(RSVarTable* t, const char* name, const RSValue* value) {
 int rs_vars_set_owned(RSVarTable* t, const char* name, RSValue* value) {
   int idx;
   char upper[RS_VAR_NAME_MAX + 1];
+  RSValue stored;
 
   if (!t || !name || !value) {
     return -1;
@@ -93,8 +94,14 @@ int rs_vars_set_owned(RSVarTable* t, const char* name, RSValue* value) {
     return -1;
   }
 
+  rs_value_init_false(&stored);
+  if (rs_value_clone(&stored, value) != 0) {
+    rs_value_free(&stored);
+    return -1;
+  }
   rs_value_free(&t->entries[idx].value);
-  t->entries[idx].value = *value;
+  t->entries[idx].value = stored;
+  rs_value_free(value);
   rs_value_init_false(value);
   return 0;
 }

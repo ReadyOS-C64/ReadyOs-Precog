@@ -171,8 +171,9 @@ static int vm_write_prt_line(RSVM* vm, const char* line) {
 }
 
 static const char* vm_value_cstr(const RSValue* v) {
-  if (v->tag == RS_VAL_STR) {
-    return v->as.str.bytes;
+  if (rs_value_is_string_like(v) &&
+      rs_value_string_copy(v, rs_vm_fmt_buf, sizeof(rs_vm_fmt_buf)) == 0) {
+    return rs_vm_fmt_buf;
   }
   if (rs_format_value(v, rs_vm_fmt_buf, sizeof(rs_vm_fmt_buf)) < 0) {
     return "";
@@ -297,27 +298,20 @@ static int vm_eval_prop(RSVM* vm,
                         RSValue* out,
                         RSError* err) {
   RSValue obj;
-  const RSValue* v;
   rs_value_init_false(&obj);
   if (vm_eval_expr(vm, expr->as.prop.target, at, has_at, &obj, err) != 0) {
     rs_value_free(&obj);
     return -1;
   }
-  if (obj.tag != RS_VAL_OBJECT) {
+  if (!rs_value_is_object_like(&obj)) {
     rs_value_free(&obj);
     rs_value_init_false(out);
     return 0;
   }
-  v = rs_value_object_get(&obj, expr->as.prop.name);
-  if (!v) {
+  if (rs_value_object_get_copy(&obj, expr->as.prop.name, out) != 0) {
     rs_value_free(&obj);
     rs_value_init_false(out);
     return 0;
-  }
-  if (rs_value_clone(out, v) != 0) {
-    rs_value_free(&obj);
-    vm_err(err, "out of memory");
-    return -1;
   }
   rs_value_free(&obj);
   return 0;
@@ -354,8 +348,8 @@ static int vm_eval_index(RSVM* vm,
     return -1;
   }
 
-  if (arr.tag == RS_VAL_ARRAY && n < arr.as.array.count) {
-    if (rs_value_clone(out, &arr.as.array.items[n]) != 0) {
+  if (rs_value_is_array_like(&arr) && n < rs_value_array_count(&arr)) {
+    if (rs_value_array_get(&arr, n, out) != 0) {
       rs_value_free(&arr);
       rs_value_free(&idx);
       vm_err(err, "out of memory");
@@ -793,10 +787,15 @@ static int vm_cmd_top(RSVM* vm,
 }
 
 static int vm_sel_name(const RSValue* value, const char** out_name) {
-  if (!value || !out_name || value->tag != RS_VAL_STR) {
+  const char* name;
+  if (!value || !out_name) {
     return -1;
   }
-  *out_name = value->as.str.bytes;
+  name = vm_value_cstr(value);
+  if (!name || !rs_value_is_string_like(value)) {
+    return -1;
+  }
+  *out_name = name;
   return 0;
 }
 
@@ -809,7 +808,6 @@ static int vm_cmd_sel(RSVM* vm,
                       unsigned short arg_count,
                       RSOutCollect* collect,
                       RSError* err) {
-  const RSValue* found;
   RSValue result;
   const char* name;
   unsigned short i;
@@ -826,22 +824,25 @@ static int vm_cmd_sel(RSVM* vm,
       return -1;
     }
   }
-  if (!has_current || !current || current->tag != RS_VAL_OBJECT) {
+  if (!has_current || !current || !rs_value_is_object_like(current)) {
     return 0;
   }
 
   if (arg_count == 1u) {
-    name = args[0].as.str.bytes;
-    found = rs_value_object_get(current, name);
-    if (!found) {
+    rs_value_init_false(&result);
+    name = vm_value_cstr(&args[0]);
+    if (!name || rs_value_object_get_copy(current, name, &result) != 0) {
+      rs_value_free(&result);
       return 0;
     }
-    return vm_emit_value(vm,
-                         pipeline,
-                         (unsigned short)(stage_index + 1u),
-                         found,
-                         collect,
-                         err);
+    rc = vm_emit_value(vm,
+                       pipeline,
+                       (unsigned short)(stage_index + 1u),
+                       &result,
+                       collect,
+                       err);
+    rs_value_free(&result);
+    return rc;
   }
 
   rs_value_init_false(&result);
@@ -850,17 +851,21 @@ static int vm_cmd_sel(RSVM* vm,
     return -1;
   }
   for (i = 0u; i < arg_count; ++i) {
-    name = args[i].as.str.bytes;
-    found = rs_value_object_get(current, name);
-    if (!found) {
+    RSValue found;
+    rs_value_init_false(&found);
+    name = vm_value_cstr(&args[i]);
+    if (!name || rs_value_object_get_copy(current, name, &found) != 0) {
+      rs_value_free(&found);
       rs_value_free(&result);
       return 0;
     }
-    if (rs_value_object_set(&result, name, found) != 0) {
+    if (rs_value_object_set(&result, name, &found) != 0) {
+      rs_value_free(&found);
       rs_value_free(&result);
       vm_err(err, "out of memory");
       return -1;
     }
+    rs_value_free(&found);
   }
   rc = vm_emit_value(vm,
                      pipeline,
@@ -879,17 +884,25 @@ static int vm_emit_result(RSVM* vm,
                           RSOutCollect* collect,
                           RSError* err) {
   unsigned short i;
-  if (next_stage_index < pipeline->count && result->tag == RS_VAL_ARRAY) {
-    for (i = 0u; i < result->as.array.count; ++i) {
+  RSValue item;
+  if (next_stage_index < pipeline->count && rs_value_is_array_like(result)) {
+    rs_value_init_false(&item);
+    for (i = 0u; i < rs_value_array_count(result); ++i) {
+      if (rs_value_array_get(result, i, &item) != 0) {
+        rs_value_free(&item);
+        return -1;
+      }
       if (vm_exec_pipeline_from(vm,
                                 pipeline,
                                 next_stage_index,
-                                &result->as.array.items[i],
+                                &item,
                                 1,
                                 collect,
                                 err) != 0) {
+        rs_value_free(&item);
         return -1;
       }
+      rs_value_free(&item);
     }
     return 0;
   }

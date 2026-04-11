@@ -78,6 +78,7 @@ typedef struct {
 
 #define RS_RUNTIME_ADDR 0xCA00u
 #define RS_RUNTIME_LIMIT_ADDR 0xD000u
+#define RS_REU_HEAP_SESSION_FLAG (*(unsigned char*)0xCFF0)
 
 #define RS_RUNTIME ((ReadyShellRuntimeState*)RS_RUNTIME_ADDR)
 #define g_vm (RS_RUNTIME->vm)
@@ -125,6 +126,7 @@ static void shell_init_runtime_regions(void) {
 
     /* High RAM at $CA00 is scratch and is not part of the app REU snapshot. */
     memset(RS_RUNTIME, 0, sizeof(*RS_RUNTIME));
+    RS_REU_HEAP_SESSION_FLAG = 0u;
     rs_set_c_stack_top();
     heap_start = shell_heap_start_addr();
     heap_end = shell_heap_end_addr();

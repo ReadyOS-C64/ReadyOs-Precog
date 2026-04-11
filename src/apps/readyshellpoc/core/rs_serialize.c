@@ -26,9 +26,12 @@ static int rs_serialize_rec(const RSValue* value,
                             unsigned char* dst,
                             unsigned short max,
                             unsigned short* pos) {
+  RSValue name_val;
+  RSValue prop_val;
+  char name_buf[64];
+  char str_buf[256];
   unsigned short i;
   unsigned short n;
-  RSValue name_val;
 
   if (!value) {
     return -1;
@@ -37,7 +40,15 @@ static int rs_serialize_rec(const RSValue* value,
   if (*pos >= max) {
     return -1;
   }
-  dst[*pos] = (unsigned char)value->tag;
+  if (rs_value_is_string_like(value)) {
+    dst[*pos] = (unsigned char)RS_VAL_STR;
+  } else if (rs_value_is_array_like(value)) {
+    dst[*pos] = (unsigned char)RS_VAL_ARRAY;
+  } else if (rs_value_is_object_like(value)) {
+    dst[*pos] = (unsigned char)RS_VAL_OBJECT;
+  } else {
+    dst[*pos] = (unsigned char)value->tag;
+  }
   *pos = (unsigned short)(*pos + 1u);
 
   if (value->tag == RS_VAL_FALSE || value->tag == RS_VAL_TRUE) {
@@ -48,49 +59,70 @@ static int rs_serialize_rec(const RSValue* value,
     return rs_write_u16(dst, max, pos, value->as.u16);
   }
 
-  if (value->tag == RS_VAL_STR) {
-    n = value->as.str.len;
+  if (rs_value_is_string_like(value)) {
+    if (rs_value_string_copy(value, str_buf, sizeof(str_buf)) != 0) {
+      return -1;
+    }
+    n = (unsigned short)strlen(str_buf);
     if ((unsigned long)*pos + 1ul + (unsigned long)n > (unsigned long)max) {
       return -1;
     }
     dst[*pos] = (unsigned char)n;
     *pos = (unsigned short)(*pos + 1u);
-    memcpy(dst + *pos, value->as.str.bytes, n);
+    memcpy(dst + *pos, str_buf, n);
     *pos = (unsigned short)(*pos + n);
     return 0;
   }
 
-  if (value->tag == RS_VAL_ARRAY) {
-    if (rs_write_u16(dst, max, pos, value->as.array.count) != 0) {
+  if (rs_value_is_array_like(value)) {
+    n = rs_value_array_count(value);
+    if (rs_write_u16(dst, max, pos, n) != 0) {
       return -1;
     }
-    for (i = 0; i < value->as.array.count; ++i) {
-      if (rs_serialize_rec(&value->as.array.items[i], dst, max, pos) != 0) {
+    rs_value_init_false(&prop_val);
+    for (i = 0; i < n; ++i) {
+      if (rs_value_array_get(value, i, &prop_val) != 0 ||
+          rs_serialize_rec(&prop_val, dst, max, pos) != 0) {
+        rs_value_free(&prop_val);
         return -1;
       }
+      rs_value_free(&prop_val);
     }
     return 0;
   }
 
-  if (value->tag == RS_VAL_OBJECT) {
+  if (rs_value_is_object_like(value)) {
+    n = rs_value_object_count(value);
     if ((unsigned long)*pos + 1ul > (unsigned long)max) {
       return -1;
     }
-    dst[*pos] = value->as.object.count;
+    dst[*pos] = (unsigned char)n;
     *pos = (unsigned short)(*pos + 1u);
-    for (i = 0; i < value->as.object.count; ++i) {
-      rs_value_init_false(&name_val);
-      if (rs_value_init_string(&name_val, value->as.object.props[i].name) != 0) {
+    rs_value_init_false(&name_val);
+    rs_value_init_false(&prop_val);
+    for (i = 0; i < n; ++i) {
+      if (rs_value_object_prop(value, i, name_buf, sizeof(name_buf), &prop_val) != 0) {
+        return -1;
+      }
+      if ((unsigned short)strlen(name_buf) > 255u) {
+        rs_value_free(&prop_val);
+        return -1;
+      }
+      if (rs_value_init_string(&name_val, name_buf) != 0) {
+        rs_value_free(&prop_val);
         return -1;
       }
       if (rs_serialize_rec(&name_val, dst, max, pos) != 0) {
         rs_value_free(&name_val);
+        rs_value_free(&prop_val);
         return -1;
       }
       rs_value_free(&name_val);
-      if (rs_serialize_rec(value->as.object.props[i].value, dst, max, pos) != 0) {
+      if (rs_serialize_rec(&prop_val, dst, max, pos) != 0) {
+        rs_value_free(&prop_val);
         return -1;
       }
+      rs_value_free(&prop_val);
     }
     return 0;
   }

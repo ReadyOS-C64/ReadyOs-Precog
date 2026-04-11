@@ -15,7 +15,7 @@
 
 /* REU-backed inter-overlay handoff area for streaming command state. */
 #define RS_CMD_SCRATCH_OFF 0x480000ul
-#define RS_CMD_SCRATCH_LEN 0xFF00u
+#define RS_CMD_SCRATCH_LEN 0x8000u
 
 typedef struct RSCommandFrame {
   RSCommandId id;

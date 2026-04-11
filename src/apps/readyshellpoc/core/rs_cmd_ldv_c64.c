@@ -1,5 +1,6 @@
 #include "rs_cmd_overlay.h"
 
+#include "rs_cmd_ldv_local.h"
 #include "rs_cmd_ser_local.h"
 
 #include <cbm.h>
@@ -115,7 +116,8 @@ static int ldv_begin(RSCommandFrame* frame) {
   unsigned short len;
   unsigned short payload_len;
   unsigned short pos;
-  unsigned char tag;
+  unsigned short root_off;
+  RSValue root;
 
   if (!frame || !frame->args || frame->arg_count < 1u) {
     return -1;
@@ -130,16 +132,22 @@ static int ldv_begin(RSCommandFrame* frame) {
   }
 
   pos = 0u;
-  if (rs_cmd_reu_get(RS_CMD_SCRATCH_OFF + 6ul, &pos, payload_len, &tag) != 0) {
+  if (rs_cmd_store_rsv1_value_to_heap(RS_CMD_SCRATCH_OFF + 6ul,
+                                      &pos,
+                                      payload_len,
+                                      &root_off) != 0 ||
+      pos != payload_len) {
+    return -3;
+  }
+  rs_cmd_value_init_false(&root);
+  if (rs_cmd_heap_value_load(root_off, &root) != 0) {
     return -3;
   }
   frame->flags = 0u;
-  frame->used = payload_len;
-  if (tag == (unsigned char)RS_VAL_ARRAY) {
-    if (rs_cmd_reu_get_u16(RS_CMD_SCRATCH_OFF + 6ul, &pos, payload_len, &frame->count) != 0) {
-      return -3;
-    }
+  frame->used = root_off;
+  if (root.tag == RS_VAL_ARRAY_PTR) {
     frame->flags = RS_CMD_FRAME_F_ARRAY;
+    frame->count = root.as.ptr.len;
   } else {
     frame->count = 1u;
   }
@@ -148,40 +156,25 @@ static int ldv_begin(RSCommandFrame* frame) {
 }
 
 static int ldv_item(RSCommandFrame* frame) {
-  unsigned short pos;
-  unsigned short i;
+  unsigned short child_off;
 
   if (!frame || !frame->out || frame->index >= frame->count) {
     return -1;
   }
-  pos = 0u;
   if (frame->flags & RS_CMD_FRAME_F_ARRAY) {
-    unsigned char tag;
-    if (rs_cmd_reu_get(RS_CMD_SCRATCH_OFF + 6ul, &pos, frame->used, &tag) != 0 ||
-        tag != (unsigned char)RS_VAL_ARRAY ||
-        rs_cmd_reu_get_u16(RS_CMD_SCRATCH_OFF + 6ul, &pos, frame->used, &i) != 0) {
+    if (rs_cmd_heap_read_u16((unsigned short)(frame->used + 3u + (frame->index * 2u)),
+                             &child_off) != 0) {
       return -3;
     }
-    for (i = 0u; i < frame->index; ++i) {
-      if (rs_cmd_skip_value_from_reu(RS_CMD_SCRATCH_OFF + 6ul, &pos, frame->used) != 0) {
-        return -3;
-      }
-    }
+    return rs_cmd_heap_value_load(child_off, frame->out);
   }
-  if (rs_cmd_deser_value_from_reu(RS_CMD_SCRATCH_OFF + 6ul,
-                                  &pos,
-                                  frame->used,
-                                  frame->out) != 0) {
-    return -3;
-  }
-  return 0;
+  return rs_cmd_heap_value_load(frame->used, frame->out);
 }
 
 static int ldv_run(RSCommandFrame* frame) {
   const char* path;
   unsigned short len;
   unsigned short payload_len;
-  unsigned short pos;
   if (!frame || !frame->out || !frame->args || frame->arg_count < 1u) {
     return -1;
   }
@@ -197,12 +190,9 @@ static int ldv_run(RSCommandFrame* frame) {
   if (ldv_validate_header(len, &payload_len) != 0) {
     return -3;
   }
-  pos = 0u;
-  if (rs_cmd_deser_value_from_reu(RS_CMD_SCRATCH_OFF + 6ul,
-                                  &pos,
-                                  payload_len,
-                                  frame->out) != 0 ||
-      pos != payload_len) {
+  if (rs_cmd_load_rsv1_value_to_heap(RS_CMD_SCRATCH_OFF + 6ul,
+                                     payload_len,
+                                     frame->out) != 0) {
     return -3;
   }
   frame->used = len;

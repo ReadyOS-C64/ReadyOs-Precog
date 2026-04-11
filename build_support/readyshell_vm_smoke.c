@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "build_support/readyshell_reu_host.h"
 #include "src/apps/readyshellpoc/core/rs_errors.h"
 #include "src/apps/readyshellpoc/core/rs_vm.h"
 
@@ -288,8 +289,12 @@ int main(void) {
     { "{name:beta,type:SEQ}", SMOKE_LINE_RENDER },
     { "{name:gamma,type:USR}", SMOKE_LINE_RENDER }
   };
+  static const SmokeExpect idx_250_line[] = { { "250", SMOKE_LINE_PRT } };
+  static const SmokeExpect lst_index_name[] = { { "beta", SMOKE_LINE_PRT } };
+  static const SmokeExpect lst_index_blocks[] = { { "30", SMOKE_LINE_PRT } };
 
   fail = 0;
+  readyshell_reu_host_reset();
   smoke_reset(&out);
   rs_vm_init(&vm);
   memset(&platform, 0, sizeof(platform));
@@ -325,6 +330,11 @@ int main(void) {
   fail |= smoke_run_expect(&vm, &out, "LST | SEL \"NAME\"", sel_name_lines, 3);
   fail |= smoke_run_expect(&vm, &out, "LST | SEL \"name\",\"type\"", sel_pair_lines, 3);
   fail |= smoke_run_expect(&vm, &out, "LST | SEL \"missing\"", 0, 0);
+  fail |= smoke_run_expect(&vm, &out, "$D = 1..500", 0, 0);
+  fail |= smoke_run_expect(&vm, &out, "PRT $D(249)", idx_250_line, 1);
+  fail |= smoke_run_expect(&vm, &out, "$DIR = LST", 0, 0);
+  fail |= smoke_run_expect(&vm, &out, "PRT $DIR(1).NAME", lst_index_name, 1);
+  fail |= smoke_run_expect(&vm, &out, "PRT $DIR(2).BLOCKS", lst_index_blocks, 1);
   fail |= smoke_run_expect_error(&vm, &out, "1..3 | TOP");
   fail |= smoke_run_expect_error(&vm, &out, "LST | SEL 1");
 

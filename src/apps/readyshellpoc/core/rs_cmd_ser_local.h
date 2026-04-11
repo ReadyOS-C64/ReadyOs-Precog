@@ -5,6 +5,14 @@
 #include "rs_cmd_value_local.h"
 #include "../platform/rs_platform.h"
 
+#define RS_CMD_REU_BANK_BASE   (RS_CMD_SCRATCH_OFF & 0xFF0000ul)
+#define RS_CMD_REC_FALSE       1u
+#define RS_CMD_REC_TRUE        2u
+#define RS_CMD_REC_U16         3u
+#define RS_CMD_REC_STR         4u
+#define RS_CMD_REC_ARRAY       5u
+#define RS_CMD_REC_OBJECT      6u
+
 static unsigned char rs_cmd_ser_buf[128];
 
 static int rs_cmd_reu_put(unsigned long base, unsigned short* pos, unsigned short max, unsigned char b) {
@@ -51,6 +59,143 @@ static int rs_cmd_reu_get_u16(unsigned long base,
   }
   *out = (unsigned short)(lo | ((unsigned short)hi << 8u));
   return 0;
+}
+
+static int rs_cmd_heap_read_u8(unsigned short rel_off, unsigned char* out) {
+  return rs_reu_read(RS_CMD_REU_BANK_BASE + (unsigned long)rel_off, out, 1u);
+}
+
+static int rs_cmd_heap_read_u16(unsigned short rel_off, unsigned short* out) {
+  unsigned char lo;
+  unsigned char hi;
+  if (!out ||
+      rs_cmd_heap_read_u8(rel_off, &lo) != 0 ||
+      rs_cmd_heap_read_u8((unsigned short)(rel_off + 1u), &hi) != 0) {
+    return -1;
+  }
+  *out = (unsigned short)(lo | ((unsigned short)hi << 8u));
+  return 0;
+}
+
+static int rs_cmd_ser_reu_value_by_off(unsigned short rel_off,
+                                       unsigned long base,
+                                       unsigned short* pos,
+                                       unsigned short max);
+
+static int rs_cmd_ser_reu_string(unsigned short rel_off,
+                                 unsigned long base,
+                                 unsigned short* pos,
+                                 unsigned short max) {
+  unsigned short len;
+  unsigned short i;
+  unsigned char ch;
+  if (rs_cmd_reu_put(base, pos, max, (unsigned char)RS_VAL_STR) != 0 ||
+      rs_cmd_heap_read_u16((unsigned short)(rel_off + 1u), &len) != 0 ||
+      len > 255u ||
+      rs_cmd_reu_put(base, pos, max, (unsigned char)len) != 0) {
+    return -1;
+  }
+  for (i = 0u; i < len; ++i) {
+    if (rs_cmd_heap_read_u8((unsigned short)(rel_off + 3u + i), &ch) != 0 ||
+        rs_cmd_reu_put(base, pos, max, ch) != 0) {
+      return -1;
+    }
+  }
+  return 0;
+}
+
+static int rs_cmd_ser_reu_array(unsigned short rel_off,
+                                unsigned long base,
+                                unsigned short* pos,
+                                unsigned short max) {
+  unsigned short count;
+  unsigned short i;
+  unsigned short child_off;
+  if (rs_cmd_reu_put(base, pos, max, (unsigned char)RS_VAL_ARRAY) != 0 ||
+      rs_cmd_heap_read_u16((unsigned short)(rel_off + 1u), &count) != 0 ||
+      rs_cmd_reu_put_u16(base, pos, max, count) != 0) {
+    return -1;
+  }
+  for (i = 0u; i < count; ++i) {
+    if (rs_cmd_heap_read_u16((unsigned short)(rel_off + 3u + (i * 2u)), &child_off) != 0 ||
+        rs_cmd_ser_reu_value_by_off(child_off, base, pos, max) != 0) {
+      return -1;
+    }
+  }
+  return 0;
+}
+
+static int rs_cmd_ser_reu_object(unsigned short rel_off,
+                                 unsigned long base,
+                                 unsigned short* pos,
+                                 unsigned short max) {
+  unsigned char count;
+  unsigned char name_len;
+  unsigned short cursor;
+  unsigned short i;
+  unsigned short child_off;
+  unsigned char ch;
+  if (rs_cmd_reu_put(base, pos, max, (unsigned char)RS_VAL_OBJECT) != 0 ||
+      rs_cmd_heap_read_u8((unsigned short)(rel_off + 1u), &count) != 0 ||
+      rs_cmd_reu_put(base, pos, max, count) != 0) {
+    return -1;
+  }
+  cursor = (unsigned short)(rel_off + 2u);
+  for (i = 0u; i < (unsigned short)count; ++i) {
+    if (rs_cmd_heap_read_u8(cursor, &name_len) != 0 ||
+        rs_cmd_reu_put(base, pos, max, (unsigned char)RS_VAL_STR) != 0 ||
+        rs_cmd_reu_put(base, pos, max, name_len) != 0) {
+      return -1;
+    }
+    ++cursor;
+    while (name_len-- > 0u) {
+      if (rs_cmd_heap_read_u8(cursor, &ch) != 0 ||
+          rs_cmd_reu_put(base, pos, max, ch) != 0) {
+        return -1;
+      }
+      ++cursor;
+    }
+    if (rs_cmd_heap_read_u16(cursor, &child_off) != 0 ||
+        rs_cmd_ser_reu_value_by_off(child_off, base, pos, max) != 0) {
+      return -1;
+    }
+    cursor = (unsigned short)(cursor + 2u);
+  }
+  return 0;
+}
+
+static int rs_cmd_ser_reu_value_by_off(unsigned short rel_off,
+                                       unsigned long base,
+                                       unsigned short* pos,
+                                       unsigned short max) {
+  unsigned char rec_type;
+  unsigned short v;
+  if (rs_cmd_heap_read_u8(rel_off, &rec_type) != 0) {
+    return -1;
+  }
+  if (rec_type == RS_CMD_REC_FALSE) {
+    return rs_cmd_reu_put(base, pos, max, (unsigned char)RS_VAL_FALSE);
+  }
+  if (rec_type == RS_CMD_REC_TRUE) {
+    return rs_cmd_reu_put(base, pos, max, (unsigned char)RS_VAL_TRUE);
+  }
+  if (rec_type == RS_CMD_REC_U16) {
+    if (rs_cmd_reu_put(base, pos, max, (unsigned char)RS_VAL_U16) != 0 ||
+        rs_cmd_heap_read_u16((unsigned short)(rel_off + 1u), &v) != 0) {
+      return -1;
+    }
+    return rs_cmd_reu_put_u16(base, pos, max, v);
+  }
+  if (rec_type == RS_CMD_REC_STR) {
+    return rs_cmd_ser_reu_string(rel_off, base, pos, max);
+  }
+  if (rec_type == RS_CMD_REC_ARRAY) {
+    return rs_cmd_ser_reu_array(rel_off, base, pos, max);
+  }
+  if (rec_type == RS_CMD_REC_OBJECT) {
+    return rs_cmd_ser_reu_object(rel_off, base, pos, max);
+  }
+  return -1;
 }
 
 static int rs_cmd_skip_value_from_reu(unsigned long base,
@@ -117,6 +262,11 @@ static int rs_cmd_ser_value_to_reu(const RSValue* value,
   RSValue name_val;
   if (!value || !pos) {
     return -1;
+  }
+  if (value->tag == RS_VAL_STR_PTR ||
+      value->tag == RS_VAL_ARRAY_PTR ||
+      value->tag == RS_VAL_OBJECT_PTR) {
+    return rs_cmd_ser_reu_value_by_off(value->as.ptr.off, base, pos, max);
   }
   if (rs_cmd_reu_put(base, pos, max, (unsigned char)value->tag) != 0) {
     return -1;

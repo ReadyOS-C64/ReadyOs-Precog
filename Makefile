@@ -148,7 +148,7 @@ READYSHELL_OVL4_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY4 --rodata-nam
 READYSHELL_OVL5_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY5 --rodata-name OVERLAY5 --bss-name OVERLAY5
 READYSHELL_OVL6_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY6 --rodata-name OVERLAY6 --bss-name OVERLAY6
 READYSHELL_OVL7_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY7 --rodata-name OVERLAY7 --bss-name OVERLAY7
-READYSHELL_OVERLAYSIZE ?= $(if $(filter 1,$(READYSHELL_PARSE_TRACE_DEBUG)),0x2480,0x2180)
+READYSHELL_OVERLAYSIZE ?= $(if $(filter 1,$(READYSHELL_PARSE_TRACE_DEBUG)),0x3B00,0x3800)
 READYSHELL_STACKSIZE ?= 0x0800
 READYSHELL_OBJ_DIR = $(OBJ_DIR)/readyshell
 READYSHELL_OVL1_PRG = $(READYSHELL).1
@@ -169,6 +169,7 @@ READYSHELL_OVL6_DISK = $(OBJ_DIR)/readyshell_ovl6.prg
 READYSHELL_OVL7_DISK = $(OBJ_DIR)/readyshell_ovl7.prg
 
 READYSHELL_OVERLAY1_SRCS = \
+	$(READYSHELL_CORE_DIR)/rs_lexer.c \
 	$(READYSHELL_CORE_DIR)/rs_parse.c \
 	$(READYSHELL_CORE_DIR)/rs_parse_support.c \
 	$(READYSHELL_CORE_DIR)/rs_parse_free.c
@@ -192,7 +193,6 @@ READYSHELL_OVERLAY7_SRCS = \
 READYSHELL_RESIDENT_SRCS = \
 	$(READYSHELL_DIR)/readyshellpoc.c \
 	$(READYSHELL_CORE_DIR)/rs_token.c \
-	$(READYSHELL_CORE_DIR)/rs_lexer.c \
 	$(READYSHELL_CORE_DIR)/rs_bc.c \
 	$(READYSHELL_CORE_DIR)/rs_errors.c \
 	$(READYSHELL_CORE_DIR)/rs_vm_c64.c \
@@ -641,6 +641,7 @@ readyshell-parse-smoke-host:
 
 readyshell-vm-smoke-host:
 	$(CLANG) -std=c99 -Wall -Wextra -I. -I$(READYSHELL_CORE_DIR) \
+		$(BUILD_SUPPORT_DIR)/readyshell_reu_host.c \
 		$(BUILD_SUPPORT_DIR)/readyshell_vm_smoke.c \
 		$(READYSHELL_CORE_DIR)/rs_vm.c \
 		$(READYSHELL_CORE_DIR)/rs_parse.c \
@@ -659,6 +660,7 @@ readyshell-vm-smoke-host:
 	/tmp/readyshell_vm_smoke
 	$(CLANG) -std=c99 -Wall -Wextra -I. -I$(READYSHELL_CORE_DIR) \
 		-I$(READYSHELL_PLATFORM_DIR) -I$(READYSHELL_PLATFORM_C64_DIR) \
+		$(BUILD_SUPPORT_DIR)/readyshell_reu_host.c \
 		$(BUILD_SUPPORT_DIR)/readyshell_vm_smoke.c \
 		$(BUILD_SUPPORT_DIR)/readyshell_overlay_host_stub.c \
 		$(READYSHELL_CORE_DIR)/rs_vm_c64.c \
@@ -676,6 +678,17 @@ readyshell-vm-smoke-host:
 		$(READYSHELL_CORE_DIR)/rs_serialize.c \
 		-o /tmp/readyshell_vm_smoke_c64
 	/tmp/readyshell_vm_smoke_c64
+
+readyshell-reu-tests-host:
+	$(CLANG) -std=c99 -Wall -Wextra -I. -I$(READYSHELL_CORE_DIR) \
+		$(BUILD_SUPPORT_DIR)/readyshell_reu_host.c \
+		$(BUILD_SUPPORT_DIR)/readyshell_reu_tests.c \
+		$(READYSHELL_CORE_DIR)/rs_value.c \
+		$(READYSHELL_CORE_DIR)/rs_format.c \
+		$(READYSHELL_CORE_DIR)/rs_serialize.c \
+		$(READYSHELL_CORE_DIR)/rs_token.c \
+		-o /tmp/readyshell_reu_tests
+	/tmp/readyshell_reu_tests
 
 editor-smoke-host:
 	python3 $(BUILD_SUPPORT_DIR)/editor_host_smoke.py
@@ -712,6 +725,7 @@ help:
 	@echo "  editor-smoke-host - Run Editor host-side smoke checks"
 	@echo "  tasklist-smoke-host - Run Tasklist host-side smoke checks"
 	@echo "  readyshell-vm-smoke-host - Run ReadyShell VM/pipeline host smoke checks"
+	@echo "  readyshell-reu-tests-host - Run ReadyShell REU heap/value host tests"
 	@echo "  seed-cal26  - Seed CAL26 REL files on readyos.d71 with sample events"
 	@echo "  launcher-verbose - Rebuild launcher with verbose config diagnostics"
 	@echo "  run         - Run Ready OS through run.sh for PROFILE=<id>"
@@ -760,4 +774,4 @@ probe-rel:
 launcher-verbose:
 	$(MAKE) LAUNCHER_CFG_VERBOSE=1 $(LAUNCHER)
 
-.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-parse-smoke-host readyshell-vm-smoke-host editor-smoke-host tasklist-smoke-host programs prepare-version profile profiles release-all FORCE
+.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-parse-smoke-host readyshell-vm-smoke-host readyshell-reu-tests-host editor-smoke-host tasklist-smoke-host programs prepare-version profile profiles release-all FORCE

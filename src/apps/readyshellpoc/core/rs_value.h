@@ -14,7 +14,8 @@ typedef enum {
   RS_VAL_ARRAY = 0x06,
   RS_VAL_ARRAY_PTR = 0x07,
   RS_VAL_OBJECT = 0x08,
-  RS_VAL_U16 = 0x09
+  RS_VAL_U16 = 0x09,
+  RS_VAL_OBJECT_PTR = 0x0A
 } RSValueTag;
 
 struct RSValue;
@@ -38,6 +39,11 @@ typedef struct RSValue {
   RSValueTag tag;
   union {
     unsigned short u16;
+    struct {
+      unsigned short off;
+      unsigned short len;
+      unsigned char aux;
+    } ptr;
     struct {
       unsigned char len;
       char* bytes;
@@ -63,5 +69,20 @@ int rs_value_clone(RSValue* out, const RSValue* in);
 int rs_value_eq(const RSValue* a, const RSValue* b);
 int rs_value_truthy(const RSValue* v);
 int rs_value_to_u16(const RSValue* v, unsigned short* out);
+int rs_value_is_string_like(const RSValue* v);
+int rs_value_is_array_like(const RSValue* v);
+int rs_value_is_object_like(const RSValue* v);
+unsigned short rs_value_array_count(const RSValue* v);
+unsigned short rs_value_object_count(const RSValue* v);
+int rs_value_string_copy(const RSValue* v, char* out, unsigned short max);
+int rs_value_array_get(const RSValue* v, unsigned short index, RSValue* out);
+int rs_value_object_get_copy(const RSValue* v, const char* name, RSValue* out);
+int rs_value_object_prop(const RSValue* v,
+                         unsigned short index,
+                         char* name_out,
+                         unsigned short name_max,
+                         RSValue* out_value);
+void rs_value_heap_reset(void);
+unsigned short rs_value_heap_next_free(void);
 
 #endif
