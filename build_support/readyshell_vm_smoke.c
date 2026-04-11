@@ -167,6 +167,9 @@ int main(void) {
     { "4", SMOKE_LINE_RENDER },
     { "5", SMOKE_LINE_RENDER }
   };
+  static const SmokeExpect string_ci_render[] = {
+    { "yo", SMOKE_LINE_RENDER }
+  };
 
   fail = 0;
   smoke_reset(&out);
@@ -193,6 +196,8 @@ int main(void) {
                            foreach_with_return,
                            6);
   fail |= smoke_run_expect(&vm, &out, "1..5 | ?[ @ > 3 ]", filtered_render, 2);
+  fail |= smoke_run_expect(&vm, &out, "$T = \"yo\"", 0, 0);
+  fail |= smoke_run_expect(&vm, &out, "$T | ?[ @ == \"YO\" ]", string_ci_render, 1);
 
   rs_vm_free(&vm);
   return fail;

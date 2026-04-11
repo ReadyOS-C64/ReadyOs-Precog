@@ -319,7 +319,7 @@ int rs_value_eq(const RSValue* a, const RSValue* b) {
     if (a->as.str.len != b->as.str.len) {
       return 0;
     }
-    return memcmp(a->as.str.bytes, b->as.str.bytes, a->as.str.len) == 0;
+    return rs_ci_equal(a->as.str.bytes, b->as.str.bytes);
   }
   if (a->tag == RS_VAL_ARRAY) {
     if (a->as.array.count != b->as.array.count) {
