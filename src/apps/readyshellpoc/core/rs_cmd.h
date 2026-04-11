@@ -17,6 +17,5 @@ typedef enum {
 } RSCommandId;
 
 RSCommandId rs_cmd_id(const char* name);
-int rs_cmd_is_known(const char* name);
 
 #endif

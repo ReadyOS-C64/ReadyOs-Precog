@@ -38,6 +38,7 @@ static int rs_find_or_alloc_slot(RSVarTable* t, const char* upper_name) {
   return -1;
 }
 
+#ifndef __CC65__
 void rs_vars_init(RSVarTable* t) {
   unsigned short i;
   if (!t) {
@@ -49,6 +50,7 @@ void rs_vars_init(RSVarTable* t) {
     rs_value_init_false(&t->entries[i].value);
   }
 }
+#endif
 
 void rs_vars_free(RSVarTable* t) {
   unsigned short i;
@@ -64,6 +66,7 @@ void rs_vars_free(RSVarTable* t) {
   }
 }
 
+#ifndef __CC65__
 int rs_vars_set(RSVarTable* t, const char* name, const RSValue* value) {
   int idx;
   char upper[RS_VAR_NAME_MAX + 1];
@@ -78,6 +81,7 @@ int rs_vars_set(RSVarTable* t, const char* name, const RSValue* value) {
   rs_value_free(&t->entries[idx].value);
   return rs_value_clone(&t->entries[idx].value, value);
 }
+#endif
 
 int rs_vars_set_owned(RSVarTable* t, const char* name, RSValue* value) {
   int idx;

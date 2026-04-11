@@ -34,7 +34,3 @@ RSCommandId rs_cmd_id(const char* name) {
   }
   return RS_CMD_UNKNOWN;
 }
-
-int rs_cmd_is_known(const char* name) {
-  return rs_cmd_id(name) != RS_CMD_UNKNOWN;
-}

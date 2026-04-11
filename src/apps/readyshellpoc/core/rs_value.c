@@ -596,18 +596,6 @@ int rs_value_object_set(RSValue* v, const char* name, const RSValue* prop_value)
   return 0;
 }
 
-const RSValue* rs_value_object_get(const RSValue* v, const char* name) {
-  int idx;
-  if (!v || v->tag != RS_VAL_OBJECT || !name) {
-    return 0;
-  }
-  idx = rs_object_find_index(v, name);
-  if (idx < 0) {
-    return 0;
-  }
-  return v->as.object.props[idx].value;
-}
-
 void rs_value_free(RSValue* v) {
   unsigned short i;
   if (!v) {
@@ -1023,6 +1011,7 @@ int rs_value_to_u16(const RSValue* v, unsigned short* out) {
   return -1;
 }
 
+#ifndef __CC65__
 void rs_value_heap_reset(void) {
   if (!rs_reu_available()) {
     return;
@@ -1038,3 +1027,4 @@ unsigned short rs_value_heap_next_free(void) {
   }
   return next_free;
 }
+#endif

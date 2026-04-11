@@ -62,7 +62,6 @@ int rs_value_array_new(RSValue* v, unsigned short count);
 int rs_value_array_from_u16_range(RSValue* v, unsigned short start, unsigned short end);
 int rs_value_object_new(RSValue* v);
 int rs_value_object_set(RSValue* v, const char* name, const RSValue* prop_value);
-const RSValue* rs_value_object_get(const RSValue* v, const char* name);
 
 void rs_value_free(RSValue* v);
 int rs_value_clone(RSValue* out, const RSValue* in);
@@ -82,7 +81,9 @@ int rs_value_object_prop(const RSValue* v,
                          char* name_out,
                          unsigned short name_max,
                          RSValue* out_value);
+#ifndef __CC65__
 void rs_value_heap_reset(void);
 unsigned short rs_value_heap_next_free(void);
+#endif
 
 #endif
