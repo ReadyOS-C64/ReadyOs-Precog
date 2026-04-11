@@ -294,21 +294,18 @@ def main():
         if rel.endswith("readyshell.map"):
             try:
                 overlay_start = parse_map_symbol(txt, "__OVERLAYSTART__")
+                overlay_loadaddr = parse_map_symbol(txt, "__OVERLAY_LOADADDR__")
                 himem = parse_map_symbol(txt, "__HIMEM__")
                 rs_src = ROOT / "src" / "apps" / "readyshellpoc" / "readyshellpoc.c"
                 rs_vars_h = ROOT / "src" / "apps" / "readyshellpoc" / "core" / "rs_vars.h"
                 rs_runtime_addr = parse_define(rs_src, "RS_RUNTIME_ADDR")
                 rs_runtime_limit = parse_define(rs_src, "RS_RUNTIME_LIMIT_ADDR")
-                rs_heap_addr = parse_define(rs_src, "RS_HEAP_ADDR")
-                rs_heap_size = parse_define(rs_src, "RS_HEAP_SIZE")
                 rs_vars_max = parse_define(rs_vars_h, "RS_VARS_MAX")
             except ValueError as ex:
                 ok &= check("readyshell overlay symbols", False, str(ex))
                 continue
 
             overlay_window = himem - overlay_start
-            overlay_loadaddr = overlay_start - 2
-            rs_heap_end = rs_heap_addr + rs_heap_size - 1
             ok &= check("readyshell himem", himem == overlay_himem_expected, hex(himem))
             ok &= check(
                 "readyshell overlay window size (profile)",
@@ -330,18 +327,22 @@ def main():
                 rs_vars_max >= 24,
                 f"RS_VARS_MAX={rs_vars_max}",
             )
-            ok &= check(
-                "readyshell heap inside app window",
-                rs_heap_addr >= app_start and rs_heap_end <= app_end,
-                f"{fmt_range(rs_heap_addr, rs_heap_end)}",
-            )
-            ok &= check(
-                "readyshell heap below overlay load address",
-                rs_heap_end < overlay_loadaddr,
-                f"heap={fmt_range(rs_heap_addr, rs_heap_end)} overlay_load=${overlay_loadaddr:04X}",
-            )
             if "BSS" in segs:
-                _bss_start, bss_end, _bss_size = segs["BSS"]
+                bss_start, bss_end, _bss_size = segs["BSS"]
+                rs_heap_addr = bss_end + 1
+                if rs_heap_addr & 1:
+                    rs_heap_addr += 1
+                rs_heap_end = overlay_loadaddr - 1
+                ok &= check(
+                    "readyshell heap inside app window",
+                    rs_heap_addr >= app_start and rs_heap_end <= app_end and rs_heap_addr <= rs_heap_end,
+                    f"{fmt_range(rs_heap_addr, rs_heap_end)}",
+                )
+                ok &= check(
+                    "readyshell heap below overlay load address",
+                    rs_heap_end < overlay_loadaddr,
+                    f"heap={fmt_range(rs_heap_addr, rs_heap_end)} overlay_load=${overlay_loadaddr:04X}",
+                )
                 ok &= check(
                     "readyshell BSS below overlay load address",
                     bss_end < overlay_loadaddr,

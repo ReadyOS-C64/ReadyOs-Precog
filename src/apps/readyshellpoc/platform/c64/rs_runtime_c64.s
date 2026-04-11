@@ -4,8 +4,14 @@
 .export _rs_memcfg_push_ram_under_basic
 .export _rs_memcfg_pop
 .export _rs_parse_source_overlay_call
+.export _rs_heap_bss_run
+.export _rs_heap_bss_size
+.export _rs_heap_overlay_loadaddr
 .importzp sp
 .import _rs_parse_source
+.import __BSS_RUN__
+.import __BSS_SIZE__
+.import __OVERLAY_LOADADDR__
 .ifdef RS_PARSE_TRACE_DEBUG
 .import _rs_overlay_debug_mark
 .import _rs_parse_entry_cookie
@@ -34,6 +40,10 @@ memcfg_irq_saved:
     .res 4
 
 .segment "CODE"
+
+_rs_heap_bss_run = __BSS_RUN__
+_rs_heap_bss_size = __BSS_SIZE__
+_rs_heap_overlay_loadaddr = __OVERLAY_LOADADDR__
 
 _rs_set_c_stack_top:
     lda #<$0FF0

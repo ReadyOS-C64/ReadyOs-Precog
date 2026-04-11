@@ -78,8 +78,6 @@ typedef struct {
 
 #define RS_RUNTIME_ADDR 0xCA00u
 #define RS_RUNTIME_LIMIT_ADDR 0xD000u
-#define RS_HEAP_ADDR 0xA1C0u
-#define RS_HEAP_SIZE 0x02A0u
 
 #define RS_RUNTIME ((ReadyShellRuntimeState*)RS_RUNTIME_ADDR)
 #define g_vm (RS_RUNTIME->vm)
@@ -103,16 +101,42 @@ static void resume_save_state(void);
 static void shell_overlay_progress(unsigned char stage, void *user);
 void rs_set_c_stack_top(void);
 
+extern unsigned char rs_heap_bss_run[];
+extern unsigned char rs_heap_bss_size[];
+extern unsigned char rs_heap_overlay_loadaddr[];
+
+static unsigned int shell_heap_start_addr(void) {
+    unsigned int start;
+    start = (unsigned int)rs_heap_bss_run + (unsigned int)rs_heap_bss_size;
+    if (start & 1u) {
+        ++start;
+    }
+    return start;
+}
+
+static unsigned int shell_heap_end_addr(void) {
+    return (unsigned int)rs_heap_overlay_loadaddr;
+}
+
 static void shell_init_runtime_regions(void) {
+    unsigned int heap_start;
+    unsigned int heap_end;
+    unsigned int heap_size;
+
     /* High RAM at $CA00 is scratch and is not part of the app REU snapshot. */
     memset(RS_RUNTIME, 0, sizeof(*RS_RUNTIME));
     rs_set_c_stack_top();
-    _heaporg = (unsigned*)RS_HEAP_ADDR;
-    _heapptr = (unsigned*)RS_HEAP_ADDR;
-    _heapend = (unsigned*)(RS_HEAP_ADDR + RS_HEAP_SIZE);
+    heap_start = shell_heap_start_addr();
+    heap_end = shell_heap_end_addr();
+    heap_size = (heap_end > heap_start) ? (heap_end - heap_start) : 0u;
+    _heaporg = (unsigned*)heap_start;
+    _heapptr = (unsigned*)heap_start;
+    _heapend = (unsigned*)heap_end;
     _heapfirst = 0;
     _heaplast = 0;
-    _heapadd((void*)RS_HEAP_ADDR, RS_HEAP_SIZE);
+    if (heap_size != 0u) {
+        _heapadd((void*)heap_start, heap_size);
+    }
 }
 
 static unsigned char ascii_to_screen(unsigned char ascii) {
