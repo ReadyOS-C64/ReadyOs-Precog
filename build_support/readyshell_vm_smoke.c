@@ -51,6 +51,90 @@ static int smoke_writer(void* user, const char* line) {
   return smoke_append(out, line, kind);
 }
 
+static int smoke_build_dir_entry(RSValue* out,
+                                 const char* name,
+                                 unsigned short blocks,
+                                 const char* type) {
+  RSValue tmp;
+  if (!out) {
+    return -1;
+  }
+  if (rs_value_object_new(out) != 0) {
+    return -1;
+  }
+  rs_value_init_false(&tmp);
+  if (rs_value_init_string(&tmp, name) != 0) {
+    rs_value_free(out);
+    return -1;
+  }
+  if (rs_value_object_set(out, "name", &tmp) != 0) {
+    rs_value_free(&tmp);
+    rs_value_free(out);
+    return -1;
+  }
+  rs_value_free(&tmp);
+  rs_value_init_u16(&tmp, blocks);
+  if (rs_value_object_set(out, "blocks", &tmp) != 0) {
+    rs_value_free(out);
+    return -1;
+  }
+  if (rs_value_init_string(&tmp, type) != 0) {
+    rs_value_free(out);
+    return -1;
+  }
+  if (rs_value_object_set(out, "type", &tmp) != 0) {
+    rs_value_free(&tmp);
+    rs_value_free(out);
+    return -1;
+  }
+  rs_value_free(&tmp);
+  return 0;
+}
+
+static int smoke_list_dir(void* user, unsigned char drive, RSValue* out_array) {
+  static const char* names[] = { "alpha", "beta", "gamma" };
+  static const unsigned short blocks[] = { 10u, 20u, 30u };
+  static const char* types[] = { "PRG", "SEQ", "USR" };
+  unsigned short i;
+  (void)user;
+  (void)drive;
+  if (rs_value_array_new(out_array, 3u) != 0) {
+    return -1;
+  }
+  for (i = 0; i < 3u; ++i) {
+    if (smoke_build_dir_entry(&out_array->as.array.items[i], names[i], blocks[i], types[i]) != 0) {
+      rs_value_free(out_array);
+      return -1;
+    }
+  }
+  return 0;
+}
+
+static int smoke_drive_info(void* user, unsigned char drive, RSValue* out_obj) {
+  RSValue tmp;
+  (void)user;
+  if (rs_value_object_new(out_obj) != 0) {
+    return -1;
+  }
+  rs_value_init_false(&tmp);
+  rs_value_init_u16(&tmp, drive);
+  if (rs_value_object_set(out_obj, "drive", &tmp) != 0) {
+    rs_value_free(out_obj);
+    return -1;
+  }
+  if (rs_value_init_string(&tmp, "disk") != 0) {
+    rs_value_free(out_obj);
+    return -1;
+  }
+  if (rs_value_object_set(out_obj, "diskname", &tmp) != 0) {
+    rs_value_free(&tmp);
+    rs_value_free(out_obj);
+    return -1;
+  }
+  rs_value_free(&tmp);
+  return 0;
+}
+
 static void smoke_reset(SmokeOut* out) {
   unsigned int i;
   out->count = 0;
@@ -129,8 +213,20 @@ static int smoke_run_expect(RSVM* vm,
   return smoke_expect_lines(out, source, expect, expect_count);
 }
 
+static int smoke_run_expect_error(RSVM* vm, SmokeOut* out, const char* source) {
+  RSError err;
+  smoke_reset(out);
+  if (rs_vm_exec_source(vm, source, &err) == 0) {
+    printf("FAIL src='%s' expected error\n", source);
+    return 1;
+  }
+  printf("OK   src='%s' error=%d\n", source, (int)err.code);
+  return 0;
+}
+
 int main(void) {
   RSVM vm;
+  RSVMPlatform platform;
   SmokeOut out;
   int fail;
   static const SmokeExpect filtered_print[] = {
@@ -170,10 +266,36 @@ int main(void) {
   static const SmokeExpect string_ci_render[] = {
     { "yo", SMOKE_LINE_RENDER }
   };
+  static const SmokeExpect top_first_five[] = {
+    { "1", SMOKE_LINE_RENDER },
+    { "2", SMOKE_LINE_RENDER },
+    { "3", SMOKE_LINE_RENDER },
+    { "4", SMOKE_LINE_RENDER },
+    { "5", SMOKE_LINE_RENDER }
+  };
+  static const SmokeExpect top_skip_two[] = {
+    { "3", SMOKE_LINE_RENDER },
+    { "4", SMOKE_LINE_RENDER },
+    { "5", SMOKE_LINE_RENDER }
+  };
+  static const SmokeExpect sel_name_lines[] = {
+    { "alpha", SMOKE_LINE_RENDER },
+    { "beta", SMOKE_LINE_RENDER },
+    { "gamma", SMOKE_LINE_RENDER }
+  };
+  static const SmokeExpect sel_pair_lines[] = {
+    { "{name:alpha,type:PRG}", SMOKE_LINE_RENDER },
+    { "{name:beta,type:SEQ}", SMOKE_LINE_RENDER },
+    { "{name:gamma,type:USR}", SMOKE_LINE_RENDER }
+  };
 
   fail = 0;
   smoke_reset(&out);
   rs_vm_init(&vm);
+  memset(&platform, 0, sizeof(platform));
+  platform.list_dir = smoke_list_dir;
+  platform.drive_info = smoke_drive_info;
+  rs_vm_set_platform(&vm, &platform);
   rs_vm_set_writer(&vm, smoke_writer, &out);
 
   fail |= smoke_run_expect(&vm, &out, "$A = 1..10", 0, 0);
@@ -198,6 +320,13 @@ int main(void) {
   fail |= smoke_run_expect(&vm, &out, "1..5 | ?[ @ > 3 ]", filtered_render, 2);
   fail |= smoke_run_expect(&vm, &out, "$T = \"yo\"", 0, 0);
   fail |= smoke_run_expect(&vm, &out, "$T | ?[ @ == \"YO\" ]", string_ci_render, 1);
+  fail |= smoke_run_expect(&vm, &out, "1..10 | TOP 5", top_first_five, 5);
+  fail |= smoke_run_expect(&vm, &out, "1..10 | TOP 3,2", top_skip_two, 3);
+  fail |= smoke_run_expect(&vm, &out, "LST | SEL \"NAME\"", sel_name_lines, 3);
+  fail |= smoke_run_expect(&vm, &out, "LST | SEL \"name\",\"type\"", sel_pair_lines, 3);
+  fail |= smoke_run_expect(&vm, &out, "LST | SEL \"missing\"", 0, 0);
+  fail |= smoke_run_expect_error(&vm, &out, "1..3 | TOP");
+  fail |= smoke_run_expect_error(&vm, &out, "LST | SEL 1");
 
   rs_vm_free(&vm);
   return fail;

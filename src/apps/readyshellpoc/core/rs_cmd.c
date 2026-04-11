@@ -8,6 +8,12 @@ RSCommandId rs_cmd_id(const char* name) {
   if (rs_ci_equal(name, "PRT")) {
     return RS_CMD_PRT;
   }
+  if (rs_ci_equal(name, "TOP")) {
+    return RS_CMD_TOP;
+  }
+  if (rs_ci_equal(name, "SEL")) {
+    return RS_CMD_SEL;
+  }
   if (rs_ci_equal(name, "LDV")) {
     return RS_CMD_LDV;
   }

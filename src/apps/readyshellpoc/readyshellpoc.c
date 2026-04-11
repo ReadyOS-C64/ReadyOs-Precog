@@ -91,11 +91,11 @@ typedef struct {
 #define g_off (RS_RUNTIME->off)
 #define g_i (RS_RUNTIME->i)
 
-static char g_line[LOGICAL_MAX] = {1};
+static char g_line[LOGICAL_MAX];
 typedef struct {
     char last_line[LOGICAL_MAX];
 } ReadyShellResumeV1;
-static ReadyShellResumeV1 resume_blob = {{1}};
+static ReadyShellResumeV1 resume_blob;
 
 static void clear_line(unsigned char y, unsigned char color);
 static void draw_text_n(unsigned char x, unsigned char y, const char *s, unsigned char n, unsigned char color);
@@ -434,7 +434,7 @@ static void shell_overlay_progress(unsigned char stage, void *user) {
     (void)user;
     clear_line(g_cursor_y, C_WHITE);
     g_cursor_x = 0;
-    shell_write_text_color("Loading overlays ", C_GRAY3);
+    shell_write_text_color("Loading", C_GRAY3);
     switch (stage) {
         case 1:
             shell_write_text_color(".", C_WHITE);
@@ -446,13 +446,13 @@ static void shell_overlay_progress(unsigned char stage, void *user) {
             shell_write_text_color("...", C_WHITE);
             break;
         case 4:
-            shell_write_text_color("...+", C_WHITE);
+            shell_write_text_color("+", C_WHITE);
             break;
         case 5:
-            shell_write_text_color("...++", C_WHITE);
+            shell_write_text_color("++", C_WHITE);
             break;
         default:
-            shell_write_text_color("...done", C_LIGHTBLUE);
+            shell_write_text_color(" done", C_LIGHTBLUE);
             break;
     }
 }
@@ -483,15 +483,15 @@ static void shell_draw_chrome(void) {
 
     clear_screen_color(C_BLUE, C_WHITE);
     draw_window(0, TITLE_Y, 40, 3, C_LIGHTBLUE);
-    draw_text(13, 0, "READYSHELL POC", C_YELLOW);
-    draw_text(4, 1, "READYOS LIMITED PROOF OF CONCEPT", C_CYAN);
+    draw_text(15, 0, "READYSHELL", C_YELLOW);
+    draw_text(13, 1, "READYOS", C_CYAN);
 
     for (row = BODY_TOP; row <= BODY_BOTTOM; ++row) {
         clear_line(row, C_WHITE);
     }
 
     clear_line(HELP_Y, C_GRAY3);
-    draw_text_n(0, HELP_Y, "RET:RUN  F2/F4:APPS  CTRL+B:HOME", 40, C_GRAY3);
+    draw_text_n(0, HELP_Y, "RET RUN F2/F4 APPS CTRL+B", 40, C_GRAY3);
 
     g_cursor_y = BODY_TOP;
     g_cursor_x = 0;
@@ -707,13 +707,7 @@ static int shell_read_logical_line(char *out, unsigned short max) {
 }
 
 static void shell_show_help(void) {
-    shell_write_line("ReadyShell:");
-    shell_write_line("  PRT GEN TAP DRVI LST LDV STV");
-    shell_write_line("  vars/expr: $A=1,2,3");
-    shell_write_line("  filter: ?[ @>5 ]");
-    shell_write_line("  foreach: %[ PRT @ ]");
-    shell_write_line("  use ! for pipeline |");
-    shell_write_line("Built-ins: HELP VER CLEAR");
+    shell_write_line("PRT TOP SEL GEN TAP DRVI LST LDV STV");
 }
 
 static void shell_print_error(const RSError *err) {
@@ -732,16 +726,6 @@ static void shell_print_error(const RSError *err) {
         shell_print_u16((unsigned short)rs_overlay_last_rc());
     }
     shell_newline();
-}
-
-static int c64_list_dir(void *user, unsigned char drive, RSValue *out_array) {
-    (void)user;
-    return rs_list_dir(drive, out_array);
-}
-
-static int c64_drive_info(void *user, unsigned char drive, RSValue *out_obj) {
-    (void)user;
-    return rs_drive_info(drive, out_obj);
 }
 
 int main(void) {
@@ -771,14 +755,12 @@ int main(void) {
     g_platform.user = 0;
     g_platform.file_read = 0;
     g_platform.file_write = 0;
-    g_platform.list_dir = c64_list_dir;
-    g_platform.drive_info = c64_drive_info;
+    g_platform.list_dir = 0;
+    g_platform.drive_info = 0;
     rs_vm_set_platform(&g_vm, &g_platform);
     rs_vm_set_writer(&g_vm, shell_writer, 0);
 
     shell_draw_chrome();
-    shell_write_line("ReadyShell");
-    shell_write_line("HELP for usage");
     rs_overlay_debug_mark('M');
 
     if (rs_overlay_active()) {

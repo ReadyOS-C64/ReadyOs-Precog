@@ -6,6 +6,8 @@
 typedef enum {
   RS_CMD_UNKNOWN = 0,
   RS_CMD_PRT,
+  RS_CMD_TOP,
+  RS_CMD_SEL,
   RS_CMD_LDV,
   RS_CMD_STV,
   RS_CMD_LST,
