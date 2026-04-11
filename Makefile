@@ -658,7 +658,7 @@ readyshell-vm-smoke-host:
 		$(READYSHELL_CORE_DIR)/rs_serialize.c \
 		-o /tmp/readyshell_vm_smoke
 	/tmp/readyshell_vm_smoke
-	$(CLANG) -std=c99 -Wall -Wextra -I. -I$(READYSHELL_CORE_DIR) \
+	$(CLANG) -std=c99 -Wall -Wextra -DREADYSHELL_VM_SMOKE_OVERLAY=1 -I. -I$(READYSHELL_CORE_DIR) \
 		-I$(READYSHELL_PLATFORM_DIR) -I$(READYSHELL_PLATFORM_C64_DIR) \
 		$(BUILD_SUPPORT_DIR)/readyshell_reu_host.c \
 		$(BUILD_SUPPORT_DIR)/readyshell_vm_smoke.c \

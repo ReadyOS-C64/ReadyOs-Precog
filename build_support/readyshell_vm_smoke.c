@@ -5,6 +5,10 @@
 #include "src/apps/readyshellpoc/core/rs_errors.h"
 #include "src/apps/readyshellpoc/core/rs_vm.h"
 
+#ifndef READYSHELL_VM_SMOKE_OVERLAY
+#define READYSHELL_VM_SMOKE_OVERLAY 0
+#endif
+
 #define OUT_MAX_LINES 32
 #define OUT_LINE_MAX 96
 
@@ -128,6 +132,31 @@ static int smoke_drive_info(void* user, unsigned char drive, RSValue* out_obj) {
     return -1;
   }
   if (rs_value_object_set(out_obj, "diskname", &tmp) != 0) {
+    rs_value_free(&tmp);
+    rs_value_free(out_obj);
+    return -1;
+  }
+  rs_value_free(&tmp);
+  if (rs_value_init_string(&tmp, "") != 0) {
+    rs_value_free(out_obj);
+    return -1;
+  }
+  if (rs_value_object_set(out_obj, "id", &tmp) != 0) {
+    rs_value_free(&tmp);
+    rs_value_free(out_obj);
+    return -1;
+  }
+  rs_value_free(&tmp);
+  rs_value_init_u16(&tmp, 664u);
+  if (rs_value_object_set(out_obj, "blocksfree", &tmp) != 0) {
+    rs_value_free(out_obj);
+    return -1;
+  }
+  if (rs_value_init_string(&tmp, "1541") != 0) {
+    rs_value_free(out_obj);
+    return -1;
+  }
+  if (rs_value_object_set(out_obj, "type", &tmp) != 0) {
     rs_value_free(&tmp);
     rs_value_free(out_obj);
     return -1;
@@ -292,6 +321,16 @@ int main(void) {
   static const SmokeExpect idx_250_line[] = { { "250", SMOKE_LINE_PRT } };
   static const SmokeExpect lst_index_name[] = { { "beta", SMOKE_LINE_PRT } };
   static const SmokeExpect lst_index_blocks[] = { { "30", SMOKE_LINE_PRT } };
+#if READYSHELL_VM_SMOKE_OVERLAY
+  static const SmokeExpect drvi_line[] = {
+    { "{drive:8,diskname:disk,id:,blocksfree:664,type:1541}", SMOKE_LINE_RENDER }
+  };
+  static const SmokeExpect drvi_drive_line[] = { { "9", SMOKE_LINE_PRT } };
+  static const SmokeExpect drvi_blocks_line[] = { { "664", SMOKE_LINE_PRT } };
+  static const SmokeExpect drvi_sel_line[] = {
+    { "{DRIVE:8,DISKNAME:disk}", SMOKE_LINE_RENDER }
+  };
+#endif
 
   fail = 0;
   readyshell_reu_host_reset();
@@ -332,6 +371,14 @@ int main(void) {
   fail |= smoke_run_expect(&vm, &out, "LST | SEL \"missing\"", 0, 0);
   fail |= smoke_run_expect(&vm, &out, "$D = 1..500", 0, 0);
   fail |= smoke_run_expect(&vm, &out, "PRT $D(249)", idx_250_line, 1);
+#if READYSHELL_VM_SMOKE_OVERLAY
+  fail |= smoke_run_expect(&vm, &out, "DRVI", drvi_line, 1);
+  fail |= smoke_run_expect(&vm, &out, "DRVI | SEL \"DRIVE\",\"DISKNAME\"", drvi_sel_line, 1);
+  fail |= smoke_run_expect(&vm, &out, "$I = DRVI", 0, 0);
+  fail |= smoke_run_expect(&vm, &out, "PRT $I.BLOCKSFREE", drvi_blocks_line, 1);
+  fail |= smoke_run_expect(&vm, &out, "$J = DRVI 9", 0, 0);
+  fail |= smoke_run_expect(&vm, &out, "PRT $J.DRIVE", drvi_drive_line, 1);
+#endif
   fail |= smoke_run_expect(&vm, &out, "$DIR = LST", 0, 0);
   fail |= smoke_run_expect(&vm, &out, "PRT $DIR(1).NAME", lst_index_name, 1);
   fail |= smoke_run_expect(&vm, &out, "PRT $DIR(2).BLOCKS", lst_index_blocks, 1);

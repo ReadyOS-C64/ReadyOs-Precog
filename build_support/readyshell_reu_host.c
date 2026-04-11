@@ -15,7 +15,10 @@ int rs_reu_available(void) {
 }
 
 int rs_reu_read(unsigned long reu_off, void* ram_dst, unsigned short len) {
-  if (!ram_dst || len == 0u ||
+  if (len == 0u) {
+    return 0;
+  }
+  if (!ram_dst ||
       reu_off + (unsigned long)len > (unsigned long)sizeof(g_readyshell_reu_host)) {
     return -1;
   }
@@ -24,7 +27,10 @@ int rs_reu_read(unsigned long reu_off, void* ram_dst, unsigned short len) {
 }
 
 int rs_reu_write(unsigned long reu_off, const void* ram_src, unsigned short len) {
-  if (!ram_src || len == 0u ||
+  if (len == 0u) {
+    return 0;
+  }
+  if (!ram_src ||
       reu_off + (unsigned long)len > (unsigned long)sizeof(g_readyshell_reu_host)) {
     return -1;
   }

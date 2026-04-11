@@ -46,6 +46,8 @@ int rs_overlay_command_call(RSCommandId id, unsigned char op, RSCommandFrame* fr
   static const char* names[] = { "alpha", "beta", "gamma" };
   static const unsigned short blocks[] = { 10u, 20u, 30u };
   static const char* types[] = { "PRG", "SEQ", "USR" };
+  unsigned short drive16;
+  unsigned char drive;
   if (!frame) {
     return -1;
   }
@@ -71,12 +73,19 @@ int rs_overlay_command_call(RSCommandId id, unsigned char op, RSCommandFrame* fr
     if (!frame->out) {
       return -1;
     }
+    drive = 8u;
+    if (frame->arg_count > 0u) {
+      if (rs_value_to_u16(&frame->args[0], &drive16) != 0 || drive16 > 255u) {
+        return -2;
+      }
+      drive = (unsigned char)drive16;
+    }
     rs_value_free(frame->out);
     if (rs_value_object_new(frame->out) != 0) {
       return -1;
     }
     rs_value_init_false(&tmp);
-    rs_value_init_u16(&tmp, 8u);
+    rs_value_init_u16(&tmp, drive);
     if (rs_value_object_set(frame->out, "drive", &tmp) != 0) {
       rs_value_free(frame->out);
       return -1;
@@ -86,6 +95,31 @@ int rs_overlay_command_call(RSCommandId id, unsigned char op, RSCommandFrame* fr
       return -1;
     }
     if (rs_value_object_set(frame->out, "diskname", &tmp) != 0) {
+      rs_value_free(&tmp);
+      rs_value_free(frame->out);
+      return -1;
+    }
+    rs_value_free(&tmp);
+    if (rs_value_init_string(&tmp, "") != 0) {
+      rs_value_free(frame->out);
+      return -1;
+    }
+    if (rs_value_object_set(frame->out, "id", &tmp) != 0) {
+      rs_value_free(&tmp);
+      rs_value_free(frame->out);
+      return -1;
+    }
+    rs_value_free(&tmp);
+    rs_value_init_u16(&tmp, 664u);
+    if (rs_value_object_set(frame->out, "blocksfree", &tmp) != 0) {
+      rs_value_free(frame->out);
+      return -1;
+    }
+    if (rs_value_init_string(&tmp, "1541") != 0) {
+      rs_value_free(frame->out);
+      return -1;
+    }
+    if (rs_value_object_set(frame->out, "type", &tmp) != 0) {
       rs_value_free(&tmp);
       rs_value_free(frame->out);
       return -1;

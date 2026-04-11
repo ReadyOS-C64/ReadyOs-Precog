@@ -56,6 +56,13 @@ int main(void) {
   fail |= expect_string_value("stored string copy", &stored_str, "hello");
   rs_value_free(&str);
 
+  fail |= expect_true("init empty string", rs_value_init_string(&str, "") == 0);
+  fail |= expect_true("clone empty string to reu", rs_value_clone(&stored_str, &str) == 0);
+  fail |= expect_true("stored empty string tag", stored_str.tag == RS_VAL_STR_PTR);
+  fail |= expect_string_value("stored empty string copy", &stored_str, "");
+  rs_value_free(&str);
+  rs_value_free(&stored_str);
+
   rs_value_init_false(&array);
   rs_value_init_false(&stored_array);
   rs_value_init_false(&tmp);

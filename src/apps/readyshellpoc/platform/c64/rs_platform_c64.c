@@ -17,7 +17,10 @@ int rs_reu_available(void) {
 int rs_reu_read(unsigned long reu_off, void* ram_dst, unsigned short len) {
   unsigned char bank;
   unsigned int off;
-  if (!ram_dst || len == 0u) {
+  if (len == 0u) {
+    return 0;
+  }
+  if (!ram_dst) {
     return -1;
   }
   bank = (unsigned char)((reu_off >> 16u) & 0xFFul);
@@ -29,7 +32,10 @@ int rs_reu_read(unsigned long reu_off, void* ram_dst, unsigned short len) {
 int rs_reu_write(unsigned long reu_off, const void* ram_src, unsigned short len) {
   unsigned char bank;
   unsigned int off;
-  if (!ram_src || len == 0u) {
+  if (len == 0u) {
+    return 0;
+  }
+  if (!ram_src) {
     return -1;
   }
   bank = (unsigned char)((reu_off >> 16u) & 0xFFul);

@@ -932,10 +932,12 @@ static int vm_cmd_drvi(RSVM* vm,
                        RSOutCollect* collect,
                        RSError* err) {
   RSValue result;
+  RSValue normalized;
   RSCommandFrame frame;
   int rc;
   (void)vm;
   rs_value_init_false(&result);
+  rs_value_init_false(&normalized);
   vm_cmd_frame_init(&frame, args, arg_count, 0, 0, &result, err);
   rc = rs_overlay_command_call(RS_CMD_DRVI, RS_CMD_OVL_OP_RUN, &frame);
   if (rc != 0) {
@@ -943,14 +945,21 @@ static int vm_cmd_drvi(RSVM* vm,
     vm_err(err, rc == -2 ? "DRVI arg" : "DRVI fail");
     return -1;
   }
+  if (rs_value_clone(&normalized, &result) != 0) {
+    rs_value_free(&result);
+    rs_value_free(&normalized);
+    vm_err(err, "DRVI normalize fail");
+    return -1;
+  }
+  rs_value_free(&result);
   rc = vm_exec_pipeline_from(vm,
                              pipeline,
                              (unsigned short)(stage_index + 1u),
-                             &result,
+                             &normalized,
                              1,
                              collect,
                              err);
-  rs_value_free(&result);
+  rs_value_free(&normalized);
   return rc;
 }
 
