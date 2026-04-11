@@ -21,6 +21,8 @@ typedef struct RSOutCollect {
   int stream_print;
 } RSOutCollect;
 
+static RSVMOutputKind g_rs_vm_output_kind = RS_VM_OUTPUT_RENDER;
+
 extern char rs_vm_fmt_buf[128];
 extern char rs_vm_line_buf[384];
 
@@ -130,10 +132,26 @@ const char* rs_vm_get_tap_log(const RSVM* vm) {
   return vm->tap_log;
 }
 
+RSVMOutputKind rs_vm_current_output_kind(void) {
+  return g_rs_vm_output_kind;
+}
+
 static int vm_write_line(RSVM* vm, const char* line) {
-  if (!vm->write_line) {
+  if (!vm || !vm->write_line) {
     return 0;
   }
+  g_rs_vm_output_kind = RS_VM_OUTPUT_RENDER;
+  if (line) {
+    return vm->write_line(vm->write_user, line);
+  }
+  return vm->write_line(vm->write_user, "");
+}
+
+static int vm_write_prt_line(RSVM* vm, const char* line) {
+  if (!vm || !vm->write_line) {
+    return 0;
+  }
+  g_rs_vm_output_kind = RS_VM_OUTPUT_PRT;
   if (line) {
     return vm->write_line(vm->write_user, line);
   }
@@ -562,6 +580,12 @@ static int vm_exec_pipeline_from(RSVM* vm,
                                  int has_item,
                                  RSOutCollect* collect,
                                  RSError* err);
+static int vm_emit_value(RSVM* vm,
+                         const RSPipeline* pipeline,
+                         unsigned short next_stage_index,
+                         const RSValue* value,
+                         RSOutCollect* collect,
+                         RSError* err);
 
 static int vm_cmd_gen(RSVM* vm,
                       const RSPipeline* pipeline,
@@ -637,7 +661,6 @@ static int vm_cmd_prt(RSVM* vm,
                       RSOutCollect* collect,
                       RSError* err) {
   unsigned short i;
-  RSValue ret;
   rs_vm_line_buf[0] = '\0';
 
   if (arg_count == 0) {
@@ -660,34 +683,14 @@ static int vm_cmd_prt(RSVM* vm,
     }
   }
 
-  if (vm_write_line(vm, rs_vm_line_buf) != 0) {
+  if (vm_write_prt_line(vm, rs_vm_line_buf) != 0) {
     vm_err(err, "write failed");
     return -1;
   }
-
-  if (stage_index + 1u >= pipeline->count) {
-    return 0;
-  }
-
-  if (has_current && current) {
-    return vm_exec_pipeline_from(vm,
-                                 pipeline,
-                                 (unsigned short)(stage_index + 1u),
-                                 current,
-                                 1,
-                                 collect,
-                                 err);
-  }
-
-  rs_value_init_false(&ret);
-  rs_value_init_true(&ret);
-  return vm_exec_pipeline_from(vm,
-                               pipeline,
-                               (unsigned short)(stage_index + 1u),
-                               &ret,
-                               1,
-                               collect,
-                               err);
+  (void)pipeline;
+  (void)stage_index;
+  (void)collect;
+  return 0;
 }
 
 static int vm_emit_result(RSVM* vm,
@@ -1035,6 +1038,7 @@ static int vm_exec_foreach_stage(RSVM* vm,
                                  RSError* err) {
   RSValue last;
   int has_last;
+  int rc;
 
   if (!has_current || !current) {
     return 0;
@@ -1046,15 +1050,18 @@ static int vm_exec_foreach_stage(RSVM* vm,
     rs_value_free(&last);
     return -1;
   }
+  if (!has_last) {
+    rs_value_free(&last);
+    return 0;
+  }
+  rc = vm_emit_value(vm,
+                     pipeline,
+                     (unsigned short)(stage_index + 1u),
+                     &last,
+                     collect,
+                     err);
   rs_value_free(&last);
-
-  return vm_exec_pipeline_from(vm,
-                               pipeline,
-                               (unsigned short)(stage_index + 1u),
-                               current,
-                               1,
-                               collect,
-                               err);
+  return rc;
 }
 
 static int vm_exec_pipeline_from(RSVM* vm,
@@ -1100,6 +1107,38 @@ static int vm_exec_pipeline_from(RSVM* vm,
 
   vm_err(err, "invalid stage kind");
   return -1;
+}
+
+static int vm_emit_value(RSVM* vm,
+                         const RSPipeline* pipeline,
+                         unsigned short next_stage_index,
+                         const RSValue* value,
+                         RSOutCollect* collect,
+                         RSError* err) {
+  RSValue* expanded;
+  unsigned short count;
+  unsigned short i;
+
+  if (rs_pipe_expand_value(value, &expanded, &count) != 0) {
+    vm_err(err, "out of memory");
+    return -1;
+  }
+
+  for (i = 0; i < count; ++i) {
+    if (vm_exec_pipeline_from(vm,
+                              pipeline,
+                              next_stage_index,
+                              &expanded[i],
+                              1,
+                              collect,
+                              err) != 0) {
+      rs_pipe_free_items(expanded, count);
+      return -1;
+    }
+  }
+
+  rs_pipe_free_items(expanded, count);
+  return 0;
 }
 
 static int vm_pipeline_run(RSVM* vm,
@@ -1153,35 +1192,14 @@ static int vm_should_auto_print_pipeline(const RSPipeline* pipeline) {
   if (last->kind == RS_STAGE_EXPR) {
     return 1;
   }
+  if (last->kind == RS_STAGE_FILTER || last->kind == RS_STAGE_FOREACH) {
+    return 1;
+  }
   if (last->kind != RS_STAGE_CMD) {
     return 0;
   }
   id = rs_cmd_id(last->as.cmd.name);
   return id != RS_CMD_PRT;
-}
-
-static int vm_auto_print_outputs(RSVM* vm,
-                                 const RSPipeline* pipeline,
-                                 const RSOutCollect* collect,
-                                 RSError* err) {
-  unsigned short i;
-  if (!vm || !collect || collect->count == 0) {
-    return 0;
-  }
-  if (!vm_should_auto_print_pipeline(pipeline)) {
-    return 0;
-  }
-  for (i = 0; i < collect->count; ++i) {
-    if (rs_format_value(&collect->items[i], rs_vm_line_buf, sizeof(rs_vm_line_buf)) < 0) {
-      vm_err(err, "print format overflow");
-      return -1;
-    }
-    if (vm_write_line(vm, rs_vm_line_buf) != 0) {
-      vm_err(err, "write failed");
-      return -1;
-    }
-  }
-  return 0;
 }
 
 static int vm_auto_print_value(RSVM* vm,
@@ -1224,7 +1242,6 @@ static int vm_exec_stmt(RSVM* vm,
   RSOutCollect collect;
   RSValue tmp;
   const RSValue* stored;
-  int stream_pipeline;
 
   collect.items = 0;
   collect.count = 0;
@@ -1272,25 +1289,26 @@ static int vm_exec_stmt(RSVM* vm,
   }
 
   if (stmt->kind == RS_STMT_PIPELINE) {
-    stream_pipeline = (!has_at && vm_should_auto_print_pipeline(&stmt->as.pipeline));
-    if (stream_pipeline) {
+    if (!has_at) {
       collect.enabled = 0;
-      collect.stream_print = 1;
+      collect.stream_print = vm_should_auto_print_pipeline(&stmt->as.pipeline);
     }
     if (vm_pipeline_run(vm, &stmt->as.pipeline, at, has_at, &collect, err) != 0) {
       rs_pipe_free_items(collect.items, collect.count);
       rs_value_free(&tmp);
       return -1;
     }
-    if (!stream_pipeline) {
-      if (vm_auto_print_outputs(vm, &stmt->as.pipeline, &collect, err) != 0) {
+    if (has_at) {
+      if (collect.count == 0) {
         rs_pipe_free_items(collect.items, collect.count);
-        rs_value_free(&tmp);
-        return -1;
+        rs_value_free(out_last);
+        rs_value_init_false(out_last);
+        *out_has_last = 0;
+      } else {
+        vm_value_take_from_collect(out_last, &collect);
+        *out_has_last = 1;
       }
-      vm_value_take_from_collect(out_last, &collect);
       rs_pipe_free_items(collect.items, collect.count);
-      *out_has_last = 1;
     } else {
       rs_value_free(out_last);
       rs_value_init_false(out_last);

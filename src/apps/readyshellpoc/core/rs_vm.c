@@ -12,9 +12,12 @@ typedef struct RSExecOptions {
   const RSValue* at;
   int has_at;
   int capture_outputs;
+  int stream_outputs;
   RSValue* outputs;
   unsigned short output_count;
 } RSExecOptions;
+
+static RSVMOutputKind g_rs_vm_output_kind = RS_VM_OUTPUT_RENDER;
 
 static void rs_vm_err(RSError* err, const char* msg) {
   rs_error_set(err, RS_ERR_EXEC, msg, 0, 1, 1);
@@ -73,10 +76,23 @@ const char* rs_vm_get_tap_log(const RSVM* vm) {
   return vm->tap_log;
 }
 
+RSVMOutputKind rs_vm_current_output_kind(void) {
+  return g_rs_vm_output_kind;
+}
+
 static int rs_vm_write_line(RSVM* vm, const char* line) {
-  if (!vm->write_line) {
+  if (!vm || !vm->write_line) {
     return 0;
   }
+  g_rs_vm_output_kind = RS_VM_OUTPUT_RENDER;
+  return vm->write_line(vm->write_user, line ? line : "");
+}
+
+static int rs_vm_write_prt_line(RSVM* vm, const char* line) {
+  if (!vm || !vm->write_line) {
+    return 0;
+  }
+  g_rs_vm_output_kind = RS_VM_OUTPUT_PRT;
   return vm->write_line(vm->write_user, line ? line : "");
 }
 
@@ -329,11 +345,33 @@ static int rs_vm_eval_expr(RSVM* vm,
   return -1;
 }
 
-static int rs_vm_collect_output(RSExecOptions* opt, const RSValue* value) {
-  if (!opt->capture_outputs) {
+static int rs_vm_collect_output(RSVM* vm,
+                                RSExecOptions* opt,
+                                const RSValue* value,
+                                RSError* err) {
+  char line[512];
+  if (!opt) {
     return 0;
   }
-  return rs_pipe_append_item(&opt->outputs, &opt->output_count, value);
+  if (!opt->capture_outputs) {
+    if (opt->stream_outputs) {
+      if (rs_format_value(value, line, sizeof(line)) < 0) {
+        rs_vm_err(err, "print format overflow");
+        return -1;
+      }
+      if (rs_vm_write_line(vm, line) != 0) {
+        rs_vm_err(err, "write failed");
+        return -1;
+      }
+      return 0;
+    }
+    return 0;
+  }
+  if (rs_pipe_append_item(&opt->outputs, &opt->output_count, value) != 0) {
+    rs_vm_err(err, "out of memory");
+    return -1;
+  }
+  return 0;
 }
 
 static int rs_vm_command_to_drive(const RSValue* args,
@@ -411,6 +449,12 @@ static int rs_vm_exec_pipeline_from(RSVM* vm,
                                     int has_item,
                                     RSExecOptions* opt,
                                     RSError* err);
+static int rs_vm_emit_value(RSVM* vm,
+                            const RSPipeline* pipeline,
+                            unsigned short next_stage_index,
+                            const RSValue* value,
+                            RSExecOptions* opt,
+                            RSError* err);
 
 static int rs_vm_exec_command_stage(RSVM* vm,
                                     const RSStage* stage,
@@ -530,32 +574,13 @@ static int rs_vm_exec_command_stage(RSVM* vm,
         line[line_len] = '\0';
       }
     }
-    if (rs_vm_write_line(vm, line) != 0) {
+    if (rs_vm_write_prt_line(vm, line) != 0) {
       rs_vm_free_args(args, arg_count);
       rs_vm_err(err, "write failed");
       return -1;
     }
     rs_vm_free_args(args, arg_count);
-    if (stage_index + 1u >= pipeline->count) {
-      return 0;
-    }
-    if (has_item) {
-      return rs_vm_exec_pipeline_from(vm,
-                                      pipeline,
-                                      (unsigned short)(stage_index + 1u),
-                                      item,
-                                      1,
-                                      opt,
-                                      err);
-    }
-    rs_value_init_true(&bool_out);
-    return rs_vm_exec_pipeline_from(vm,
-                                    pipeline,
-                                    (unsigned short)(stage_index + 1u),
-                                    &bool_out,
-                                    1,
-                                    opt,
-                                    err);
+    return 0;
   }
 
   if (id == RS_CMD_LDV) {
@@ -729,11 +754,11 @@ static int rs_vm_exec_pipeline_from(RSVM* vm,
   unsigned short i;
   RSValue pred;
   int has_last;
+  int n;
 
   if (stage_index >= pipeline->count) {
     if (has_item) {
-      if (rs_vm_collect_output(opt, item) != 0) {
-        rs_vm_err(err, "out of memory");
+      if (rs_vm_collect_output(vm, opt, item, err) != 0) {
         return -1;
       }
     }
@@ -821,18 +846,54 @@ static int rs_vm_exec_pipeline_from(RSVM* vm,
       rs_value_free(&pred);
       return -1;
     }
+    if (!has_last) {
+      rs_value_free(&pred);
+      return 0;
+    }
+    n = rs_vm_emit_value(vm,
+                         pipeline,
+                         (unsigned short)(stage_index + 1u),
+                         &pred,
+                         opt,
+                         err);
     rs_value_free(&pred);
-    return rs_vm_exec_pipeline_from(vm,
-                                    pipeline,
-                                    (unsigned short)(stage_index + 1u),
-                                    item,
-                                    1,
-                                    opt,
-                                    err);
+    return n;
   }
 
   rs_vm_err(err, "invalid stage");
   return -1;
+}
+
+static int rs_vm_emit_value(RSVM* vm,
+                            const RSPipeline* pipeline,
+                            unsigned short next_stage_index,
+                            const RSValue* value,
+                            RSExecOptions* opt,
+                            RSError* err) {
+  RSValue* expanded;
+  unsigned short count;
+  unsigned short i;
+
+  if (rs_pipe_expand_value(value, &expanded, &count) != 0) {
+    rs_vm_err(err, "out of memory");
+    return -1;
+  }
+
+  for (i = 0; i < count; ++i) {
+    if (rs_vm_exec_pipeline_from(vm,
+                                 pipeline,
+                                 next_stage_index,
+                                 &expanded[i],
+                                 1,
+                                 opt,
+                                 err) != 0) {
+      rs_pipe_free_items(expanded, count);
+      return -1;
+    }
+  }
+
+  rs_pipe_free_items(expanded, count);
+  return 0;
 }
 
 static int rs_vm_run_pipeline(RSVM* vm,
@@ -881,36 +942,14 @@ static int rs_vm_should_auto_print_pipeline(const RSPipeline* pipeline) {
   if (last->kind == RS_STAGE_EXPR) {
     return 1;
   }
+  if (last->kind == RS_STAGE_FILTER || last->kind == RS_STAGE_FOREACH) {
+    return 1;
+  }
   if (last->kind != RS_STAGE_CMD) {
     return 0;
   }
   id = rs_cmd_id(last->as.cmd.name);
   return id != RS_CMD_PRT;
-}
-
-static int rs_vm_auto_print_outputs(RSVM* vm,
-                                    const RSPipeline* pipeline,
-                                    const RSExecOptions* opt,
-                                    RSError* err) {
-  unsigned short i;
-  char line[512];
-  if (!vm || !opt || opt->output_count == 0) {
-    return 0;
-  }
-  if (!rs_vm_should_auto_print_pipeline(pipeline)) {
-    return 0;
-  }
-  for (i = 0; i < opt->output_count; ++i) {
-    if (rs_format_value(&opt->outputs[i], line, sizeof(line)) < 0) {
-      rs_vm_err(err, "print format overflow");
-      return -1;
-    }
-    if (rs_vm_write_line(vm, line) != 0) {
-      rs_vm_err(err, "write failed");
-      return -1;
-    }
-  }
-  return 0;
 }
 
 static int rs_vm_auto_print_value(RSVM* vm,
@@ -958,6 +997,7 @@ static int rs_vm_exec_stmt(RSVM* vm,
   opt.at = at;
   opt.has_at = has_at;
   opt.capture_outputs = 1;
+  opt.stream_outputs = 0;
   opt.outputs = 0;
   opt.output_count = 0;
 
@@ -1000,22 +1040,27 @@ static int rs_vm_exec_stmt(RSVM* vm,
   }
 
   if (stmt->kind == RS_STMT_PIPELINE) {
+    if (!has_at) {
+      opt.capture_outputs = 0;
+      opt.stream_outputs = rs_vm_should_auto_print_pipeline(&stmt->as.pipeline);
+    }
     if (rs_vm_run_pipeline(vm, &stmt->as.pipeline, at, has_at, &opt, err) != 0) {
       rs_pipe_free_items(opt.outputs, opt.output_count);
       return -1;
     }
-    if (rs_vm_auto_print_outputs(vm, &stmt->as.pipeline, &opt, err) != 0) {
-      rs_pipe_free_items(opt.outputs, opt.output_count);
-      return -1;
-    }
     rs_value_free(out_last);
-    if (rs_vm_assign_from_outputs(out_last, &opt) != 0) {
-      rs_pipe_free_items(opt.outputs, opt.output_count);
-      rs_vm_err(err, "out of memory");
-      return -1;
+    if (!has_at || opt.output_count == 0) {
+      rs_value_init_false(out_last);
+      *out_has_last = 0;
+    } else {
+      if (rs_vm_assign_from_outputs(out_last, &opt) != 0) {
+        rs_pipe_free_items(opt.outputs, opt.output_count);
+        rs_vm_err(err, "out of memory");
+        return -1;
+      }
+      *out_has_last = 1;
     }
     rs_pipe_free_items(opt.outputs, opt.output_count);
-    *out_has_last = 1;
     return 0;
   }
 

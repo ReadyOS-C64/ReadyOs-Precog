@@ -51,6 +51,10 @@ const char* rs_vm_get_tap_log(const RSVM* vm) {
   return vm->tap_log;
 }
 
+RSVMOutputKind rs_vm_current_output_kind(void) {
+  return RS_VM_OUTPUT_RENDER;
+}
+
 int rs_vm_exec_program(RSVM* vm, const RSProgram* program, RSError* err) {
   (void)vm;
   (void)program;

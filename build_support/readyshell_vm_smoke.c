@@ -15,11 +15,21 @@ void rs_overlay_debug_mark(unsigned char code) {
 
 typedef struct SmokeOut {
   char lines[OUT_MAX_LINES][OUT_LINE_MAX];
+  unsigned char kinds[OUT_MAX_LINES];
   unsigned int count;
 } SmokeOut;
 
-static int smoke_writer(void* user, const char* line) {
-  SmokeOut* out = (SmokeOut*)user;
+typedef struct SmokeExpect {
+  const char* line;
+  unsigned char kind;
+} SmokeExpect;
+
+enum {
+  SMOKE_LINE_RENDER = 0,
+  SMOKE_LINE_PRT = 1
+};
+
+static int smoke_append(SmokeOut* out, const char* line, unsigned char kind) {
   if (!out || out->count >= OUT_MAX_LINES) {
     return -1;
   }
@@ -28,8 +38,17 @@ static int smoke_writer(void* user, const char* line) {
   }
   strncpy(out->lines[out->count], line, OUT_LINE_MAX - 1u);
   out->lines[out->count][OUT_LINE_MAX - 1u] = '\0';
+  out->kinds[out->count] = kind;
   ++out->count;
   return 0;
+}
+
+static int smoke_writer(void* user, const char* line) {
+  SmokeOut* out = (SmokeOut*)user;
+  unsigned char kind = (rs_vm_current_output_kind() == RS_VM_OUTPUT_PRT)
+                         ? SMOKE_LINE_PRT
+                         : SMOKE_LINE_RENDER;
+  return smoke_append(out, line, kind);
 }
 
 static void smoke_reset(SmokeOut* out) {
@@ -37,6 +56,7 @@ static void smoke_reset(SmokeOut* out) {
   out->count = 0;
   for (i = 0; i < OUT_MAX_LINES; ++i) {
     out->lines[i][0] = '\0';
+    out->kinds[i] = SMOKE_LINE_RENDER;
   }
 }
 
@@ -59,7 +79,7 @@ static int smoke_exec(RSVM* vm, SmokeOut* out, const char* source) {
 
 static int smoke_expect_lines(const SmokeOut* out,
                               const char* source,
-                              const char* const* expect,
+                              const SmokeExpect* expect,
                               unsigned int expect_count) {
   unsigned int i;
   int fail;
@@ -74,12 +94,20 @@ static int smoke_expect_lines(const SmokeOut* out,
   }
 
   for (i = 0; i < expect_count && i < out->count; ++i) {
-    if (strcmp(out->lines[i], expect[i]) != 0) {
+    if (strcmp(out->lines[i], expect[i].line) != 0) {
       printf("FAIL src='%s' line[%u] got='%s' expected='%s'\n",
              source,
              i,
              out->lines[i],
-             expect[i]);
+             expect[i].line);
+      fail = 1;
+    }
+    if (out->kinds[i] != expect[i].kind) {
+      printf("FAIL src='%s' kind[%u] got=%d expected=%d\n",
+             source,
+             i,
+             (int)out->kinds[i],
+             (int)expect[i].kind);
       fail = 1;
     }
   }
@@ -93,7 +121,7 @@ static int smoke_expect_lines(const SmokeOut* out,
 static int smoke_run_expect(RSVM* vm,
                             SmokeOut* out,
                             const char* source,
-                            const char* const* expect,
+                            const SmokeExpect* expect,
                             unsigned int expect_count) {
   if (smoke_exec(vm, out, source) != 0) {
     return 1;
@@ -105,12 +133,40 @@ int main(void) {
   RSVM vm;
   SmokeOut out;
   int fail;
-  static const char* const filtered_print[] = {
-    "hey 6", "hey 7", "hey 8", "hey 9", "hey 10"
+  static const SmokeExpect filtered_print[] = {
+    { "hey 6", SMOKE_LINE_PRT },
+    { "hey 7", SMOKE_LINE_PRT },
+    { "hey 8", SMOKE_LINE_PRT },
+    { "hey 9", SMOKE_LINE_PRT },
+    { "hey 10", SMOKE_LINE_PRT }
   };
-  static const char* const terminal_prt_assign[] = { "1", "2", "3" };
-  static const char* const false_line[] = { "FALSE" };
-  static const char* const mid_prt_pass[] = { "1", "again 1", "2", "again 2" };
+  static const SmokeExpect terminal_prt_assign[] = {
+    { "1", SMOKE_LINE_PRT },
+    { "2", SMOKE_LINE_PRT },
+    { "3", SMOKE_LINE_PRT }
+  };
+  static const SmokeExpect false_line[] = { { "FALSE", SMOKE_LINE_PRT } };
+  static const SmokeExpect mid_prt_stop[] = {
+    { "1", SMOKE_LINE_PRT },
+    { "2", SMOKE_LINE_PRT }
+  };
+  static const SmokeExpect foreach_inner_only[] = {
+    { "hey 1", SMOKE_LINE_PRT },
+    { "hey 2", SMOKE_LINE_PRT },
+    { "hey 3", SMOKE_LINE_PRT }
+  };
+  static const SmokeExpect foreach_with_return[] = {
+    { "hey 1", SMOKE_LINE_PRT },
+    { "1", SMOKE_LINE_RENDER },
+    { "hey 2", SMOKE_LINE_PRT },
+    { "2", SMOKE_LINE_RENDER },
+    { "hey 3", SMOKE_LINE_PRT },
+    { "3", SMOKE_LINE_RENDER }
+  };
+  static const SmokeExpect filtered_render[] = {
+    { "4", SMOKE_LINE_RENDER },
+    { "5", SMOKE_LINE_RENDER }
+  };
 
   fail = 0;
   smoke_reset(&out);
@@ -128,7 +184,15 @@ int main(void) {
 
   fail |= smoke_run_expect(&vm, &out, "$C = 1..3 | PRT @", terminal_prt_assign, 3);
   fail |= smoke_run_expect(&vm, &out, "PRT $C", false_line, 1);
-  fail |= smoke_run_expect(&vm, &out, "1..2 | PRT @ | PRT \"again \", @", mid_prt_pass, 4);
+  fail |= smoke_run_expect(&vm, &out, "1..2 | PRT @ | PRT \"again \", @", mid_prt_stop, 2);
+  fail |= smoke_run_expect(&vm, &out, "1..3 | %[ PRT \"hey \", @ ]", foreach_inner_only, 3);
+  fail |= smoke_run_expect(&vm, &out, "1..3 | %[ PRT \"hey \", @ ] | PRT @", foreach_inner_only, 3);
+  fail |= smoke_run_expect(&vm,
+                           &out,
+                           "1..3 | %[ $B=@; PRT \"hey \", @; @ ]",
+                           foreach_with_return,
+                           6);
+  fail |= smoke_run_expect(&vm, &out, "1..5 | ?[ @ > 3 ]", filtered_render, 2);
 
   rs_vm_free(&vm);
   return fail;

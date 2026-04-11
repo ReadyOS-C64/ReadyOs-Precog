@@ -346,18 +346,24 @@ static void shell_write_text_color(const char *s, unsigned char color) {
     }
 }
 
-static void shell_write_line(const char *s) {
-    clear_line(g_cursor_y, C_WHITE);
+static void shell_write_line_color(const char *s, unsigned char color) {
+    clear_line(g_cursor_y, color);
     g_cursor_x = 0;
     if (s != 0) {
-        shell_write_text_color(s, C_WHITE);
+        shell_write_text_color(s, color);
     }
     shell_newline();
 }
 
+static void shell_write_line(const char *s) {
+    shell_write_line_color(s, C_WHITE);
+}
+
 static int shell_writer(void *user, const char *line) {
+    unsigned char color;
     (void)user;
-    shell_write_line(line);
+    color = (rs_vm_current_output_kind() == RS_VM_OUTPUT_PRT) ? C_CYAN : C_WHITE;
+    shell_write_line_color(line, color);
     return 0;
 }
 
