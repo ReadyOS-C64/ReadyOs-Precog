@@ -17,24 +17,20 @@ typedef struct RSExecOptions {
   int stream_outputs;
   RSValue* outputs;
   unsigned short output_count;
-  struct RSTopStageState* top_states;
-  struct RSMoreStageState* more_states;
+  struct RSStageState* stage_states;
 } RSExecOptions;
 
-typedef struct RSTopStageState {
+typedef struct RSStageState {
   unsigned short seen;
-  unsigned short count;
-  unsigned short skip;
+  unsigned short arg0;
+  unsigned short arg1;
   unsigned char init;
-} RSTopStageState;
-
-typedef struct RSMoreStageState {
-  unsigned short seen;
-  unsigned short interval;
-  unsigned char init;
-} RSMoreStageState;
+  unsigned char kind;
+} RSStageState;
 
 #define RS_MORE_DEFAULT_INTERVAL 20u
+#define RS_STAGE_STATE_KIND_TOP  1u
+#define RS_STAGE_STATE_KIND_MORE 2u
 
 static RSVMOutputKind g_rs_vm_output_kind = RS_VM_OUTPUT_RENDER;
 
@@ -46,18 +42,11 @@ static int rs_vm_opt_stage_state_alloc(RSExecOptions* opt, unsigned short count)
   if (!opt || count == 0u) {
     return 0;
   }
-  opt->top_states = (RSTopStageState*)malloc(sizeof(RSTopStageState) * count);
-  if (!opt->top_states) {
+  opt->stage_states = (RSStageState*)malloc(sizeof(RSStageState) * count);
+  if (!opt->stage_states) {
     return -1;
   }
-  opt->more_states = (RSMoreStageState*)malloc(sizeof(RSMoreStageState) * count);
-  if (!opt->more_states) {
-    free(opt->top_states);
-    opt->top_states = 0;
-    return -1;
-  }
-  memset(opt->top_states, 0, sizeof(RSTopStageState) * count);
-  memset(opt->more_states, 0, sizeof(RSMoreStageState) * count);
+  memset(opt->stage_states, 0, sizeof(RSStageState) * count);
   return 0;
 }
 
@@ -65,10 +54,8 @@ static void rs_vm_opt_stage_state_free(RSExecOptions* opt) {
   if (!opt) {
     return;
   }
-  free(opt->top_states);
-  free(opt->more_states);
-  opt->top_states = 0;
-  opt->more_states = 0;
+  free(opt->stage_states);
+  opt->stage_states = 0;
 }
 
 void rs_vm_init(RSVM* vm) {
@@ -540,9 +527,6 @@ static int rs_vm_parse_more_args(const RSValue* args,
 
 static int rs_vm_more_pause_set(void) {
   unsigned char flags;
-  if (!rs_reu_available()) {
-    return 0;
-  }
   flags = 0u;
   (void)rs_reu_read(RS_REU_UI_FLAGS_OFF, &flags, 1u);
   flags = (unsigned char)(flags | RS_UI_FLAG_PAUSED);
@@ -568,29 +552,32 @@ static int rs_vm_cmd_top(RSVM* vm,
                          unsigned short arg_count,
                          RSExecOptions* opt,
                          RSError* err) {
-  RSTopStageState* state;
+  RSStageState* state;
   (void)vm;
   if (!has_item) {
     return 0;
   }
-  if (!opt || !opt->top_states) {
+  if (!opt || !opt->stage_states) {
     rs_vm_err(err, "TOP state unavailable");
     return -1;
   }
-  state = &opt->top_states[stage_index];
+  state = &opt->stage_states[stage_index];
   if (!state->init) {
-    if (rs_vm_parse_top_args(args, arg_count, &state->count, &state->skip) != 0) {
+    if (rs_vm_parse_top_args(args, arg_count, &state->arg0, &state->arg1) != 0) {
       rs_vm_err(err, "TOP expects count[,skip]");
       return -1;
     }
-    state->seen = 0;
-    state->init = 1;
+    state->kind = RS_STAGE_STATE_KIND_TOP;
+    state->init = 1u;
+  } else if (state->kind != RS_STAGE_STATE_KIND_TOP) {
+    rs_vm_err(err, "TOP state unavailable");
+    return -1;
   }
-  if (state->seen < state->skip) {
+  if (state->seen < state->arg1) {
     ++state->seen;
     return 0;
   }
-  if ((unsigned short)(state->seen - state->skip) >= state->count) {
+  if ((unsigned short)(state->seen - state->arg1) >= state->arg0) {
     ++state->seen;
     return 0;
   }
@@ -613,26 +600,29 @@ static int rs_vm_cmd_more(RSVM* vm,
                           unsigned short arg_count,
                           RSExecOptions* opt,
                           RSError* err) {
-  RSMoreStageState* state;
+  RSStageState* state;
   (void)vm;
   if (!has_item) {
     return 0;
   }
-  if (!opt || !opt->more_states) {
+  if (!opt || !opt->stage_states) {
     rs_vm_err(err, "MORE state unavailable");
     return -1;
   }
-  state = &opt->more_states[stage_index];
+  state = &opt->stage_states[stage_index];
   if (!state->init) {
-    if (rs_vm_parse_more_args(args, arg_count, &state->interval) != 0) {
+    if (rs_vm_parse_more_args(args, arg_count, &state->arg0) != 0) {
       rs_vm_err(err, "MORE expects count");
       return -1;
     }
-    state->seen = 0u;
+    state->kind = RS_STAGE_STATE_KIND_MORE;
     state->init = 1u;
+  } else if (state->kind != RS_STAGE_STATE_KIND_MORE) {
+    rs_vm_err(err, "MORE state unavailable");
+    return -1;
   }
   ++state->seen;
-  if ((unsigned short)(state->seen % state->interval) == 0u &&
+  if ((unsigned short)(state->seen % state->arg0) == 0u &&
       rs_vm_more_pause_set() != 0) {
     rs_vm_err(err, "MORE pause failed");
     return -1;
@@ -1286,8 +1276,7 @@ static int rs_vm_exec_stmt(RSVM* vm,
   opt.stream_outputs = 0;
   opt.outputs = 0;
   opt.output_count = 0;
-  opt.top_states = 0;
-  opt.more_states = 0;
+  opt.stage_states = 0;
 
   if (stmt->kind == RS_STMT_ASSIGN) {
     if (stmt->as.assign.rhs_is_pipeline) {

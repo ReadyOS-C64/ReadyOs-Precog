@@ -6,6 +6,7 @@
 
 #include "core/rs_config.h"
 #include "core/rs_errors.h"
+#include "core/rs_token.h"
 #include "core/rs_ui_state.h"
 #include "core/rs_vm.h"
 #include "platform/rs_overlay.h"
@@ -83,9 +84,6 @@ typedef struct {
     unsigned char cursor_x;
     unsigned int off;
     unsigned char i;
-    unsigned char pause_flags_local;
-    unsigned char pause_store_mode;
-    unsigned char pause_arm_latched;
 } ReadyShellRuntimeState;
 
 #define RS_RUNTIME_ADDR 0xCA00u
@@ -101,9 +99,6 @@ typedef struct {
 #define g_cursor_x (RS_RUNTIME->cursor_x)
 #define g_off (RS_RUNTIME->off)
 #define g_i (RS_RUNTIME->i)
-#define g_pause_flags_local (RS_RUNTIME->pause_flags_local)
-#define g_pause_store_mode (RS_RUNTIME->pause_store_mode)
-#define g_pause_arm_latched (RS_RUNTIME->pause_arm_latched)
 
 static char g_line[LOGICAL_MAX];
 typedef struct {
@@ -112,7 +107,7 @@ typedef struct {
 static ReadyShellResumeV1 resume_blob;
 
 static void clear_line(unsigned char y, unsigned char color);
-static void draw_text_n(unsigned char x, unsigned char y, const char *s, unsigned char n, unsigned char color);
+static void draw_text(unsigned char x, unsigned char y, const char *s, unsigned char color);
 static void resume_save_state(void);
 static void shell_overlay_progress(unsigned char stage, void *user);
 static void shell_draw_footer_normal(void);
@@ -121,19 +116,6 @@ void rs_set_c_stack_top(void);
 extern unsigned char rs_heap_bss_run[];
 extern unsigned char rs_heap_bss_size[];
 extern unsigned char rs_heap_overlay_loadaddr[];
-
-static unsigned int shell_heap_start_addr(void) {
-    unsigned int start;
-    start = (unsigned int)rs_heap_bss_run + (unsigned int)rs_heap_bss_size;
-    if (start & 1u) {
-        ++start;
-    }
-    return start;
-}
-
-static unsigned int shell_heap_end_addr(void) {
-    return (unsigned int)rs_heap_overlay_loadaddr;
-}
 
 static void shell_init_runtime_regions(void) {
     unsigned int heap_start;
@@ -144,8 +126,11 @@ static void shell_init_runtime_regions(void) {
     memset(RS_RUNTIME, 0, sizeof(*RS_RUNTIME));
     RS_REU_HEAP_SESSION_FLAG = 0u;
     rs_set_c_stack_top();
-    heap_start = shell_heap_start_addr();
-    heap_end = shell_heap_end_addr();
+    heap_start = (unsigned int)rs_heap_bss_run + (unsigned int)rs_heap_bss_size;
+    if (heap_start & 1u) {
+        ++heap_start;
+    }
+    heap_end = (unsigned int)rs_heap_overlay_loadaddr;
     heap_size = (heap_end > heap_start) ? (heap_end - heap_start) : 0u;
     _heaporg = (unsigned*)heap_start;
     _heapptr = (unsigned*)heap_start;
@@ -281,37 +266,18 @@ static void clear_line(unsigned char y, unsigned char color) {
 
 static void shell_draw_footer_text(const char *text, unsigned char color) {
     clear_line(HELP_Y, color);
-    draw_text_n(0, HELP_Y, text, SCREEN_WIDTH, color);
-}
-
-static unsigned char shell_pause_store_backend(void) {
-    if (g_pause_store_mode == 0u) {
-        g_pause_store_mode = rs_reu_available() ? 2u : 1u;
-        g_pause_flags_local = 0u;
-        if (g_pause_store_mode == 2u) {
-            (void)rs_reu_write(RS_REU_UI_FLAGS_OFF, &g_pause_flags_local, 1u);
-        }
-    }
-    return g_pause_store_mode;
+    draw_text(0, HELP_Y, text, color);
 }
 
 static unsigned char shell_pause_flags(void) {
     unsigned char flags;
-
-    if (shell_pause_store_backend() == 2u) {
-        flags = g_pause_flags_local;
-        if (rs_reu_read(RS_REU_UI_FLAGS_OFF, &flags, 1u) == 0) {
-            g_pause_flags_local = flags;
-        }
-    }
-    return g_pause_flags_local;
+    flags = 0u;
+    (void)rs_reu_read(RS_REU_UI_FLAGS_OFF, &flags, 1u);
+    return flags;
 }
 
 static void shell_pause_set_flags(unsigned char flags) {
-    g_pause_flags_local = flags;
-    if (shell_pause_store_backend() == 2u) {
-        (void)rs_reu_write(RS_REU_UI_FLAGS_OFF, &flags, 1u);
-    }
+    (void)rs_reu_write(RS_REU_UI_FLAGS_OFF, &flags, 1u);
 }
 
 static void shell_draw_footer_normal(void) {
@@ -334,25 +300,12 @@ static unsigned char shell_pause_key_down(void) {
     );
 }
 
-static void shell_pause_sync_latch(void) {
-    g_pause_arm_latched = shell_pause_key_down();
-    shell_pause_clear_buffer();
-}
-
 static void shell_pause_arm_poll(void) {
     unsigned char flags;
-    unsigned char key_down;
-
-    key_down = shell_pause_key_down();
-    if (!key_down) {
-        g_pause_arm_latched = 0u;
-        return;
-    }
-    if (g_pause_arm_latched) {
+    if (!shell_pause_key_down()) {
         return;
     }
 
-    g_pause_arm_latched = 1u;
     shell_pause_clear_buffer();
     flags = (unsigned char)(shell_pause_flags() | RS_UI_FLAG_PAUSED);
     shell_pause_set_flags(flags);
@@ -379,11 +332,14 @@ static void shell_wait_if_paused(void) {
     while (!shell_pause_key_down()) {
         waitvsync();
     }
+    while (shell_pause_key_down()) {
+        waitvsync();
+    }
 
     flags = (unsigned char)(shell_pause_flags() & (unsigned char)~RS_UI_FLAG_PAUSED);
     shell_pause_set_flags(flags);
     cbm_k_clrch();
-    shell_pause_sync_latch();
+    shell_pause_clear_buffer();
     shell_draw_footer_normal();
 }
 
@@ -395,25 +351,6 @@ static void draw_text(unsigned char x, unsigned char y, const char *s, unsigned 
         put_ascii(cx, y, (unsigned char)*s, color);
         ++s;
         ++cx;
-    }
-}
-
-static void draw_text_n(unsigned char x, unsigned char y, const char *s, unsigned char n, unsigned char color) {
-    unsigned char cx;
-    unsigned char count;
-
-    cx = x;
-    count = 0;
-    while (s != 0 && *s != 0 && cx < SCREEN_WIDTH && count < n) {
-        put_ascii(cx, y, (unsigned char)*s, color);
-        ++s;
-        ++cx;
-        ++count;
-    }
-    while (cx < SCREEN_WIDTH && count < n) {
-        put_ascii(cx, y, ' ', color);
-        ++cx;
-        ++count;
     }
 }
 
@@ -518,24 +455,6 @@ static int shell_writer(void *user, const char *line) {
     shell_pause_arm_poll();
     shell_wait_if_paused();
     return 0;
-}
-
-static int shell_ci_equal(const char *a, const char *b) {
-    char ca;
-    char cb;
-
-    if (!a || !b) return 0;
-
-    while (*a && *b) {
-        ca = *a;
-        cb = *b;
-        if (ca >= 'a' && ca <= 'z') ca = (char)(ca - ('a' - 'A'));
-        if (cb >= 'a' && cb <= 'z') cb = (char)(cb - ('a' - 'A'));
-        if (ca != cb) return 0;
-        ++a;
-        ++b;
-    }
-    return *a == 0 && *b == 0;
 }
 
 static void shell_trim(char *s) {
@@ -859,7 +778,7 @@ static int shell_read_logical_line(char *out, unsigned short max) {
 }
 
 static void shell_show_help(void) {
-    shell_write_line("PRT TOP SEL GEN TAP DRVI LST LDV STV");
+    shell_write_line("PRT MORE TOP SEL GEN TAP DRVI LST LDV STV");
 }
 
 static void shell_print_error(const RSError *err) {
@@ -904,7 +823,7 @@ int main(void) {
 
     rs_vm_init(&g_vm);
     shell_pause_set_flags(0u);
-    shell_pause_sync_latch();
+    shell_pause_clear_buffer();
 
     g_platform.user = 0;
     g_platform.file_read = 0;
@@ -935,11 +854,11 @@ int main(void) {
         if (g_line[0] == 0) continue;
         rs_overlay_debug_mark('L');
 
-        if (shell_ci_equal(g_line, "HELP")) {
+        if (rs_ci_equal(g_line, "HELP")) {
             shell_show_help();
             continue;
         }
-        if (shell_ci_equal(g_line, "VER")) {
+        if (rs_ci_equal(g_line, "VER")) {
             clear_line(g_cursor_y, C_WHITE);
             g_cursor_x = 0;
             shell_write_text_color("version ", C_WHITE);
@@ -947,7 +866,7 @@ int main(void) {
             shell_newline();
             continue;
         }
-        if (shell_ci_equal(g_line, "CLEAR")) {
+        if (rs_ci_equal(g_line, "CLEAR")) {
             shell_draw_chrome();
             continue;
         }

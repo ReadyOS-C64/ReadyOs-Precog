@@ -16,21 +16,19 @@
 #define RS_C64_OVERLAY_RUNTIME 0
 #endif
 
-typedef struct RSTopStageState {
+typedef struct RSStageState {
   unsigned short seen;
-  unsigned short count;
-  unsigned short skip;
+  unsigned short arg0;
+  unsigned short arg1;
+  unsigned char stage_index;
   unsigned char init;
-} RSTopStageState;
+  unsigned char kind;
+} RSStageState;
 
-typedef struct RSMoreStageState {
-  unsigned short seen;
-  unsigned short interval;
-  unsigned char init;
-} RSMoreStageState;
-
-#define RS_TOP_STAGE_MAX 4u
-#define RS_MORE_STAGE_MAX 4u
+#define RS_STAGE_STATE_KIND_NONE 0u
+#define RS_STAGE_STATE_KIND_TOP  1u
+#define RS_STAGE_STATE_KIND_MORE 2u
+#define RS_STAGE_STATE_MAX 4u
 #define RS_MORE_DEFAULT_INTERVAL 20u
 
 typedef struct RSOutCollect {
@@ -38,12 +36,8 @@ typedef struct RSOutCollect {
   unsigned short count;
   int enabled;
   int stream_print;
-  unsigned char top_state_count;
-  unsigned char top_stage_index[RS_TOP_STAGE_MAX];
-  RSTopStageState top_states[RS_TOP_STAGE_MAX];
-  unsigned char more_state_count;
-  unsigned char more_stage_index[RS_MORE_STAGE_MAX];
-  RSMoreStageState more_states[RS_MORE_STAGE_MAX];
+  unsigned char stage_state_count;
+  RSStageState stage_states[RS_STAGE_STATE_MAX];
 } RSOutCollect;
 
 static RSVMOutputKind g_rs_vm_output_kind = RS_VM_OUTPUT_RENDER;
@@ -646,49 +640,30 @@ static int vm_parse_more_args(const RSValue* args,
   return 0;
 }
 
-static RSTopStageState* vm_top_state(RSOutCollect* collect, unsigned short stage_index) {
+static RSStageState* vm_stage_state(RSOutCollect* collect,
+                                    unsigned short stage_index,
+                                    unsigned char kind) {
   unsigned char i;
   if (!collect) {
     return 0;
   }
-  for (i = 0u; i < collect->top_state_count; ++i) {
-    if ((unsigned short)collect->top_stage_index[i] == stage_index) {
-      return &collect->top_states[i];
+  for (i = 0u; i < collect->stage_state_count; ++i) {
+    if ((unsigned short)collect->stage_states[i].stage_index == stage_index) {
+      return collect->stage_states[i].kind == kind ? &collect->stage_states[i] : 0;
     }
   }
-  if (collect->top_state_count >= RS_TOP_STAGE_MAX || stage_index > 255u) {
+  if (collect->stage_state_count >= RS_STAGE_STATE_MAX || stage_index > 255u) {
     return 0;
   }
-  i = collect->top_state_count++;
-  collect->top_stage_index[i] = (unsigned char)stage_index;
-  memset(&collect->top_states[i], 0, sizeof(collect->top_states[i]));
-  return &collect->top_states[i];
-}
-
-static RSMoreStageState* vm_more_state(RSOutCollect* collect, unsigned short stage_index) {
-  unsigned char i;
-  if (!collect) {
-    return 0;
-  }
-  for (i = 0u; i < collect->more_state_count; ++i) {
-    if ((unsigned short)collect->more_stage_index[i] == stage_index) {
-      return &collect->more_states[i];
-    }
-  }
-  if (collect->more_state_count >= RS_MORE_STAGE_MAX || stage_index > 255u) {
-    return 0;
-  }
-  i = collect->more_state_count++;
-  collect->more_stage_index[i] = (unsigned char)stage_index;
-  memset(&collect->more_states[i], 0, sizeof(collect->more_states[i]));
-  return &collect->more_states[i];
+  i = collect->stage_state_count++;
+  memset(&collect->stage_states[i], 0, sizeof(collect->stage_states[i]));
+  collect->stage_states[i].stage_index = (unsigned char)stage_index;
+  collect->stage_states[i].kind = kind;
+  return &collect->stage_states[i];
 }
 
 static int vm_more_pause_set(void) {
   unsigned char flags;
-  if (!rs_reu_available()) {
-    return 0;
-  }
   flags = 0u;
   (void)rs_reu_read(RS_REU_UI_FLAGS_OFF, &flags, 1u);
   flags = (unsigned char)(flags | RS_UI_FLAG_PAUSED);
@@ -810,29 +785,28 @@ static int vm_cmd_top(RSVM* vm,
                       unsigned short arg_count,
                       RSOutCollect* collect,
                       RSError* err) {
-  RSTopStageState* state;
+  RSStageState* state;
   (void)vm;
   if (!has_current || !current) {
     return 0;
   }
-  state = vm_top_state(collect, stage_index);
+  state = vm_stage_state(collect, stage_index, RS_STAGE_STATE_KIND_TOP);
   if (!state) {
     vm_err(err, "TOP");
     return -1;
   }
   if (!state->init) {
-    if (vm_parse_top_args(args, arg_count, &state->count, &state->skip) != 0) {
+    if (vm_parse_top_args(args, arg_count, &state->arg0, &state->arg1) != 0) {
       vm_err(err, "TOP");
       return -1;
     }
-    state->seen = 0u;
     state->init = 1u;
   }
-  if (state->seen < state->skip) {
+  if (state->seen < state->arg1) {
     ++state->seen;
     return 0;
   }
-  if ((unsigned short)(state->seen - state->skip) >= state->count) {
+  if ((unsigned short)(state->seen - state->arg1) >= state->arg0) {
     ++state->seen;
     return 0;
   }
@@ -855,26 +829,25 @@ static int vm_cmd_more(RSVM* vm,
                        unsigned short arg_count,
                        RSOutCollect* collect,
                        RSError* err) {
-  RSMoreStageState* state;
+  RSStageState* state;
   (void)vm;
   if (!has_current || !current) {
     return 0;
   }
-  state = vm_more_state(collect, stage_index);
+  state = vm_stage_state(collect, stage_index, RS_STAGE_STATE_KIND_MORE);
   if (!state) {
     vm_err(err, "MORE");
     return -1;
   }
   if (!state->init) {
-    if (vm_parse_more_args(args, arg_count, &state->interval) != 0) {
+    if (vm_parse_more_args(args, arg_count, &state->arg0) != 0) {
       vm_err(err, "MORE");
       return -1;
     }
-    state->seen = 0u;
     state->init = 1u;
   }
   ++state->seen;
-  if ((unsigned short)(state->seen % state->interval) == 0u &&
+  if ((unsigned short)(state->seen % state->arg0) == 0u &&
       vm_more_pause_set() != 0) {
     vm_err(err, "MORE");
     return -1;
@@ -1556,8 +1529,7 @@ static int vm_exec_stmt(RSVM* vm,
   collect.count = 0;
   collect.enabled = 1;
   collect.stream_print = 0;
-  collect.top_state_count = 0u;
-  collect.more_state_count = 0u;
+  collect.stage_state_count = 0u;
 
   rs_value_init_false(&tmp);
 
