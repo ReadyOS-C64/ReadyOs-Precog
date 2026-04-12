@@ -41,7 +41,6 @@
 #define KEY_LEFT 157
 #define KEY_RIGHT 29
 #define KEY_DEL 20
-#define KEY_SPACE ' '
 #define KEY_NEXT_APP TUI_KEY_NEXT_APP
 #define KEY_PREV_APP TUI_KEY_PREV_APP
 #define KEY_RUNSTOP TUI_KEY_RUNSTOP
@@ -470,16 +469,16 @@ static void shell_write_line(const char *s) {
 }
 
 static int shell_writer(void *user, const char *line) {
+    unsigned char color;
     unsigned char key;
     unsigned char flags;
-    unsigned char color;
     (void)user;
     color = (rs_vm_current_output_kind() == RS_VM_OUTPUT_PRT) ? C_CYAN : C_WHITE;
     shell_write_line_color(line, color);
 
     if (kbhit()) {
         key = (unsigned char)cgetc();
-        if (key == KEY_SPACE) {
+        if (key != 0u) {
             flags = (unsigned char)(shell_pause_flags() | RS_UI_FLAG_PAUSED);
             shell_pause_set_flags(flags);
         }
