@@ -3,9 +3,9 @@
   "display_name": "precog (dual d71)",
   "kind": "dual-d71",
   "variant_boot_name": "precog dual d71",
-  "version_text": "0.1.8Q",
+  "version_text": "0.1.8O",
   "catalog_source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/cfg/profiles/precog-dual-d71.ini",
-  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8q-dual-d71-preboot.prg",
+  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8o-dual-d71-preboot.prg",
   "autostart_disk_prg": "preboot.prg",
   "preboot_mode": "setd71",
   "disks": [
@@ -15,7 +15,7 @@
       "image_type": "d71",
       "vice_drive_type": "1571",
       "true_drive": true,
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8q-dual-d71_1.d71"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8o-dual-d71_1.d71"
     },
     {
       "index": 2,
@@ -23,7 +23,7 @@
       "image_type": "d71",
       "vice_drive_type": "1571",
       "true_drive": true,
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8q-dual-d71_2.d71"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8o-dual-d71_2.d71"
     }
   ],
   "boot_prgs": [
@@ -31,19 +31,19 @@
       "stem": "preboot",
       "disk_name": "preboot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/preboot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8q-dual-d71-preboot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8o-dual-d71-preboot.prg"
     },
     {
       "stem": "boot",
       "disk_name": "boot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/boot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8q-dual-d71-boot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8o-dual-d71-boot.prg"
     },
     {
       "stem": "setd71",
       "disk_name": "setd71",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/setd71.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8q-dual-d71-setd71.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.1.8/precog-dual-d71/readyos-v0.1.8o-dual-d71-setd71.prg"
     }
   ],
   "apps": [
@@ -134,7 +134,7 @@
     {
       "drive": 8,
       "prg": "readyshell",
-      "label": "ready shell (demo)",
+      "label": "readyshell(beta)",
       "desc": "command shell poc scaffold"
     }
   ]

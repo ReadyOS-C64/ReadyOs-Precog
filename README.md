@@ -186,6 +186,7 @@ How it works:
 
 Notes:
 
+- ReadyShell guide: [src/apps/readyshellpoc/README.md](src/apps/readyshellpoc/README.md)
 - `cal26` currently has a known regression: task reading is broken.
 - `showcfg.prg` is a BASIC inspector for the generated `apps.cfg` payload on
   drive `8`.

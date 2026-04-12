@@ -55,12 +55,20 @@ def next_version_text() -> str:
     return f"{BASE_VERSION}{next_suffix}"
 
 
-def write_version(version_text: str) -> None:
+def split_version_text(version_text: str) -> tuple[str, str]:
     if not version_text.startswith(BASE_VERSION):
         raise ValueError(f"version must start with {BASE_VERSION}: {version_text}")
+
     suffix = version_text[len(BASE_VERSION):]
-    if len(suffix) != 1 or not ("A" <= suffix <= "Z"):
-        raise ValueError(f"version must end with A..Z suffix: {version_text}")
+    if suffix == "":
+        return version_text, suffix
+    if len(suffix) == 1 and "A" <= suffix <= "Z":
+        return version_text, suffix
+    raise ValueError(f"version suffix must be empty or A..Z: {version_text}")
+
+
+def write_version(version_text: str) -> None:
+    version_text, suffix = split_version_text(version_text)
 
     GEN_DIR.mkdir(parents=True, exist_ok=True)
     HEADER_PATH.write_text(
@@ -95,7 +103,8 @@ def write_version(version_text: str) -> None:
         ),
         encoding="ascii",
     )
-    STATE_PATH.write_text(f"{suffix}\n", encoding="ascii")
+    if suffix:
+        STATE_PATH.write_text(f"{suffix}\n", encoding="ascii")
 
 
 def main() -> int:

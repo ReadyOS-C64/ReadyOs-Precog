@@ -82,6 +82,7 @@ CONFIG_OVERRIDE_RUN_FIRST=""
 RUN_VERSION_TEXT=""
 SKIP_BUILD=0
 BUILD_ALL=0
+FOR_RELEASE=0
 MODE=""
 PARSE_TRACE_DEBUG=""
 INTERACTIVE=0
@@ -163,6 +164,15 @@ current_parse_trace_label() {
     esac
 }
 
+current_public_version_text() {
+    local current
+    current="$(python3 "$VERSION_TOOL" --current)"
+    case "$current" in
+        *[A-Z]) echo "${current%?}" ;;
+        *) echo "$current" ;;
+    esac
+}
+
 show_help() {
     echo "ReadyOS Run Script"
     echo ""
@@ -193,6 +203,7 @@ show_help() {
     echo "  --profile ID                Select release profile (default: $DEFAULT_PROFILE)"
     echo "  --list-profiles             List available profiles and exit"
     echo "  --build-all                 Build every release profile and exit"
+    echo "  --for-release              Build without the rolling A..Z suffix in versioned artifacts"
     echo "  --skipbuild                 Skip automatic build before run"
     echo "  --force-artifacts-from-d71 Promote latest built dual-D71 SEQ/REL support files"
     echo "                              into cfg/authoritative before the requested flow"
@@ -255,6 +266,10 @@ while [ $# -gt 0 ]; do
             ;;
         --build-all)
             BUILD_ALL=1
+            shift
+            ;;
+        --for-release)
+            FOR_RELEASE=1
             shift
             ;;
         --skipbuild)
@@ -329,6 +344,11 @@ fi
 
 if [ "$BUILD_ALL" -eq 1 ] && [ "$SKIP_BUILD" -eq 1 ]; then
     echo "Error: --build-all cannot be combined with --skipbuild."
+    exit 1
+fi
+
+if [ "$FOR_RELEASE" -eq 1 ] && [ "$SKIP_BUILD" -eq 1 ]; then
+    echo "Error: --for-release cannot be combined with --skipbuild."
     exit 1
 fi
 
@@ -422,7 +442,11 @@ maybe_build() {
     fi
 
     if [ "$BUILD_ALL" -eq 1 ]; then
-        RUN_VERSION_TEXT="$(python3 "$VERSION_TOOL" --next)"
+        if [ "$FOR_RELEASE" -eq 1 ]; then
+            RUN_VERSION_TEXT="$(current_public_version_text)"
+        else
+            RUN_VERSION_TEXT="$(python3 "$VERSION_TOOL" --next)"
+        fi
         echo "Build version: $RUN_VERSION_TEXT"
         echo "Building all release profiles (using each profile's readyshell_parse_trace_debug setting)"
         make -B "BUILD_SUPPORT_DIR=$BUILD_SUPPORT_DIR" "READYOS_VERSION_TEXT=$RUN_VERSION_TEXT" release-all
@@ -436,7 +460,11 @@ maybe_build() {
         return
     fi
 
-    RUN_VERSION_TEXT="$(python3 "$VERSION_TOOL" --next)"
+    if [ "$FOR_RELEASE" -eq 1 ]; then
+        RUN_VERSION_TEXT="$(current_public_version_text)"
+    else
+        RUN_VERSION_TEXT="$(python3 "$VERSION_TOOL" --next)"
+    fi
     echo "Build version: $RUN_VERSION_TEXT"
     echo "Profile: $PROFILE"
     echo "ReadyShell parse trace profile: $(current_parse_trace_label)"
