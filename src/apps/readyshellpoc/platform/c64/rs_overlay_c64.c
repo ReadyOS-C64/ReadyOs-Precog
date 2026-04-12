@@ -17,7 +17,6 @@
 #define RS_OVERLAY_UNIT 8u
 #define RS_REU_OVERLAY1_OFF 0x400000ul
 #define RS_REU_OVERLAY2_OFF 0x410000ul
-#define RS_REU_OVERLAY3_OFF 0x420000ul
 #define RS_REU_DBG_HEAD_OFF 0x43F000ul
 #define RS_REU_DBG_DATA_OFF 0x43F010ul
 #define RS_REU_DBG_DATA_LEN 0x0200u
@@ -27,8 +26,6 @@
 #define RS_OVL_RC_NOT_BOOTED 0xE3u
 #define RS_OVL_RC_REU_PARSE  0xE4u
 #define RS_OVL_RC_REU_EXEC   0xE5u
-#define RS_OVL_RC_REU_SCRIPT 0xE7u
-#define RS_OVL_RC_NO_SCRIPT  0xE8u
 #define RS_OVL_RC_REU_REQUIRED 0xE9u
 #define RS_OVL_RC_REU_CACHE    0xEAu
 #define RS_OVL_RC_REU_CMD      0xEBu
@@ -39,9 +36,7 @@ static unsigned short g_overlay3_size = 0u;
 static unsigned short g_overlay4_size = 0u;
 static unsigned short g_overlay5_size = 0u;
 static unsigned short g_overlay6_size = 0u;
-static unsigned short g_overlay7_size = 0u;
 static int g_overlay_loaded = 0;
-static int g_overlay3_loaded = 0;
 static int g_overlay_cached_reu = 0;
 static unsigned char g_overlay_last_rc = 0u;
 static unsigned char g_overlay_active_phase = RS_OVERLAY_PHASE_NONE;
@@ -145,8 +140,6 @@ extern unsigned char _OVERLAY5_LOAD__[];
 extern unsigned char _OVERLAY5_SIZE__[];
 extern unsigned char _OVERLAY6_LOAD__[];
 extern unsigned char _OVERLAY6_SIZE__[];
-extern unsigned char _OVERLAY7_LOAD__[];
-extern unsigned char _OVERLAY7_SIZE__[];
 
 extern int rs_vmovl_cmd_drvi(RSCommandFrame* frame);
 extern int rs_vmovl_cmd_lst(RSCommandFrame* frame);
@@ -269,7 +262,7 @@ static int rs_overlay_verify_reu(unsigned long off, const unsigned char* src, un
 static int rs_overlay_load1_disk(void) {
   rs_overlay_dbg_put('1');
   cbm_k_clall();
-  if (rs_overlay_try_load("0:rsovl1,p", _OVERLAY1_LOAD__, g_overlay1_size, RS_OVERLAY_UNIT) == 0) {
+  if (rs_overlay_try_load("0:rsparser,p", _OVERLAY1_LOAD__, g_overlay1_size, RS_OVERLAY_UNIT) == 0) {
     rs_overlay_dbg_put('a');
     return 0;
   }
@@ -280,19 +273,8 @@ static int rs_overlay_load1_disk(void) {
 static int rs_overlay_load2_disk(void) {
   rs_overlay_dbg_put('2');
   cbm_k_clall();
-  if (rs_overlay_try_load("0:rsovl2,p", _OVERLAY2_LOAD__, g_overlay2_size, RS_OVERLAY_UNIT) == 0) {
+  if (rs_overlay_try_load("0:rsvm,p", _OVERLAY2_LOAD__, g_overlay2_size, RS_OVERLAY_UNIT) == 0) {
     rs_overlay_dbg_put('b');
-    return 0;
-  }
-  rs_overlay_dbg_put('!');
-  return -1;
-}
-
-static int rs_overlay_load3_disk(void) {
-  rs_overlay_dbg_put('3');
-  cbm_k_clall();
-  if (rs_overlay_try_load("0:rsovl3,p", _OVERLAY3_LOAD__, g_overlay3_size, RS_OVERLAY_UNIT) == 0) {
-    rs_overlay_dbg_put('c');
     return 0;
   }
   rs_overlay_dbg_put('!');
@@ -346,14 +328,7 @@ int rs_overlay_boot_with_progress(RSOverlayProgressFn progress, void* user) {
     return -1;
   }
   g_overlay6_size = (unsigned short)overlay_size;
-  overlay_size = (unsigned)_OVERLAY7_SIZE__;
-  if (overlay_size == 0u) {
-    g_overlay_last_rc = 0xE1u;
-    return -1;
-  }
-  g_overlay7_size = (unsigned short)overlay_size;
   g_overlay_loaded = 0;
-  g_overlay3_loaded = 0;
   rs_overlay_clear_phase();
   g_overlay_cached_reu = 0;
 
@@ -394,20 +369,6 @@ int rs_overlay_boot_with_progress(RSOverlayProgressFn progress, void* user) {
     return -1;
   }
   rs_overlay_set_phase(RS_OVERLAY_PHASE_EXEC);
-  rs_overlay_progress_tick(progress, user, 4u);
-  if (rs_overlay_load3_disk() != 0) {
-    g_overlay3_loaded = 0;
-  } else {
-    g_overlay3_loaded = 1;
-    rs_overlay_set_phase(RS_OVERLAY_PHASE_SCRIPT);
-    if (rs_overlay_cache_to_reu(RS_REU_OVERLAY3_OFF, _OVERLAY3_LOAD__, g_overlay3_size) != 0 ||
-        rs_overlay_verify_reu(RS_REU_OVERLAY3_OFF, _OVERLAY3_LOAD__, g_overlay3_size) != 0) {
-      g_overlay_last_rc = RS_OVL_RC_REU_CACHE;
-      rs_overlay_dbg_put('!');
-      rs_overlay_dbg_put('Y');
-      return -1;
-    }
-  }
   g_overlay_loaded = 1;
   g_overlay_cached_reu = 1;
   rs_overlay_dbg_put('c');
@@ -469,37 +430,6 @@ int rs_overlay_prepare_exec(void) {
   return -1;
 }
 
-int rs_overlay_prepare_script(void) {
-  rs_overlay_dbg_put('S');
-  if (!g_overlay_loaded) {
-    g_overlay_last_rc = RS_OVL_RC_NOT_BOOTED;
-    rs_overlay_clear_phase();
-    rs_overlay_dbg_put('!');
-    return -1;
-  }
-  if (!g_overlay3_loaded) {
-    g_overlay_last_rc = RS_OVL_RC_NO_SCRIPT;
-    rs_overlay_clear_phase();
-    rs_overlay_dbg_put('!');
-    return -1;
-  }
-  if (!g_overlay_cached_reu) {
-    g_overlay_last_rc = RS_OVL_RC_REU_REQUIRED;
-    rs_overlay_clear_phase();
-    rs_overlay_dbg_put('!');
-    return -1;
-  }
-  rs_overlay_dbg_put('R');
-  if (rs_overlay_read_from_reu(RS_REU_OVERLAY3_OFF, _OVERLAY3_LOAD__, g_overlay3_size) == 0) {
-    rs_overlay_set_phase(RS_OVERLAY_PHASE_SCRIPT);
-    rs_overlay_dbg_put('s');
-    return 0;
-  }
-  g_overlay_last_rc = RS_OVL_RC_REU_SCRIPT;
-  rs_overlay_dbg_put('!');
-  return -1;
-}
-
 static int rs_overlay_prepare_command(RSCommandId id) {
   unsigned char* load;
   unsigned short size;
@@ -521,25 +451,25 @@ static int rs_overlay_prepare_command(RSCommandId id) {
   }
 
   if (id == RS_CMD_DRVI) {
-    name = "0:rsovl4,p";
+    name = "0:rsdrvi,p";
+    load = _OVERLAY3_LOAD__;
+    size = g_overlay3_size;
+    phase = RS_OVERLAY_PHASE_CMD3;
+  } else if (id == RS_CMD_LST) {
+    name = "0:rslst,p";
     load = _OVERLAY4_LOAD__;
     size = g_overlay4_size;
     phase = RS_OVERLAY_PHASE_CMD4;
-  } else if (id == RS_CMD_LST) {
-    name = "0:rsovl5,p";
+  } else if (id == RS_CMD_LDV) {
+    name = "0:rsldv,p";
     load = _OVERLAY5_LOAD__;
     size = g_overlay5_size;
     phase = RS_OVERLAY_PHASE_CMD5;
-  } else if (id == RS_CMD_LDV) {
-    name = "0:rsovl6,p";
+  } else if (id == RS_CMD_STV) {
+    name = "0:rsstv,p";
     load = _OVERLAY6_LOAD__;
     size = g_overlay6_size;
     phase = RS_OVERLAY_PHASE_CMD6;
-  } else if (id == RS_CMD_STV) {
-    name = "0:rsovl7,p";
-    load = _OVERLAY7_LOAD__;
-    size = g_overlay7_size;
-    phase = RS_OVERLAY_PHASE_CMD7;
   } else {
     g_overlay_last_rc = RS_OVL_RC_REU_CMD;
     rs_overlay_dbg_put('!');
@@ -591,9 +521,6 @@ int rs_overlay_is_phase_ready(unsigned char phase) {
   if (!g_overlay_loaded) {
     return 0;
   }
-  if (phase == RS_OVERLAY_PHASE_SCRIPT && !g_overlay3_loaded) {
-    return 0;
-  }
   return g_overlay_active_phase == phase;
 }
 
@@ -618,10 +545,6 @@ int rs_overlay_prepare_parse(void) {
 }
 
 int rs_overlay_prepare_exec(void) {
-  return 0;
-}
-
-int rs_overlay_prepare_script(void) {
   return 0;
 }
 

@@ -16,6 +16,8 @@ import subprocess
 import sys
 import tempfile
 
+from readyos_profiles import AUTHORITATIVE_PROFILE_ID, latest_profile_disk_path
+
 CAL_YEAR = 2026
 CAL_DAYS = 365
 
@@ -141,12 +143,15 @@ def run_c1541(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--disk", default="readyos.d71", help="Path to disk image")
+    parser.add_argument("--disk", help="Path to disk image")
     parser.add_argument("--month", type=int, default=0, help="Month in 2026 (1-12); default current month")
     parser.add_argument("--today-day", type=int, default=0, help="Day-of-month to store as TODAY in config")
     args = parser.parse_args()
 
-    disk = os.path.abspath(args.disk)
+    if args.disk:
+        disk = os.path.abspath(args.disk)
+    else:
+        disk = str(latest_profile_disk_path(AUTHORITATIVE_PROFILE_ID, 8))
     if not os.path.exists(disk):
         print(f"error: disk image not found: {disk}", file=sys.stderr)
         return 1

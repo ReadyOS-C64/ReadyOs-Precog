@@ -152,13 +152,13 @@ current_parse_trace_debug() {
         echo "$READYSHELL_PARSE_TRACE_DEBUG"
         return
     fi
-    echo "0"
+    python3 "$PROFILE_TOOL" readyshell-parse-trace-debug --profile "$PROFILE"
 }
 
 current_parse_trace_label() {
     case "$(current_parse_trace_debug)" in
-        1) echo "debug-trace (READYSHELL_OVERLAYSIZE=0x2480, __OVERLAYSTART__=0xA180)" ;;
-        0) echo "release/default (READYSHELL_OVERLAYSIZE=0x2440, __OVERLAYSTART__=0xA1C0)" ;;
+        1) echo "debug-trace (READYSHELL_OVERLAYSIZE=0x3B00, __OVERLAYSTART__=0x8B00)" ;;
+        0) echo "release/default (READYSHELL_OVERLAYSIZE=0x3800, __OVERLAYSTART__=0x8E00)" ;;
         *) echo "custom/unknown" ;;
     esac
 }
@@ -337,6 +337,11 @@ if [ "$BUILD_ALL" -eq 1 ] && [ -n "$MODE" ]; then
     exit 1
 fi
 
+if [ "$BUILD_ALL" -eq 1 ] && [ -n "$PARSE_TRACE_DEBUG" ]; then
+    echo "Error: --build-all uses the per-profile readyshell_parse_trace_debug setting; do not combine it with --parse-trace-debug."
+    exit 1
+fi
+
 if [ -n "$PARSE_TRACE_DEBUG" ]; then
     export READYSHELL_PARSE_TRACE_DEBUG="$PARSE_TRACE_DEBUG"
 elif [ -n "${READYSHELL_PARSE_TRACE_DEBUG:-}" ]; then
@@ -419,8 +424,7 @@ maybe_build() {
     if [ "$BUILD_ALL" -eq 1 ]; then
         RUN_VERSION_TEXT="$(python3 "$VERSION_TOOL" --next)"
         echo "Build version: $RUN_VERSION_TEXT"
-        echo "Building all release profiles"
-        echo "ReadyShell parse trace profile: $(current_parse_trace_label)"
+        echo "Building all release profiles (using each profile's readyshell_parse_trace_debug setting)"
         make -B "BUILD_SUPPORT_DIR=$BUILD_SUPPORT_DIR" "READYOS_VERSION_TEXT=$RUN_VERSION_TEXT" release-all
         return
     fi
@@ -447,6 +451,7 @@ maybe_build() {
     fi
 
     local make_args=(-B "BUILD_SUPPORT_DIR=$BUILD_SUPPORT_DIR" "PROFILE=$PROFILE" "READYOS_VERSION_TEXT=$RUN_VERSION_TEXT")
+    make_args+=("READYSHELL_PARSE_TRACE_DEBUG=$(current_parse_trace_debug)")
     if [ -n "$CONFIG_SOURCE" ]; then
         make_args+=("READYOS_CONFIG_SRC=$CONFIG_SOURCE")
     fi

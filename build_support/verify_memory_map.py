@@ -354,7 +354,7 @@ def main():
                     f"BSS ends ${bss_end:04X}; heap starts ${rs_heap_addr:04X}",
                 )
             for ovl_addr_name in ("OVL1ADDR", "OVL2ADDR", "OVL3ADDR",
-                                  "OVL4ADDR", "OVL5ADDR", "OVL6ADDR", "OVL7ADDR"):
+                                  "OVL4ADDR", "OVL5ADDR", "OVL6ADDR"):
                 if ovl_addr_name not in segs:
                     ok &= check(f"readyshell:{ovl_addr_name} exists", False)
                     continue
@@ -370,7 +370,7 @@ def main():
                     f"{fmt_range(start, end)} expected {fmt_range(overlay_loadaddr, overlay_start - 1)}",
                 )
             for ovl_name in ("OVERLAY1", "OVERLAY2", "OVERLAY3",
-                             "OVERLAY4", "OVERLAY5", "OVERLAY6", "OVERLAY7"):
+                             "OVERLAY4", "OVERLAY5", "OVERLAY6"):
                 if ovl_name not in segs:
                     ok &= check(f"readyshell:{ovl_name} exists", False)
                     continue
@@ -384,13 +384,11 @@ def main():
         reu_first = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_FIRST_DYNAMIC")
         reu_rs_ovl1 = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_BANK_RS_OVL1")
         reu_rs_ovl2 = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_BANK_RS_OVL2")
-        reu_rs_ovl3 = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_BANK_RS_OVL3")
         reu_rs_debug = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_BANK_RS_DEBUG")
         ok &= check("REU total banks", reu_total == int(spec["reu_contract"]["total_banks"]), str(reu_total))
         ok &= check("REU first dynamic", reu_first == int(spec["reu_contract"]["first_dynamic"]), str(reu_first))
         ok &= check("REU bank RS ovl1", reu_rs_ovl1 == int(spec["reu_contract"]["bank_rs_ovl1"]), str(reu_rs_ovl1))
         ok &= check("REU bank RS ovl2", reu_rs_ovl2 == int(spec["reu_contract"]["bank_rs_ovl2"]), str(reu_rs_ovl2))
-        ok &= check("REU bank RS ovl3", reu_rs_ovl3 == int(spec["reu_contract"]["bank_rs_ovl3"]), str(reu_rs_ovl3))
         ok &= check("REU bank RS debug", reu_rs_debug == int(spec["reu_contract"]["bank_rs_debug"]), str(reu_rs_debug))
     except ValueError as ex:
         ok &= check("reu_mgr.h constants", False, str(ex))

@@ -26,10 +26,6 @@ LEGACY_RELEASE_DIR = ROOT / "release"
 AUTHORITATIVE_PROFILE_ID = "precog-dual-d71"
 AUTHORITATIVE_DATA_DIR = ROOT / "cfg" / "authoritative"
 SYNCABLE_AUTHORITATIVE_INDEX = AUTHORITATIVE_DATA_DIR / "sync_inventory.json"
-BOOTSTRAP_D71_BY_DRIVE = {
-    8: ROOT / "readyos.d71",
-    9: ROOT / "readyos_2.d71",
-}
 REL_SEED_D71_CANDIDATES = [
     ROOT / "readyos0-1-5.d71",
     ROOT.parent / "readyos0-1-5.d71",
@@ -286,6 +282,13 @@ def load_profile(profile_id: str) -> Dict[str, object]:
     return profile
 
 
+def readyshell_parse_trace_debug(profile: Dict[str, object]) -> int:
+    value = int(profile.get("readyshell_parse_trace_debug", 0))
+    if value not in (0, 1):
+        fail(f"invalid readyshell_parse_trace_debug for profile {profile.get('id', '<unknown>')}: {value}")
+    return value
+
+
 def default_profile_id() -> str:
     for profile_id in list_profile_ids():
         profile = load_profile(profile_id)
@@ -349,6 +352,26 @@ def latest_manifest_path(profile_id: str) -> Path:
         return legacy_manifest
 
     fail(f"no current build manifest for profile: {profile_id}")
+
+
+def latest_profile_disk_path(profile_id: str, drive: int = 8) -> Path:
+    manifest = resolve_profile(profile_id, None, latest=True)
+    disks = manifest.get("disks", [])
+    if not disks:
+        fail(f"no disks in latest manifest for profile: {profile_id}")
+
+    selected = None
+    for disk in disks:
+        if int(disk.get("drive", 0)) == int(drive):
+            selected = disk
+            break
+    if selected is None:
+        selected = disks[0]
+
+    path = Path(str(selected["path"]))
+    if not path.is_absolute():
+        path = ROOT / path
+    return path.resolve()
 
 
 def build_disk_filename(profile: Dict[str, object], disk: Dict[str, object], version_text: str) -> str:
@@ -427,6 +450,7 @@ def resolve_profile(profile_id: str, version_text: str | None, latest: bool) -> 
         "id": profile["id"],
         "display_name": profile["display_name"],
         "kind": profile["kind"],
+        "readyshell_parse_trace_debug": readyshell_parse_trace_debug(profile),
         "variant_boot_name": system_cfg.get("variant_boot_name", ""),
         "version_text": version_text,
         "catalog_source": str(profile_catalog_source(profile)),
@@ -656,9 +680,6 @@ def extract_disk_file(source_disk: Path, disk_name: str, file_type: str, target_
 
 def resolve_bootstrap_d71_disks() -> Dict[int, Path]:
     disks: Dict[int, Path] = {}
-    for drive, path in BOOTSTRAP_D71_BY_DRIVE.items():
-        if path.exists():
-            disks[int(drive)] = path
 
     try:
         manifest = resolve_profile(AUTHORITATIVE_PROFILE_ID, None, latest=True)
@@ -669,7 +690,7 @@ def resolve_bootstrap_d71_disks() -> Dict[int, Path]:
         for disk in manifest.get("disks", []):
             path = Path(str(disk.get("path", "")))
             drive = int(disk.get("drive", 0))
-            if path.exists() and drive not in disks:
+            if path.exists():
                 disks[int(disk.get("drive", 0))] = path
 
     donor = resolve_rel_seed_d71()
@@ -1051,6 +1072,7 @@ def print_shell_exports(profile_id: str, version_text: str) -> None:
     print(f"PROFILE_ID={shell_quote(str(resolved['id']))}")
     print(f"PROFILE_DISPLAY_NAME={shell_quote(str(resolved['display_name']))}")
     print(f"PROFILE_VERSION_TEXT={shell_quote(str(resolved['version_text']))}")
+    print(f"PROFILE_READYSHELL_PARSE_TRACE_DEBUG={shell_quote(str(resolved['readyshell_parse_trace_debug']))}")
     print(f"PROFILE_AUTOSTART_PRG={shell_quote(str(resolved['autostart_prg']))}")
     print(f"PROFILE_AUTOSTART_DISK_PRG={shell_quote(str(resolved['autostart_disk_prg']))}")
     print(f"PROFILE_PREBOOT_MODE={shell_quote(str(resolved['preboot_mode']))}")
@@ -1095,6 +1117,7 @@ def migrate_legacy_release_tree(version_text: str) -> None:
             manifest["catalog_source"] = str(profile_catalog_source(profile))
             manifest["output_dir"] = str(target_dir)
             manifest["manifest_path"] = str(manifest_path)
+            manifest["readyshell_parse_trace_debug"] = readyshell_parse_trace_debug(profile)
             if "autostart_prg" in manifest:
                 manifest["autostart_prg"] = str(target_dir / Path(str(manifest["autostart_prg"])).name)
             for disk in manifest.get("disks", []):
@@ -1114,6 +1137,9 @@ def main() -> int:
     catalog_parser = sub.add_parser("catalog-source")
     catalog_parser.add_argument("--profile", required=True)
 
+    parse_trace_parser = sub.add_parser("readyshell-parse-trace-debug")
+    parse_trace_parser.add_argument("--profile", required=True)
+
     resolve_parser = sub.add_parser("resolve")
     resolve_parser.add_argument("--profile", required=True)
     resolve_group = resolve_parser.add_mutually_exclusive_group()
@@ -1123,6 +1149,10 @@ def main() -> int:
     export_shell = sub.add_parser("export-shell")
     export_shell.add_argument("--profile", required=True)
     export_shell.add_argument("--version", required=True)
+
+    latest_disk = sub.add_parser("latest-disk")
+    latest_disk.add_argument("--profile", default=AUTHORITATIVE_PROFILE_ID)
+    latest_disk.add_argument("--drive", type=int, default=8)
 
     preboot_parser = sub.add_parser("write-preboot")
     preboot_parser.add_argument("--profile", required=True)
@@ -1154,9 +1184,16 @@ def main() -> int:
             profile = load_profile(args.profile)
             print(profile_catalog_source(profile))
             return 0
+        if args.cmd == "readyshell-parse-trace-debug":
+            profile = load_profile(args.profile)
+            print(readyshell_parse_trace_debug(profile))
+            return 0
         if args.cmd == "resolve":
             payload = resolve_profile(args.profile, getattr(args, "version", None), getattr(args, "latest", False))
             print(json.dumps(payload, indent=2))
+            return 0
+        if args.cmd == "latest-disk":
+            print(latest_profile_disk_path(args.profile, args.drive))
             return 0
         if args.cmd == "export-shell":
             print_shell_exports(args.profile, args.version)

@@ -46,9 +46,12 @@ APP_PRGS = [
     ("readyshell", "readyshell.prg"),
 ]
 READYSHELL_OVERLAY_PRGS = [
-    ("readyshell.ovl1", "readyshell.prg.1"),
-    ("readyshell.ovl2", "readyshell.prg.2"),
-    ("readyshell.ovl3", "readyshell.prg.3"),
+    ("readyshell.parser", "rsparser.prg"),
+    ("readyshell.vm", "rsvm.prg"),
+    ("readyshell.drvi", "rsdrvi.prg"),
+    ("readyshell.lst", "rslst.prg"),
+    ("readyshell.ldv", "rsldv.prg"),
+    ("readyshell.stv", "rsstv.prg"),
 ]
 
 APP_LOAD_START = 0x1000

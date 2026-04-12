@@ -175,13 +175,12 @@ filters, foreach stages, disk commands, and value serialization.
 
 It is split into a resident program plus overlay files:
 - `readyshell`
-- `rsovl1`
-- `rsovl2`
-- `rsovl3`
-- `rsovl4`
-- `rsovl5`
-- `rsovl6`
-- `rsovl7`
+- `rsparser`
+- `rsvm`
+- `rsdrvi`
+- `rslst`
+- `rsldv`
+- `rsstv`
 
 Key shell commands:
 - `PRT`, `GEN`, `TAP`

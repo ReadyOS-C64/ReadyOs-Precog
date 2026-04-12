@@ -110,8 +110,8 @@ def _mem_inspect(mem_path: pathlib.Path) -> Dict[str, Any]:
             }
 
     overlay_profiles: Dict[str, Dict[str, Any]] = {}
-    release_sample = _inspect_overlay_sample(data, 0xA1C0)
-    debug_sample = _inspect_overlay_sample(data, 0xA180)
+    release_sample = _inspect_overlay_sample(data, 0x8E00)
+    debug_sample = _inspect_overlay_sample(data, 0x8B00)
     if release_sample:
         overlay_profiles["release"] = release_sample
     if debug_sample:

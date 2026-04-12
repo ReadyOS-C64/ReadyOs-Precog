@@ -3,7 +3,7 @@ param(
     [string]$SourceD71,
 
     [Parameter(Position = 1)]
-    [string]$DestD71 = 'readyos.d71'
+    [string]$DestD71
 )
 
 Set-StrictMode -Version Latest
@@ -26,6 +26,11 @@ if (-not $SourceD71) {
     if (-not $SourceD71) {
         throw 'error: no source d71 provided and no /dev/*.d71 found'
     }
+}
+
+if (-not $DestD71) {
+    $profileTool = Join-Path $PSScriptRoot 'readyos_profiles.py'
+    $DestD71 = (& python3 $profileTool 'latest-disk' '--profile' 'precog-dual-d71' '--drive' '8' | Out-String).Trim()
 }
 
 if (-not (Test-Path -LiteralPath $SourceD71)) {

@@ -19,9 +19,9 @@ Use this skill when the user wants analysis centered on `.NET ViceTasks` automat
 - Use `.NET ViceTasks` (`tools/vice_tasks_dotnet`) for automated capture when a fresh run is required.
 - Treat `manifest.json` + stage artifacts as primary truth; treat generated summaries as secondary.
 - Always label ReadyShell overlay profile in conclusions:
-- release/default (`READYSHELL_PARSE_TRACE_DEBUG=0`): `READYSHELL_OVERLAYSIZE=0x2440`, `__OVERLAYSTART__=0xA1C0`
-- debug trace (`READYSHELL_PARSE_TRACE_DEBUG=1`): `READYSHELL_OVERLAYSIZE=0x2480`, `__OVERLAYSTART__=0xA180`
-- Treat REU banks `0x40-0x43` as fixed ReadyShell ownership (overlay1/2/3 cache + debug/probe), not generic allocations.
+- release/default (`READYSHELL_PARSE_TRACE_DEBUG=0`): `READYSHELL_OVERLAYSIZE=0x3800`, `__OVERLAYSTART__=0x8E00`
+- debug trace (`READYSHELL_PARSE_TRACE_DEBUG=1`): `READYSHELL_OVERLAYSIZE=0x3B00`, `__OVERLAYSTART__=0x8B00`
+- Treat REU banks `0x40`, `0x41`, and `0x43` as fixed ReadyShell ownership (parser cache, VM cache, debug/probe), not generic allocations.
 - When stability-level interpretation is requested, run `$readyos-stability-analyst` against the same run root.
 
 ## Workflow
@@ -32,7 +32,7 @@ Use this skill when the user wants analysis centered on `.NET ViceTasks` automat
 - key stage outcomes (`verify_1_echo`, `check_prompt_post_input`, post-input captures)
 - post-input screen state (`RS>` vs `READY.`)
 - register capture (`debug_post_input_regs`)
-- RAM debug ring/head (`$C7A0/$C7F0`) and profile-aware overlay window samples (`$A1C0` release / `$A180` debug)
+- RAM debug ring/head (`$C7A0/$C7F0`) and profile-aware overlay window samples (`$8E00` release / `$8B00` debug)
 4. Optionally compare against a baseline run.
 5. If needed, chain to `$readyos-stability-analyst` for contract-level findings.
 

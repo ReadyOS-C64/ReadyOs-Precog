@@ -19,23 +19,22 @@
 - `check_prompt_post_input` status
 - `screen_decoded/post_input.txt` contains `READY.` vs `RS>`
 - `$C7A0/$C7F0` ring progression markers
-- profile-specific overlay window bytes (`$A1C0` release / `$A180` debug) to confirm content vs BASIC text
+- profile-specific overlay window bytes (`$8E00` release / `$8B00` debug) to confirm content vs BASIC text
 
 ## ReadyShell Overlay Profile Matrix (must be explicit in analysis)
 - release/default:
 - `READYSHELL_PARSE_TRACE_DEBUG=0`
-- `READYSHELL_OVERLAYSIZE=0x2440`
-- `__OVERLAYSTART__=0xA1C0`
+- `READYSHELL_OVERLAYSIZE=0x3800`
+- `__OVERLAYSTART__=0x8E00`
 - debug trace:
 - `READYSHELL_PARSE_TRACE_DEBUG=1`
-- `READYSHELL_OVERLAYSIZE=0x2480`
-- `__OVERLAYSTART__=0xA180`
+- `READYSHELL_OVERLAYSIZE=0x3B00`
+- `__OVERLAYSTART__=0x8B00`
 
-When sampling RAM for overlay-window sanity, use profile-specific base (`0xA1C0` or `0xA180`) rather than assuming a fixed start.
-For REU interpretation, treat banks `0x40-0x43` as ReadyShell-owned fixed banks:
+When sampling RAM for overlay-window sanity, use profile-specific base (`0x8E00` or `0x8B00`) rather than assuming a fixed start.
+For REU interpretation, treat banks `0x40`, `0x41`, and `0x43` as ReadyShell-owned fixed banks:
 - `0x40` overlay1 cache (`0x400000`)
 - `0x41` overlay2 cache (`0x410000`)
-- `0x42` overlay3 cache (`0x420000`)
 - `0x43` debug/probe (`0x43F000+`)
 
 ## Notes
@@ -65,10 +64,10 @@ For REU interpretation, treat banks `0x40-0x43` as ReadyShell-owned fixed banks:
 - Upgrade confidence only when sampled chunk bytes are confirmed against on-disk overlay payloads with explicit offset math.
 
 ## 2026-02-23 Learnings: Symbol Entry Sanity (cc65 Overlay)
-- For crash-at-callsite cases, always verify that the map symbol entry address points to executable bytes in the matching overlay payload (`obj/readyshell_ovl1.prg` etc), not zero/data.
+- For crash-at-callsite cases, always verify that the map symbol entry address points to executable bytes in the matching overlay payload (`obj/rsparser.prg`, `obj/rsvm.prg`, etc), not zero/data.
 - Quick check:
   - `symbol_addr` from `obj/readyshell.map`
-  - `overlay_load` from first two bytes of `obj/readyshell_ovl*.prg`
+  - `overlay_load` from first two bytes of the matching named overlay PRG in `obj/`
   - `offset = symbol_addr - overlay_load`
   - inspect bytes at `offset` for plausible prologue (e.g., `JSR pushax`).
 - If entry bytes are zero/data while a valid prologue exists later by a fixed delta, suspect cc65 storage placement around that function (for example large static token buffers) and treat as probable wrong-entry root cause.

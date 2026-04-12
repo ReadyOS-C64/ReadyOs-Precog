@@ -39,6 +39,11 @@ The canonical release layout is:
 Older checked-in snapshot folders such as `release/` or `Releases/` should be
 treated as historical artifacts, not the current build target.
 
+When a helper script needs a dual-`D71` source image for authoritative `SEQ` /
+`REL` seeding or recovery, it should resolve that from the latest built
+`releases/<version>/precog-dual-d71/manifest.json` and its listed disks, not
+from root-level `readyos.d71` / `readyos_2.d71` files.
+
 Tested targets:
 
 - VICE
@@ -240,6 +245,8 @@ Main entry points:
   promote non-excluded `SEQ` files and current `REL` files from the latest
   built `precog-dual-d71` images into `cfg/authoritative/`, then rebuild all
   profiles from that updated authoritative set
+- `make seed-cal26`
+  seed CAL26 REL data into the latest built `precog-dual-d71` drive `8` image
 - `bash ./run.sh --vice-fast`
   launch with VICE drive traps enabled, true drive emulation disabled, and the
   emulator starting in warp mode
@@ -261,6 +268,9 @@ Notes:
   generated assets, and preserves managed disk state correctly.
 - `--force-artifacts-from-d71` is opt-in. Without it, ordinary builds keep the
   existing repo-authoritative behavior.
+- Disk-seeding and authoritative sync helpers should resolve their donor or
+  destination `D71` from the latest built `precog-dual-d71` release manifest.
+  Root-level `readyos.d71` / `readyos_2.d71` files are not the source of truth.
 - `--vice-fast` only changes the VICE launch configuration. It does not affect
   build outputs or the packaged release images.
 - Manual launch should match the setup in the Getting Started section.

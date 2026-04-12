@@ -13,14 +13,14 @@ Primary runtime capture source:
 - ReadyShell RAM ring: `$C7A0-$C7DF` with head at `$C7F0`
 - REU registers: `$DF00-$DF08`
 - ReadyShell overlay window base:
-- release/default (`READYSHELL_PARSE_TRACE_DEBUG=0`): `$A1C0`
-- debug trace (`READYSHELL_PARSE_TRACE_DEBUG=1`): `$A180`
+- release/default (`READYSHELL_PARSE_TRACE_DEBUG=0`): `$8E00`
+- debug trace (`READYSHELL_PARSE_TRACE_DEBUG=1`): `$8B00`
 
 ## REU debug surfaces
 - ReadyShell REU ring head: `0x43F000`
 - ReadyShell REU ring payload: `0x43F010`, length `0x0200`
-- Overlay cache previews: `0x400000`, `0x410000`, `0x420000`
-- Fixed ReadyShell-owned REU banks: `0x40-0x43` (overlay1/2/3 cache + debug/probe)
+- Overlay cache previews: `0x400000`, `0x410000`
+- Fixed ReadyShell-owned REU banks: `0x40`, `0x41`, `0x43` (parser cache, VM cache, debug/probe)
 
 ## Existing probes/tools
 - `tools/vice_readyshell_automation.py` (captures manifest/trace/state)

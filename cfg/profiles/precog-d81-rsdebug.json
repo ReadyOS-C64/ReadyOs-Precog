@@ -1,0 +1,53 @@
+{
+  "id": "precog-d81-rsdebug",
+  "display_name": "precog (d81, readyshell debug trace)",
+  "kind": "d81",
+  "default_run": false,
+  "readyshell_parse_trace_debug": 1,
+  "catalog_source": "cfg/profiles/precog-d81.ini",
+  "boot": {
+    "preboot_mode": "boot",
+    "autostart_prg": "preboot.prg"
+  },
+  "disks": [
+    {
+      "index": 1,
+      "drive": 8,
+      "label": "readyosd81,ro",
+      "image_type": "d81",
+      "vice_drive_type": "1581",
+      "true_drive": true,
+      "contents": [
+        { "artifact": "preboot.prg", "name": "preboot", "type": "prg" },
+        { "artifact": "showcfg.prg", "name": "showcfg", "type": "prg" },
+        { "artifact": "boot.prg", "name": "boot", "type": "prg" },
+        { "artifact": "launcher.prg", "name": "launcher", "type": "prg" },
+        { "artifact": "editor.prg", "name": "editor", "type": "prg" },
+        { "artifact": "quicknotes.prg", "name": "quicknotes", "type": "prg" },
+        { "artifact": "calcplus.prg", "name": "calcplus", "type": "prg" },
+        { "artifact": "hexview.prg", "name": "hexview", "type": "prg" },
+        { "artifact": "clipmgr.prg", "name": "clipmgr", "type": "prg" },
+        { "artifact": "reuviewer.prg", "name": "reuviewer", "type": "prg" },
+        { "artifact": "tasklist.prg", "name": "tasklist", "type": "prg" },
+        { "artifact": "simplefiles.prg", "name": "simplefiles", "type": "prg" },
+        { "artifact": "simplecells.prg", "name": "simplecells", "type": "prg" },
+        { "artifact": "game2048.prg", "name": "game2048", "type": "prg" },
+        { "artifact": "deminer.prg", "name": "deminer", "type": "prg" },
+        { "artifact": "cal26.prg", "name": "cal26", "type": "prg" },
+        { "artifact": "dizzy.prg", "name": "dizzy", "type": "prg" },
+        { "artifact": "readme.prg", "name": "readme", "type": "prg" },
+        { "artifact": "readyshell.prg", "name": "readyshell", "type": "prg" },
+        { "artifact": "obj/rsparser.prg", "name": "rsparser", "type": "prg" },
+        { "artifact": "obj/rsvm.prg", "name": "rsvm", "type": "prg" },
+        { "artifact": "obj/rsdrvi.prg", "name": "rsdrvi", "type": "prg" },
+        { "artifact": "obj/rslst.prg", "name": "rslst", "type": "prg" },
+        { "artifact": "obj/rsldv.prg", "name": "rsldv", "type": "prg" },
+        { "artifact": "obj/rsstv.prg", "name": "rsstv", "type": "prg" },
+        { "artifact": "obj/apps_cfg_petscii.seq", "name": "apps.cfg", "type": "seq" }
+      ],
+      "post_build": [
+        { "type": "seed_cal26_rel" }
+      ]
+    }
+  ]
+}

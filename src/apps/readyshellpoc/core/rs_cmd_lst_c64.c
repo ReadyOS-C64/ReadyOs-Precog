@@ -8,9 +8,9 @@
 #include <string.h>
 
 #if defined(__CC65__)
-#pragma code-name(push, "OVERLAY5")
-#pragma rodata-name(push, "OVERLAY5")
-#pragma bss-name(push, "OVERLAY5")
+#pragma code-name(push, "OVERLAY4")
+#pragma rodata-name(push, "OVERLAY4")
+#pragma bss-name(push, "OVERLAY4")
 #endif
 
 #define LST_RECORD_SIZE 28u

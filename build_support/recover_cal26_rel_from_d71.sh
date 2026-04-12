@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SRC_D71="${1:-}"
-DST_D71="${2:-readyos.d71}"
+DST_D71="${2:-}"
 REL_FILES=(
   "cal26.rel"
   "cal26cfg.rel"
@@ -27,6 +27,10 @@ if [ -z "$SRC_D71" ]; then
     echo "usage: $0 <source.d71> [dest.d71]" >&2
     exit 2
   fi
+fi
+
+if [ -z "$DST_D71" ]; then
+  DST_D71="$(python3 "$(dirname "$0")/readyos_profiles.py" latest-disk --profile precog-dual-d71 --drive 8)"
 fi
 
 if [ ! -f "$SRC_D71" ]; then

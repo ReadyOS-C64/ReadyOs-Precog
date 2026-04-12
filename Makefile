@@ -82,11 +82,8 @@ XREL_POS_REC_BASE_MODE ?= 0
 XREL_POS_ORDER_MODE ?= 0
 XREL_POS_POS_MODE ?= 0
 XREL_POS_CR_MODE ?= 1
-DISK1 = readyos.d71
-DISK2 = readyos_2.d71
 XFILECHK_DISK1 = $(HARNESS_OUT_DIR)/xfilechk.d71
 XFILECHK_DISK2 = $(HARNESS_OUT_DIR)/xfilechk_2.d71
-DISK = $(DISK1)
 READYOS_CONFIG_SRC ?= $(PROFILE_CATALOG_SRC)
 READYOS_CONFIG_LOAD_ALL ?=
 READYOS_CONFIG_RUN_FIRST ?=
@@ -147,26 +144,21 @@ READYSHELL_OVL3_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY3 --rodata-nam
 READYSHELL_OVL4_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY4 --rodata-name OVERLAY4 --bss-name OVERLAY4
 READYSHELL_OVL5_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY5 --rodata-name OVERLAY5 --bss-name OVERLAY5
 READYSHELL_OVL6_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY6 --rodata-name OVERLAY6 --bss-name OVERLAY6
-READYSHELL_OVL7_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY7 --rodata-name OVERLAY7 --bss-name OVERLAY7
 READYSHELL_OVERLAYSIZE ?= $(if $(filter 1,$(READYSHELL_PARSE_TRACE_DEBUG)),0x3B00,0x3800)
 READYSHELL_STACKSIZE ?= 0x0800
 READYSHELL_OBJ_DIR = $(OBJ_DIR)/readyshell
-READYSHELL_OVL1_PRG = $(READYSHELL).1
-READYSHELL_OVL2_PRG = $(READYSHELL).2
-READYSHELL_OVL3_PRG = $(READYSHELL).3
-READYSHELL_OVL4_PRG = $(READYSHELL).4
-READYSHELL_OVL5_PRG = $(READYSHELL).5
-READYSHELL_OVL6_PRG = $(READYSHELL).6
-READYSHELL_OVL7_PRG = $(READYSHELL).7
-READYSHELL_OVL8_PRG = $(READYSHELL).8
-READYSHELL_OVL9_PRG = $(READYSHELL).9
-READYSHELL_OVL1_DISK = $(OBJ_DIR)/readyshell_ovl1.prg
-READYSHELL_OVL2_DISK = $(OBJ_DIR)/readyshell_ovl2.prg
-READYSHELL_OVL3_DISK = $(OBJ_DIR)/readyshell_ovl3.prg
-READYSHELL_OVL4_DISK = $(OBJ_DIR)/readyshell_ovl4.prg
-READYSHELL_OVL5_DISK = $(OBJ_DIR)/readyshell_ovl5.prg
-READYSHELL_OVL6_DISK = $(OBJ_DIR)/readyshell_ovl6.prg
-READYSHELL_OVL7_DISK = $(OBJ_DIR)/readyshell_ovl7.prg
+READYSHELL_OVL1_PRG = rsparser.prg
+READYSHELL_OVL2_PRG = rsvm.prg
+READYSHELL_OVL3_PRG = rsdrvi.prg
+READYSHELL_OVL4_PRG = rslst.prg
+READYSHELL_OVL5_PRG = rsldv.prg
+READYSHELL_OVL6_PRG = rsstv.prg
+READYSHELL_OVL1_DISK = $(OBJ_DIR)/rsparser.prg
+READYSHELL_OVL2_DISK = $(OBJ_DIR)/rsvm.prg
+READYSHELL_OVL3_DISK = $(OBJ_DIR)/rsdrvi.prg
+READYSHELL_OVL4_DISK = $(OBJ_DIR)/rslst.prg
+READYSHELL_OVL5_DISK = $(OBJ_DIR)/rsldv.prg
+READYSHELL_OVL6_DISK = $(OBJ_DIR)/rsstv.prg
 
 READYSHELL_OVERLAY1_SRCS = \
 	$(READYSHELL_CORE_DIR)/rs_lexer.c \
@@ -180,15 +172,12 @@ READYSHELL_OVERLAY2_SRCS = \
 	$(READYSHELL_CORE_DIR)/rs_cmd.c \
 	$(READYSHELL_CORE_DIR)/rs_pipe.c
 READYSHELL_OVERLAY3_SRCS = \
-	$(READYSHELL_PLATFORM_C64_DIR)/rs_script_ctl_c64.c \
-	$(READYSHELL_PLATFORM_C64_DIR)/rs_fs_c64.c
-READYSHELL_OVERLAY4_SRCS = \
 	$(READYSHELL_CORE_DIR)/rs_cmd_drvi_c64.c
-READYSHELL_OVERLAY5_SRCS = \
+READYSHELL_OVERLAY4_SRCS = \
 	$(READYSHELL_CORE_DIR)/rs_cmd_lst_c64.c
-READYSHELL_OVERLAY6_SRCS = \
+READYSHELL_OVERLAY5_SRCS = \
 	$(READYSHELL_CORE_DIR)/rs_cmd_ldv_c64.c
-READYSHELL_OVERLAY7_SRCS = \
+READYSHELL_OVERLAY6_SRCS = \
 	$(READYSHELL_CORE_DIR)/rs_cmd_stv_c64.c
 READYSHELL_RESIDENT_SRCS = \
 	$(READYSHELL_DIR)/readyshellpoc.c \
@@ -213,7 +202,6 @@ READYSHELL_OVERLAY3_OBJS = $(patsubst %.c,$(READYSHELL_OBJ_DIR)/overlay3/%.o,$(R
 READYSHELL_OVERLAY4_OBJS = $(patsubst %.c,$(READYSHELL_OBJ_DIR)/overlay4/%.o,$(READYSHELL_OVERLAY4_SRCS))
 READYSHELL_OVERLAY5_OBJS = $(patsubst %.c,$(READYSHELL_OBJ_DIR)/overlay5/%.o,$(READYSHELL_OVERLAY5_SRCS))
 READYSHELL_OVERLAY6_OBJS = $(patsubst %.c,$(READYSHELL_OBJ_DIR)/overlay6/%.o,$(READYSHELL_OVERLAY6_SRCS))
-READYSHELL_OVERLAY7_OBJS = $(patsubst %.c,$(READYSHELL_OBJ_DIR)/overlay7/%.o,$(READYSHELL_OVERLAY7_SRCS))
 
 TUI_BASE = $(TUI_CORE_SRC) $(TUI_WINDOW_SRC)
 TUI_BASE_MENU = $(TUI_BASE) $(TUI_MENU_SRC)
@@ -417,24 +405,19 @@ $(READYSHELL_OBJ_DIR)/overlay6/%.o: %.c
 	@mkdir -p "$(dir $@)"
 	$(CC) $(READYSHELL_OVL6_CFLAGS) -c -o $@ $<
 
-$(READYSHELL_OBJ_DIR)/overlay7/%.o: %.c
-	@mkdir -p "$(dir $@)"
-	$(CC) $(READYSHELL_OVL7_CFLAGS) -c -o $@ $<
-
 # ReadyShell app (loads at $1000) + overlay sidecars
-$(READYSHELL): $(READYSHELL_RESIDENT_OBJS) $(READYSHELL_OVERLAY1_OBJS) $(READYSHELL_OVERLAY2_OBJS) $(READYSHELL_OVERLAY3_OBJS) $(READYSHELL_OVERLAY4_OBJS) $(READYSHELL_OVERLAY5_OBJS) $(READYSHELL_OVERLAY6_OBJS) $(READYSHELL_OVERLAY7_OBJS) $(CFG_DIR)/ready_app_overlay.cfg
+$(READYSHELL): $(READYSHELL_RESIDENT_OBJS) $(READYSHELL_OVERLAY1_OBJS) $(READYSHELL_OVERLAY2_OBJS) $(READYSHELL_OVERLAY3_OBJS) $(READYSHELL_OVERLAY4_OBJS) $(READYSHELL_OVERLAY5_OBJS) $(READYSHELL_OVERLAY6_OBJS) $(CFG_DIR)/ready_app_overlay.cfg
 	$(CC) -t c64 -C $(CFG_DIR)/ready_app_overlay.cfg \
 		-Wl -D,__OVERLAYSIZE__=$(READYSHELL_OVERLAYSIZE) \
 		-Wl -D,__STACKSIZE__=$(READYSHELL_STACKSIZE) \
 		-m $(OBJ_DIR)/readyshell.map -o $@ \
-		$(READYSHELL_RESIDENT_OBJS) $(READYSHELL_OVERLAY1_OBJS) $(READYSHELL_OVERLAY2_OBJS) $(READYSHELL_OVERLAY3_OBJS) $(READYSHELL_OVERLAY4_OBJS) $(READYSHELL_OVERLAY5_OBJS) $(READYSHELL_OVERLAY6_OBJS) $(READYSHELL_OVERLAY7_OBJS)
+		$(READYSHELL_RESIDENT_OBJS) $(READYSHELL_OVERLAY1_OBJS) $(READYSHELL_OVERLAY2_OBJS) $(READYSHELL_OVERLAY3_OBJS) $(READYSHELL_OVERLAY4_OBJS) $(READYSHELL_OVERLAY5_OBJS) $(READYSHELL_OVERLAY6_OBJS)
 	cp -f $(READYSHELL_OVL1_PRG) $(READYSHELL_OVL1_DISK)
 	cp -f $(READYSHELL_OVL2_PRG) $(READYSHELL_OVL2_DISK)
 	cp -f $(READYSHELL_OVL3_PRG) $(READYSHELL_OVL3_DISK)
 	cp -f $(READYSHELL_OVL4_PRG) $(READYSHELL_OVL4_DISK)
 	cp -f $(READYSHELL_OVL5_PRG) $(READYSHELL_OVL5_DISK)
 	cp -f $(READYSHELL_OVL6_PRG) $(READYSHELL_OVL6_DISK)
-	cp -f $(READYSHELL_OVL7_PRG) $(READYSHELL_OVL7_DISK)
 
 # Temporary REL diagnostics app (standalone at $0801)
 $(XRELCHK): $(APPS_DIR)/xrelchk/xrelchk.c
@@ -470,88 +453,6 @@ $(XFILECHK_DISK2): FORCE $(XFILECHK_TESTA_SEQ)
 	$(C1541) -format "xfilechk9,ro" d71 $@ \
 		-write $(XFILECHK_TESTA_SEQ) "testa,s"
 
-# Create disk 1 (drive 8): boot chain + launcher + utilities + cal26 + dizzy + readyshell + catalog
-ifeq ($(READYOS_USE_PWSH),1)
-$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(QUICKNOTES) $(DEMINER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(READYSHELL_OVL4_DISK) $(READYSHELL_OVL5_DISK) $(READYSHELL_OVL6_DISK) $(READYSHELL_OVL7_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ)
-	$(PWSH) -NoLogo -NoProfile -File $(BUILD_SUPPORT_DIR)/rebuild_disk.ps1 -Mode disk1 -DiskPath $@ -BuildSupportDir $(BUILD_SUPPORT_DIR) -RelSeedD71 "$(REL_SEED_D71)"
-else
-$(DISK1): FORCE $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(LAUNCHER) $(QUICKNOTES) $(DEMINER) $(CAL26) $(DIZZY) $(READYSHELL) $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) $(READYSHELL_OVL4_DISK) $(READYSHELL_OVL5_DISK) $(READYSHELL_OVL6_DISK) $(READYSHELL_OVL7_DISK) $(CATALOG_SEQ) $(EDITOR_HELP_SEQ)
-	@set -e; \
-	PRESERVE_DIR=$$(mktemp -d /tmp/readyos_preserve.XXXXXX); \
-	if [ -f $@ ]; then \
-		$(BUILD_SUPPORT_DIR)/preserve_d71_user_data.sh backup $@ $$PRESERVE_DIR; \
-	fi; \
-	$(C1541) -format "readyos,ro" d71 $@ \
-		-write $(PREBOOT) preboot \
-		-write $(SETD71) setd71 \
-		-write $(SHOWCFG) showcfg \
-		-write $(BOOT) boot \
-		-write $(LAUNCHER) launcher \
-		-write $(QUICKNOTES) quicknotes \
-		-write $(DEMINER) deminer \
-		-write $(CAL26) cal26 \
-		-write $(DIZZY) dizzy \
-		-write $(READYSHELL) readyshell \
-		-write $(READYSHELL_OVL1_DISK) rsovl1 \
-		-write $(READYSHELL_OVL2_DISK) rsovl2 \
-			-write $(READYSHELL_OVL3_DISK) rsovl3 \
-			-write $(READYSHELL_OVL4_DISK) rsovl4 \
-			-write $(READYSHELL_OVL5_DISK) rsovl5 \
-			-write $(READYSHELL_OVL6_DISK) rsovl6 \
-			-write $(READYSHELL_OVL7_DISK) rsovl7 \
-			-write $(CATALOG_SEQ) "apps.cfg,s" \
-			-write $(EDITOR_HELP_SEQ) "editor help,s"; \
-	echo ""; \
-	echo "Seeding CAL26 REL files:"; \
-	python3 $(BUILD_SUPPORT_DIR)/seed_cal26_rel.py --disk $@; \
-	if [ -s $$PRESERVE_DIR/manifest.tsv ]; then \
-		$(BUILD_SUPPORT_DIR)/preserve_d71_user_data.sh restore $@ $$PRESERVE_DIR/manifest.tsv; \
-	fi; \
-	if [ -n "$(REL_SEED_D71)" ] && [ -f "$(REL_SEED_D71)" ]; then \
-		echo "Restoring REL files from $(REL_SEED_D71) ..."; \
-		$(BUILD_SUPPORT_DIR)/recover_cal26_rel_from_d71.sh "$(REL_SEED_D71)" "$@"; \
-	elif [ -n "$(REL_SEED_D71)" ]; then \
-		echo "warning: REL donor disk not found: $(REL_SEED_D71)"; \
-	else \
-		echo "note: no REL donor disk configured; skipping REL restore"; \
-	fi; \
-	rm -rf $$PRESERVE_DIR
-	@echo ""
-	@echo "Disk contents:"
-	@$(C1541) $@ -list
-endif
-
-# Create disk 2 (drive 9): remaining apps
-ifeq ($(READYOS_USE_PWSH),1)
-$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(READMEAPP)
-	$(PWSH) -NoLogo -NoProfile -File $(BUILD_SUPPORT_DIR)/rebuild_disk.ps1 -Mode disk2 -DiskPath $@ -BuildSupportDir $(BUILD_SUPPORT_DIR)
-else
-$(DISK2): FORCE $(EDITOR) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(READMEAPP)
-	@set -e; \
-	PRESERVE_DIR=$$(mktemp -d /tmp/readyos2_preserve.XXXXXX); \
-	if [ -f $@ ]; then \
-		$(BUILD_SUPPORT_DIR)/preserve_d71_user_data.sh backup $@ $$PRESERVE_DIR; \
-	fi; \
-	$(C1541) -format "readyos2,ro" d71 $@ \
-		-write $(EDITOR) editor \
-		-write $(CALCPLUS) calcplus \
-		-write $(HEXVIEW) hexview \
-		-write $(CLIPMGR) clipmgr \
-		-write $(REUVIEWER) reuviewer \
-			-write $(TASKLIST) tasklist \
-			-write $(SIMPLEFILES) simplefiles \
-			-write $(SIMPLECELLS) simplecells \
-			-write $(GAME2048) game2048 \
-			-write $(READMEAPP) readme; \
-	if [ -s $$PRESERVE_DIR/manifest.tsv ]; then \
-		$(BUILD_SUPPORT_DIR)/preserve_d71_user_data.sh restore $@ $$PRESERVE_DIR/manifest.tsv; \
-	fi; \
-	rm -rf $$PRESERVE_DIR
-	@echo ""
-	@echo "Disk contents:"
-	@$(C1541) $@ -list
-endif
-
 # Version preparation shared by direct make and run scripts.
 prepare-version:
 ifeq ($(strip $(READYOS_VERSION_TEXT)),)
@@ -577,8 +478,9 @@ profile: programs
 release-all: prepare-version
 	@VERSION_TEXT=$$($(PYTHON) $(BUILD_SUPPORT_DIR)/update_build_version.py --current); \
 	for profile in precog-dual-d71 $$($(PYTHON) $(BUILD_SUPPORT_DIR)/readyos_profiles.py list-ids | grep -v '^precog-dual-d71$$'); do \
-		echo "==> $$profile ($$VERSION_TEXT)"; \
-		$(MAKE) PROFILE="$$profile" READYOS_VERSION_TEXT="$$VERSION_TEXT" profile; \
+		RS_PARSE_TRACE_DEBUG=$$($(PYTHON) $(BUILD_SUPPORT_DIR)/readyos_profiles.py readyshell-parse-trace-debug --profile "$$profile"); \
+		echo "==> $$profile ($$VERSION_TEXT, READYSHELL_PARSE_TRACE_DEBUG=$$RS_PARSE_TRACE_DEBUG)"; \
+		$(MAKE) PROFILE="$$profile" READYOS_VERSION_TEXT="$$VERSION_TEXT" READYSHELL_PARSE_TRACE_DEBUG="$$RS_PARSE_TRACE_DEBUG" profile; \
 	done
 
 audit-profile-assets:
@@ -599,10 +501,12 @@ clean:
 	rm -f *.prg
 	rm -f $(READYSHELL_OVL1_PRG) $(READYSHELL_OVL2_PRG) $(READYSHELL_OVL3_PRG) \
 		$(READYSHELL_OVL4_PRG) $(READYSHELL_OVL5_PRG) $(READYSHELL_OVL6_PRG) \
-		$(READYSHELL_OVL7_PRG) $(READYSHELL_OVL8_PRG) $(READYSHELL_OVL9_PRG)
+		$(READYSHELL).1 $(READYSHELL).2 $(READYSHELL).3 $(READYSHELL).4 \
+		$(READYSHELL).5 $(READYSHELL).6 $(READYSHELL).7 $(READYSHELL).8 $(READYSHELL).9
 	rm -f $(READYSHELL_OVL1_DISK) $(READYSHELL_OVL2_DISK) $(READYSHELL_OVL3_DISK) \
 		$(READYSHELL_OVL4_DISK) $(READYSHELL_OVL5_DISK) $(READYSHELL_OVL6_DISK) \
-		$(READYSHELL_OVL7_DISK)
+		$(OBJ_DIR)/readyshell_unused_ovl7.prg \
+		$(OBJ_DIR)/readyshell_unused_ovl8.prg $(OBJ_DIR)/readyshell_unused_ovl9.prg
 	rm -f *.d64
 	rm -f *.d71
 	rm -f *.d81
@@ -699,8 +603,8 @@ tasklist-smoke-host:
 file-dialog-memory-report:
 	python3 $(BUILD_SUPPORT_DIR)/file_dialog_memory_report.py
 
-readyshell-overlay-report: $(DISK1) $(READYSHELL)
-	python3 $(BUILD_SUPPORT_DIR)/readyshell_overlay_report.py --profile "$(PROFILE)" --disk "$(DISK1)"
+readyshell-overlay-report: profile
+	python3 $(BUILD_SUPPORT_DIR)/readyshell_overlay_report.py --profile "$(PROFILE)"
 
 # Run Ready OS (boot loader)
 run:
@@ -730,7 +634,7 @@ help:
 	@echo "  readyshell-vm-smoke-host - Run ReadyShell VM/pipeline host smoke checks"
 	@echo "  readyshell-reu-tests-host - Run ReadyShell REU heap/value host tests"
 	@echo "  readyshell-overlay-report - Generate ReadyShell overlay Markdown + HTML docs"
-	@echo "  seed-cal26  - Seed CAL26 REL files on readyos.d71 with sample events"
+	@echo "  seed-cal26  - Seed CAL26 REL files on the latest built precog-dual-d71 drive 8 image"
 	@echo "  launcher-verbose - Rebuild launcher with verbose config diagnostics"
 	@echo "  run         - Run Ready OS through run.sh for PROFILE=<id>"
 	@echo "  run-test    - Run REU test in VICE"
@@ -755,7 +659,7 @@ help:
 	@echo "  cal26.prg    - Calendar 2026 app (loads at \$$1000)"
 	@echo "  dizzy.prg    - Kanban task board app (loads at \$$1000)"
 	@echo "  readme.prg   - Project README app (loads at \$$1000)"
-	@echo "  readyshell.prg - ReadyShell app (loads at \$$1000, overlays rsovl1-7 on disk 1)"
+	@echo "  readyshell.prg - ReadyShell app (loads at \$$1000, overlays rsparser/rsvm/rsdrvi/rslst/rsldv/rsstv on disk 1)"
 	@echo "  $(XFILECHK) - Standalone IEC file-operation harness (loads at \$$0801)"
 	@echo "  releases/<version>/<profile>/readyos-v<version>-<kind>[_n].<ext>"
 	@echo "              - Versioned disk images for the selected profile"
@@ -767,8 +671,8 @@ help:
 FORCE:
 
 # Seed CAL26 REL files with valid initial data and 2 sample events
-seed-cal26: $(DISK1)
-	python3 $(BUILD_SUPPORT_DIR)/seed_cal26_rel.py --disk $(DISK1)
+seed-cal26:
+	python3 $(BUILD_SUPPORT_DIR)/seed_cal26_rel.py
 
 # Headless VICE REL probe (xrelchk + monitor log parse)
 probe-rel:

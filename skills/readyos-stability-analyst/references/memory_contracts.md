@@ -18,18 +18,16 @@ Canonical sources:
 ## ReadyShell overlay contract
 - `__HIMEM__ = $C600`
 - Overlay size is profile-based:
-- release/default (`READYSHELL_PARSE_TRACE_DEBUG=0`): `READYSHELL_OVERLAYSIZE = $2440`, `__OVERLAYSTART__ = $A1C0`
-- debug trace (`READYSHELL_PARSE_TRACE_DEBUG=1`): `READYSHELL_OVERLAYSIZE = $2480`, `__OVERLAYSTART__ = $A180`
+- release/default (`READYSHELL_PARSE_TRACE_DEBUG=0`): `READYSHELL_OVERLAYSIZE = $3800`, `__OVERLAYSTART__ = $8E00`
+- debug trace (`READYSHELL_PARSE_TRACE_DEBUG=1`): `READYSHELL_OVERLAYSIZE = $3B00`, `__OVERLAYSTART__ = $8B00`
 - ReadyShell fixed REU bank ownership:
 - `0x40` -> `REU_RS_OVL1` (overlay1 cache region `0x400000`)
 - `0x41` -> `REU_RS_OVL2` (overlay2 cache region `0x410000`)
-- `0x42` -> `REU_RS_OVL3` (overlay3 cache region `0x420000`)
 - `0x43` -> `REU_RS_DEBUG` (debug/probe region `0x43F000+`)
 - These banks must not be handed out by dynamic allocation.
 - Overlay REU cache offsets:
 - `0x400000` overlay1
 - `0x410000` overlay2
-- `0x420000` overlay3
 - `0x43F000` debug head
 - `0x43F010` debug ring data
 

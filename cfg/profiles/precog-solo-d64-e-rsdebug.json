@@ -1,0 +1,36 @@
+{
+  "id": "precog-solo-d64-e-rsdebug",
+  "display_name": "precog (solo d64 subset e, readyshell debug trace)",
+  "kind": "solo-d64-e",
+  "default_run": false,
+  "readyshell_parse_trace_debug": 1,
+  "catalog_source": "cfg/profiles/precog-solo-d64-e.ini",
+  "boot": {
+    "preboot_mode": "boot",
+    "autostart_prg": "preboot.prg"
+  },
+  "disks": [
+    {
+      "index": 1,
+      "drive": 8,
+      "label": "readyos64e,ro",
+      "image_type": "d64",
+      "vice_drive_type": "1541",
+      "true_drive": true,
+      "contents": [
+        { "artifact": "preboot.prg", "name": "preboot", "type": "prg" },
+        { "artifact": "showcfg.prg", "name": "showcfg", "type": "prg" },
+        { "artifact": "boot.prg", "name": "boot", "type": "prg" },
+        { "artifact": "launcher.prg", "name": "launcher", "type": "prg" },
+        { "artifact": "readyshell.prg", "name": "readyshell", "type": "prg" },
+        { "artifact": "obj/rsparser.prg", "name": "rsparser", "type": "prg" },
+        { "artifact": "obj/rsvm.prg", "name": "rsvm", "type": "prg" },
+        { "artifact": "obj/rsdrvi.prg", "name": "rsdrvi", "type": "prg" },
+        { "artifact": "obj/rslst.prg", "name": "rslst", "type": "prg" },
+        { "artifact": "obj/rsldv.prg", "name": "rsldv", "type": "prg" },
+        { "artifact": "obj/rsstv.prg", "name": "rsstv", "type": "prg" },
+        { "artifact": "obj/apps_cfg_petscii.seq", "name": "apps.cfg", "type": "seq" }
+      ]
+    }
+  ]
+}

@@ -31,7 +31,6 @@
 #define CHAR_RSVD   0x12  /* 'R' screen code (reserved app slot) */
 #define CHAR_RS1    49    /* '1' screen code */
 #define CHAR_RS2    50    /* '2' screen code */
-#define CHAR_RS3    51    /* '3' screen code */
 #define CHAR_RSD    0x04  /* 'D' screen code */
 
 #define SHIM_CURRENT_BANK ((unsigned char*)0xC834)
@@ -100,7 +99,6 @@ static void draw_summary(void) {
     unsigned char rsv_count;
     unsigned char rs1_count;
     unsigned char rs2_count;
-    unsigned char rs3_count;
     unsigned char rsd_count;
     unsigned char rs_count;
 
@@ -111,9 +109,8 @@ static void draw_summary(void) {
     rsv_count = reu_count_type(REU_RESERVED);
     rs1_count = reu_count_type(REU_RS_OVL1);
     rs2_count = reu_count_type(REU_RS_OVL2);
-    rs3_count = reu_count_type(REU_RS_OVL3);
     rsd_count = reu_count_type(REU_RS_DEBUG);
-    rs_count = (unsigned char)(rs1_count + rs2_count + rs3_count + rsd_count);
+    rs_count = (unsigned char)(rs1_count + rs2_count + rsd_count);
 
     tui_puts(1, TITLE_Y + 1, "256 BANKS", TUI_COLOR_WHITE);
 
@@ -139,10 +136,8 @@ static void draw_summary(void) {
     tui_print_uint(10, TITLE_Y + 2, rs1_count, TUI_COLOR_LIGHTBLUE);
     tui_puts(14, TITLE_Y + 2, "2:", TUI_COLOR_GREEN);
     tui_print_uint(16, TITLE_Y + 2, rs2_count, TUI_COLOR_GREEN);
-    tui_puts(20, TITLE_Y + 2, "3:", TUI_COLOR_LIGHTGREEN);
-    tui_print_uint(22, TITLE_Y + 2, rs3_count, TUI_COLOR_LIGHTGREEN);
-    tui_puts(26, TITLE_Y + 2, "D:", TUI_COLOR_ORANGE);
-    tui_print_uint(28, TITLE_Y + 2, rsd_count, TUI_COLOR_ORANGE);
+    tui_puts(22, TITLE_Y + 2, "D:", TUI_COLOR_ORANGE);
+    tui_print_uint(24, TITLE_Y + 2, rsd_count, TUI_COLOR_ORANGE);
 }
 
 static void draw_legend(void) {
@@ -162,10 +157,8 @@ static void draw_legend(void) {
     tui_puts(21, 3, "1", TUI_COLOR_GRAY3);
     tui_putc(24, 3, CHAR_RS2, TUI_COLOR_GREEN);
     tui_puts(25, 3, "2", TUI_COLOR_GRAY3);
-    tui_putc(28, 3, CHAR_RS3, TUI_COLOR_LIGHTGREEN);
-    tui_puts(29, 3, "3", TUI_COLOR_GRAY3);
-    tui_putc(32, 3, CHAR_RSD, TUI_COLOR_ORANGE);
-    tui_puts(33, 3, "D", TUI_COLOR_GRAY3);
+    tui_putc(28, 3, CHAR_RSD, TUI_COLOR_ORANGE);
+    tui_puts(29, 3, "D", TUI_COLOR_GRAY3);
     tui_puts(36, 3, "RS", TUI_COLOR_GRAY3);
 }
 
@@ -224,10 +217,6 @@ static void draw_grid(void) {
                     ch = CHAR_RS2;
                     color = TUI_COLOR_GREEN;
                     break;
-                case REU_RS_OVL3:
-                    ch = CHAR_RS3;
-                    color = TUI_COLOR_LIGHTGREEN;
-                    break;
                 case REU_RS_DEBUG:
                     ch = CHAR_RSD;
                     color = TUI_COLOR_ORANGE;
@@ -276,7 +265,6 @@ static void draw_detail(void) {
         case REU_RESERVED:  type_str = "APP SLOT RSV"; break;
         case REU_RS_OVL1:   type_str = "RS OVL1 CACHE"; break;
         case REU_RS_OVL2:   type_str = "RS OVL2 CACHE"; break;
-        case REU_RS_OVL3:   type_str = "RS OVL3 CACHE"; break;
         case REU_RS_DEBUG:  type_str = "RS DEBUG/PROBE"; break;
         default:            type_str = "UNKNOWN"; break;
     }
@@ -289,7 +277,7 @@ static void draw_detail(void) {
 
 static void draw_help(void) {
     tui_puts(0, HELP_Y, "CURSORS:NAVIGATE  READ-ONLY VIEW", TUI_COLOR_GRAY3);
-    tui_puts(0, HELP_Y + 1, "1/2/3/D:RS  F2/F4:APPS  CTRL+B", TUI_COLOR_GRAY3);
+    tui_puts(0, HELP_Y + 1, "1/2/D:RS  F2/F4:APPS  CTRL+B", TUI_COLOR_GRAY3);
 }
 
 static void draw_status(void) {

@@ -12,6 +12,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from readyos_profiles import resolve_profile
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,9 +36,9 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         1,
         "Parser / Lexer",
         "Lexer, parser, AST construction, and parse cleanup.",
-        "readyshell.prg.1",
-        "obj/readyshell_ovl1.prg",
-        "rsovl1",
+        "rsparser.prg",
+        "obj/rsparser.prg",
+        "rsparser",
         "None directly; parse phase support.",
         "Boot-loaded from disk, then cached in REU bank 0x40 at 0x400000.",
         "Lives entirely inside the shared overlay window while active.",
@@ -45,64 +47,53 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         2,
         "Execution Core",
         "Values, variables, formatting, pipes, and shared execution helpers.",
-        "readyshell.prg.2",
-        "obj/readyshell_ovl2.prg",
-        "rsovl2",
+        "rsvm.prg",
+        "obj/rsvm.prg",
+        "rsvm",
         "PRT, TOP, SEL, GEN, TAP and the shared execution paths that command overlays return to.",
         "Boot-loaded from disk, then cached in REU bank 0x41 at 0x410000.",
         "Includes rs_vm_fmt_buf[128] and rs_vm_line_buf[384] inside the overlay image.",
     ),
     3: OverlaySpec(
         3,
-        "Script / Filesystem",
-        "Script-control helpers plus C64 filesystem helpers used by runtime flows.",
-        "readyshell.prg.3",
-        "obj/readyshell_ovl3.prg",
-        "rsovl3",
-        "No direct shell command token; used for script and filesystem support.",
-        "Boot-loaded from disk, then cached in REU bank 0x42 at 0x420000.",
-        "Uses the same shared overlay window; no extra fixed RAM carve beyond its own overlay payload.",
+        "Drive Info",
+        "Single-command overlay for DRVI.",
+        "rsdrvi.prg",
+        "obj/rsdrvi.prg",
+        "rsdrvi",
+        "DRVI",
+        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Shares the inter-command REU handoff area at 0x480000-0x487FFF.",
     ),
     4: OverlaySpec(
         4,
-        "Drive Info",
-        "Single-command overlay for DRVI.",
-        "readyshell.prg.4",
-        "obj/readyshell_ovl4.prg",
-        "rsovl4",
-        "DRVI",
+        "Directory Listing",
+        "Single-command overlay for LST.",
+        "rslst.prg",
+        "obj/rslst.prg",
+        "rslst",
+        "LST",
         "Loaded from disk on demand for each command call. No dedicated REU cache.",
         "Shares the inter-command REU handoff area at 0x480000-0x487FFF.",
     ),
     5: OverlaySpec(
         5,
-        "Directory Listing",
-        "Single-command overlay for LST.",
-        "readyshell.prg.5",
-        "obj/readyshell_ovl5.prg",
-        "rsovl5",
-        "LST",
-        "Loaded from disk on demand for each command call. No dedicated REU cache.",
-        "Shares the inter-command REU handoff area at 0x480000-0x487FFF.",
-    ),
-    6: OverlaySpec(
-        6,
         "Load Value",
         "Single-command overlay for LDV.",
-        "readyshell.prg.6",
-        "obj/readyshell_ovl6.prg",
-        "rsovl6",
+        "rsldv.prg",
+        "obj/rsldv.prg",
+        "rsldv",
         "LDV",
         "Loaded from disk on demand for each command call. No dedicated REU cache.",
         "Uses the shared handoff region plus the REU-backed value arena in bank 0x48 when hydrating pointer-backed values.",
     ),
-    7: OverlaySpec(
-        7,
+    6: OverlaySpec(
+        6,
         "Store Value",
         "Single-command overlay for STV.",
-        "readyshell.prg.7",
-        "obj/readyshell_ovl7.prg",
-        "rsovl7",
+        "rsstv.prg",
+        "obj/rsstv.prg",
+        "rsstv",
         "STV",
         "Loaded from disk on demand for each command call. No dedicated REU cache.",
         "Uses the shared handoff region plus the REU-backed value arena in bank 0x48 when serializing pointer-backed values.",
@@ -264,6 +255,48 @@ def fmt_range(start: int, end: int) -> str:
     return f"{fmt_hex(start)}-{fmt_hex(end)}"
 
 
+def fmt_overlay_nums(items: list[dict[str, object]]) -> str:
+    nums = [int(item["num"]) for item in items]
+    if not nums:
+        return "none"
+    if len(nums) == 1:
+        return str(nums[0])
+    ranges: list[str] = []
+    start = nums[0]
+    prev = nums[0]
+    for num in nums[1:]:
+        if num == prev + 1:
+            prev = num
+            continue
+        ranges.append(f"{start}-{prev}" if start != prev else str(start))
+        start = prev = num
+    ranges.append(f"{start}-{prev}" if start != prev else str(start))
+    return ", ".join(ranges)
+
+
+def disk_image_label(path: str) -> str:
+    suffix = Path(path).suffix.upper().lstrip(".")
+    return f"{suffix} disk image" if suffix else "disk image"
+
+
+def resolve_default_disk_path(root: Path, profile_id: str) -> Path:
+    manifest = resolve_profile(profile_id, None, latest=True)
+    disks = manifest.get("disks", [])
+    if not disks:
+        raise ValueError(f"manifest for profile {profile_id} has no disks")
+    preferred = None
+    for disk in disks:
+        if int(disk.get("drive", 0)) == 8:
+            preferred = disk
+            break
+    if preferred is None:
+        preferred = disks[0]
+    disk_path = Path(str(preferred["path"]))
+    if not disk_path.is_absolute():
+        disk_path = root / disk_path
+    return disk_path.resolve()
+
+
 def short_sources(items: list[str]) -> str:
     return ", ".join(Path(item).name for item in items)
 
@@ -321,8 +354,10 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
     reu_offsets = {
         1: parse_define(overlay_c, "RS_REU_OVERLAY1_OFF"),
         2: parse_define(overlay_c, "RS_REU_OVERLAY2_OFF"),
-        3: parse_define(overlay_c, "RS_REU_OVERLAY3_OFF"),
     }
+    dbg_head_off = parse_define(overlay_c, "RS_REU_DBG_HEAD_OFF")
+    dbg_data_off = parse_define(overlay_c, "RS_REU_DBG_DATA_OFF")
+    dbg_data_len = parse_define(overlay_c, "RS_REU_DBG_DATA_LEN")
 
     disk_label, disk_blocks, free_blocks = parse_disk_listing(args.disk)
 
@@ -351,10 +386,14 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
             }
         )
 
+    cached_overlays = [row for row in overlays if row["reu_off"] is not None]
+    demand_overlays = [row for row in overlays if row["reu_off"] is None]
+
     return {
         "profile": args.profile,
         "version": parse_build_version(build_version_text),
         "disk_path": str(args.disk.relative_to(args.root)),
+        "disk_image_label": disk_image_label(str(args.disk)),
         "disk_label": disk_label,
         "disk_free_blocks": free_blocks,
         "resident_prg_size": resident_prg_size,
@@ -375,12 +414,19 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
         "runtime_limit": runtime_limit,
         "scratch_off": scratch_off,
         "scratch_len": scratch_len,
+        "dbg_head_off": dbg_head_off,
+        "dbg_data_off": dbg_data_off,
+        "dbg_data_len": dbg_data_len,
+        "dbg_end_off": dbg_data_off + dbg_data_len - 1,
+        "dbg_span_len": dbg_data_off + dbg_data_len - dbg_head_off,
         "heap_bank_base": heap_bank_base,
         "heap_meta_abs": heap_bank_base + heap_meta_rel,
         "heap_arena_abs": heap_bank_base + heap_arena_rel,
         "heap_arena_end_abs": heap_bank_base + heap_arena_end_rel - 1,
         "heap_arena_size": heap_arena_end_rel - heap_arena_rel,
         "overlays": overlays,
+        "cached_overlays": cached_overlays,
+        "demand_overlays": demand_overlays,
     }
 
 
@@ -423,11 +469,28 @@ def render_markdown(ctx: dict[str, object]) -> str:
             )
         )
 
+    reu_rows = []
+    for row in ctx["cached_overlays"]:
+        reu_start = int(row["reu_off"])
+        reu_end = reu_start + int(row["live_size"]) - 1
+        reu_rows.append(
+            f"| Overlay {row['num']} cache | `{fmt_hex24(reu_start)}-{fmt_hex24(reu_end)}` | `{row['live_size']}` | "
+            f"Cached at boot, paged back for overlay {row['num']}. |"
+        )
+    reu_rows.extend(
+        [
+            f"| Debug trace ring | `{fmt_hex24(ctx['dbg_head_off'])}-{fmt_hex24(ctx['dbg_end_off'])}` | `{ctx['dbg_span_len']}` | Overlay debug markers and verification state. |",
+            f"| Command scratch | `{fmt_hex24(ctx['scratch_off'])}-{fmt_hex24(ctx['scratch_off'] + ctx['scratch_len'] - 1)}` | `{ctx['scratch_len']}` | Inter-overlay handoff area for command frames and streaming state. |",
+            f"| REU heap metadata | `{fmt_hex24(ctx['heap_meta_abs'])}-{fmt_hex24(ctx['heap_meta_abs'] + 0xFF)}` | `256` | ReadyShell REU heap header region. |",
+            f"| REU heap arena | `{fmt_hex24(ctx['heap_arena_abs'])}-{fmt_hex24(ctx['heap_arena_end_abs'])}` | `{ctx['heap_arena_size']}` | Persistent value payload arena for REU-backed strings/arrays/objects. |",
+        ]
+    )
+
     return "\n".join(
         [
             f"# ReadyShell Overlay Inventory Report ({ctx['version']})",
             "",
-            "Artifact-backed report generated from the current local ReadyShell build, linker map, and dual-D71 disk image.",
+            f"Artifact-backed report generated from the current local ReadyShell build, linker map, and {ctx['disk_image_label']}.",
             "",
             "## Executive Summary",
             "",
@@ -437,8 +500,8 @@ def render_markdown(ctx: dict[str, object]) -> str:
             f"- Resident BSS / heap below overlays: BSS `{fmt_range(ctx['bss_start'], ctx['bss_end'])}` (`{ctx['bss_size']}` bytes), heap `{fmt_range(ctx['heap_start'], ctx['heap_end'])}` (`{ctx['heap_size']}` bytes).",
             f"- High RAM runtime region outside the app window: `{fmt_range(ctx['runtime_addr'], ctx['runtime_limit'] - 1)}`.",
             "- REU policy split:",
-            "  - overlays 1-3 are boot-loaded from disk and cached into fixed REU banks 0x40-0x42",
-            "  - overlays 4-7 are loaded from disk on demand for each command call",
+            f"  - overlays {fmt_overlay_nums(ctx['cached_overlays'])} are boot-loaded from disk and cached into fixed REU banks",
+            f"  - overlays {fmt_overlay_nums(ctx['demand_overlays'])} are loaded from disk on demand for each command call",
             "  - bank 0x48 is shared for command handoff scratch and the REU-backed ReadyShell value arena",
             "",
             "## Runtime Memory Map",
@@ -456,13 +519,7 @@ def render_markdown(ctx: dict[str, object]) -> str:
             "",
             "| Use | REU range | Size | How it is used |",
             "| --- | --- | ---: | --- |",
-            "| Overlay 1 cache | `$400000-$4032CC` | `13005` | Cached at boot, paged back for parse phase. |",
-            "| Overlay 2 cache | `$410000-$4137FD` | `14334` | Cached at boot, paged back for exec phase. |",
-            "| Overlay 3 cache | `$420000-$420CFB` | `3324` | Cached at boot, paged back for script/fs phase. |",
-            "| Debug trace ring | `$43F000-$43F20F` | `528` | Overlay debug markers and verification state. |",
-            f"| Command scratch | `{fmt_hex24(ctx['scratch_off'])}-{fmt_hex24(ctx['scratch_off'] + ctx['scratch_len'] - 1)}` | `{ctx['scratch_len']}` | Inter-overlay handoff area for command frames and streaming state. |",
-            f"| REU heap metadata | `{fmt_hex24(ctx['heap_meta_abs'])}-{fmt_hex24(ctx['heap_meta_abs'] + 0xFF)}` | `256` | ReadyShell REU heap header region. |",
-            f"| REU heap arena | `{fmt_hex24(ctx['heap_arena_abs'])}-{fmt_hex24(ctx['heap_arena_end_abs'])}` | `{ctx['heap_arena_size']}` | Persistent value payload arena for REU-backed strings/arrays/objects. |",
+            *reu_rows,
             "",
             "## Overlay Inventory",
             "",
@@ -488,7 +545,7 @@ def render_markdown(ctx: dict[str, object]) -> str:
             f"- Overlay 2 is effectively full: `{ctx['overlays'][1]['live_size']}` of `{ctx['window_size']}` bytes (`{fmt_pct(ctx['overlays'][1]['window_pct'])}`).",
             f"- Overlay 1 is also large at `{ctx['overlays'][0]['live_size']}` bytes (`{fmt_pct(ctx['overlays'][0]['window_pct'])}`).",
             f"- The resident heap below the overlay load address is only `{ctx['heap_size']}` bytes, so large transient work must lean on overlays and REU-backed storage.",
-            "- Command overlays 4-7 stay smaller on disk and in RAM, but they pay the disk-load cost per command because they are not REU-cached today.",
+            f"- Command overlays {fmt_overlay_nums(ctx['demand_overlays'])} stay smaller on disk and in RAM, but they pay the disk-load cost per command because they are not REU-cached today.",
             "- Overlay 2 carries the shared formatting buffers, so its footprint reflects both command support code and the text-rendering scratch it owns.",
         ]
     )
@@ -536,6 +593,22 @@ def render_html(ctx: dict[str, object]) -> str:
             "</ul>"
             "</section>"
         )
+
+    reu_items = []
+    for row in ctx["cached_overlays"]:
+        reu_start = int(row["reu_off"])
+        reu_end = reu_start + int(row["live_size"]) - 1
+        reu_items.append(
+            f"<li><strong>Overlay {row['num']} cache:</strong> <code>{fmt_hex24(reu_start)}-{fmt_hex24(reu_end)}</code> ({row['live_size']} bytes)</li>"
+        )
+    reu_items.extend(
+        [
+            f"<li><strong>Debug trace ring:</strong> <code>{fmt_hex24(ctx['dbg_head_off'])}-{fmt_hex24(ctx['dbg_end_off'])}</code> ({ctx['dbg_span_len']} bytes)</li>",
+            f"<li><strong>Command scratch:</strong> <code>{fmt_hex24(ctx['scratch_off'])}-{fmt_hex24(ctx['scratch_off'] + ctx['scratch_len'] - 1)}</code> ({ctx['scratch_len']} bytes)</li>",
+            f"<li><strong>Heap metadata:</strong> <code>{fmt_hex24(ctx['heap_meta_abs'])}-{fmt_hex24(ctx['heap_meta_abs'] + 0xFF)}</code></li>",
+            f"<li><strong>Heap arena:</strong> <code>{fmt_hex24(ctx['heap_arena_abs'])}-{fmt_hex24(ctx['heap_arena_end_abs'])}</code> ({ctx['heap_arena_size']} bytes)</li>",
+        ]
+    )
 
     return f"""<!doctype html>
 <html lang="en">
@@ -660,7 +733,7 @@ def render_html(ctx: dict[str, object]) -> str:
   <h1>ReadyShell Overlay Inventory Report ({html.escape(ctx['version'])})</h1>
   <p class="sub">
     Artifact-backed inventory for the current ReadyShell overlay system. This report is generated from the live build
-    outputs, the ReadyShell linker map, and the active dual-D71 disk image instead of hand-maintained notes.
+    outputs, the ReadyShell linker map, and the active {html.escape(ctx['disk_image_label'])} instead of hand-maintained notes.
   </p>
 </header>
 <main>
@@ -674,9 +747,9 @@ def render_html(ctx: dict[str, object]) -> str:
       <div class="card"><div class="k">Resident Heap</div><div class="v">{ctx['heap_size']} bytes</div></div>
     </div>
     <div class="note">
-      Overlays 1-3 are boot-loaded once and cached in REU banks <code>0x40</code>-<code>0x42</code>. Overlays 4-7 are
-      single-command overlays loaded from disk on demand. Bank <code>0x48</code> is shared for command handoff scratch
-      and the REU-backed ReadyShell value arena.
+      Overlays {html.escape(fmt_overlay_nums(ctx['cached_overlays']))} are boot-loaded once and cached in fixed REU banks.
+      Overlays {html.escape(fmt_overlay_nums(ctx['demand_overlays']))} are loaded from disk on demand. Bank
+      <code>0x48</code> is shared for command handoff scratch and the REU-backed ReadyShell value arena.
     </div>
   </section>
 
@@ -695,13 +768,7 @@ def render_html(ctx: dict[str, object]) -> str:
     <div>
       <h2>REU Layout</h2>
       <ul>
-        <li><strong>Overlay 1 cache:</strong> <code>$400000-$4032CC</code></li>
-        <li><strong>Overlay 2 cache:</strong> <code>$410000-$4137FD</code></li>
-        <li><strong>Overlay 3 cache:</strong> <code>$420000-$420CFB</code></li>
-        <li><strong>Debug trace ring:</strong> <code>$43F000-$43F20F</code></li>
-        <li><strong>Command scratch:</strong> <code>{fmt_hex24(ctx['scratch_off'])}-{fmt_hex24(ctx['scratch_off'] + ctx['scratch_len'] - 1)}</code> ({ctx['scratch_len']} bytes)</li>
-        <li><strong>Heap metadata:</strong> <code>{fmt_hex24(ctx['heap_meta_abs'])}-{fmt_hex24(ctx['heap_meta_abs'] + 0xFF)}</code></li>
-        <li><strong>Heap arena:</strong> <code>{fmt_hex24(ctx['heap_arena_abs'])}-{fmt_hex24(ctx['heap_arena_end_abs'])}</code> ({ctx['heap_arena_size']} bytes)</li>
+        {''.join(reu_items)}
       </ul>
     </div>
   </section>
@@ -756,7 +823,7 @@ def render_html(ctx: dict[str, object]) -> str:
       <li>Overlay 2 is effectively full at {ctx['overlays'][1]['live_size']} bytes of {ctx['window_size']} ({fmt_pct(ctx['overlays'][1]['window_pct'])}).</li>
       <li>Overlay 1 is also large at {ctx['overlays'][0]['live_size']} bytes ({fmt_pct(ctx['overlays'][0]['window_pct'])}).</li>
       <li>The resident heap below the overlay load address is only {ctx['heap_size']} bytes, so large working sets depend on overlays and REU-backed storage.</li>
-      <li>Command overlays 4-7 are smaller, but they pay a disk-load cost on every command invocation because they are not cached in fixed REU banks today.</li>
+      <li>Command overlays {html.escape(fmt_overlay_nums(ctx['demand_overlays']))} are smaller, but they pay a disk-load cost on every command invocation because they are not cached in fixed REU banks today.</li>
       <li>Overlay 2 owns the shared formatting buffers, which is why it consumes almost the entire overlay window.</li>
     </ul>
   </section>
@@ -770,7 +837,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--profile", default="precog-dual-d71")
-    parser.add_argument("--disk", type=Path, default=ROOT / "readyos.d71")
+    parser.add_argument("--disk", type=Path)
     parser.add_argument("--makefile", type=Path, default=ROOT / "Makefile")
     parser.add_argument("--map", type=Path, default=ROOT / "obj" / "readyshell.map")
     parser.add_argument("--readyshell-prg", type=Path, default=ROOT / "readyshell.prg")
@@ -807,7 +874,10 @@ def main() -> int:
     )
     args = parser.parse_args()
     args.root = args.root.resolve()
-    args.disk = (args.root / args.disk).resolve() if not args.disk.is_absolute() else args.disk.resolve()
+    if args.disk is None:
+        args.disk = resolve_default_disk_path(args.root, args.profile)
+    else:
+        args.disk = (args.root / args.disk).resolve() if not args.disk.is_absolute() else args.disk.resolve()
     args.makefile = (args.root / args.makefile).resolve() if not args.makefile.is_absolute() else args.makefile.resolve()
     args.map = (args.root / args.map).resolve() if not args.map.is_absolute() else args.map.resolve()
     args.readyshell_prg = (

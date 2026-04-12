@@ -6,9 +6,9 @@
 #include <string.h>
 
 #if defined(__CC65__)
-#pragma code-name(push, "OVERLAY7")
-#pragma rodata-name(push, "OVERLAY7")
-#pragma bss-name(push, "OVERLAY7")
+#pragma code-name(push, "OVERLAY6")
+#pragma rodata-name(push, "OVERLAY6")
+#pragma bss-name(push, "OVERLAY6")
 #endif
 
 #define STV_META_OFF   RS_CMD_SCRATCH_OFF

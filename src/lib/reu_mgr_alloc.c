@@ -8,12 +8,7 @@ static unsigned char reu_fixed_bank_type(unsigned char bank) {
     switch (bank) {
         case REU_BANK_RS_OVL1:  return REU_RS_OVL1;
         case REU_BANK_RS_OVL2:  return REU_RS_OVL2;
-        case REU_BANK_RS_OVL3:  return REU_RS_OVL3;
         case REU_BANK_RS_DEBUG: return REU_RS_DEBUG;
-        case REU_BANK_RS_OVL4:  return REU_RS_OVL4;
-        case REU_BANK_RS_OVL5:  return REU_RS_OVL5;
-        case REU_BANK_RS_OVL6:  return REU_RS_OVL6;
-        case REU_BANK_RS_OVL7:  return REU_RS_OVL7;
         case REU_BANK_RS_SCRATCH: return REU_RS_SCRATCH;
         default:                return 0xFF;
     }

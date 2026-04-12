@@ -14,12 +14,7 @@
 #define REU_RESERVED   4
 #define REU_RS_OVL1    5
 #define REU_RS_OVL2    6
-#define REU_RS_OVL3    7
 #define REU_RS_DEBUG   8
-#define REU_RS_OVL4    9
-#define REU_RS_OVL5    10
-#define REU_RS_OVL6    11
-#define REU_RS_OVL7    12
 #define REU_RS_SCRATCH 13
 
 /* Memory-mapped system area ($C600-$C7FF, persists across app switches) */
@@ -34,12 +29,7 @@
 /* ReadyShell fixed REU ownership (absolute offsets in 0x40xxxx-0x43xxxx range) */
 #define REU_BANK_RS_OVL1  0x40
 #define REU_BANK_RS_OVL2  0x41
-#define REU_BANK_RS_OVL3  0x42
 #define REU_BANK_RS_DEBUG 0x43
-#define REU_BANK_RS_OVL4  0x44
-#define REU_BANK_RS_OVL5  0x45
-#define REU_BANK_RS_OVL6  0x46
-#define REU_BANK_RS_OVL7  0x47
 #define REU_BANK_RS_SCRATCH 0x48
 
 /* Shim bitmap at $C836-$C838 (tracks which app banks are loaded) */
