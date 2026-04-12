@@ -55,6 +55,7 @@
 #define RS_KBD_CURRENT_KEY (*(volatile unsigned char*)0x00CB)
 #define RS_KBD_MODIFIERS (*(volatile unsigned char*)0x028D)
 #define RS_KBD_NO_KEY 0x40u
+#define RS_KBD_SPACE_KEY 0x3Cu
 
 /* PETSCII box chars (screen codes) */
 #define BOX_TL 0x70
@@ -302,7 +303,8 @@ static unsigned char shell_pause_key_down(void) {
 
 static void shell_pause_arm_poll(void) {
     unsigned char flags;
-    if (!shell_pause_key_down()) {
+    cbm_k_scnkey();
+    if (RS_KBD_CURRENT_KEY != RS_KBD_SPACE_KEY) {
         return;
     }
 

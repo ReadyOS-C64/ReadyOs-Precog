@@ -72,7 +72,7 @@ Pipeline typing on C64 keyboard:
 
 Streaming output pause:
 
-- While lines are printing, press any key to pause output
+- While lines are printing, press space to pause output
 - Footer changes to `PAUSED - PRESS ANY KEY`
 - Resume by releasing the current key and pressing any key again
 - This pauses ReadyShell before it continues feeding more pipeline output to the printer
@@ -376,7 +376,7 @@ Behavior:
 
 - First two auto-print outputs
 - Last one is explicitly printed by `PRT`, so no extra auto-print duplication
-- While auto-printed or `PRT` output is streaming, any key can pause the stream
+- While auto-printed or `PRT` output is streaming, space pauses the stream
 
 ### 7.6 `MORE` paging behavior
 
