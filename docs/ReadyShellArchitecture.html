@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ReadyShell Architecture</title>
+  <style>
+    :root {
+      --bg: #091017;
+      --panel: #10202c;
+      --panel-2: #132734;
+      --ink: #e6f1fb;
+      --muted: #9cb7ca;
+      --line: #33546c;
+      --accent: #7ad0c0;
+      --accent-2: #f2be6b;
+      --hot: #8bb8ff;
+      --mono: "Menlo", "Consolas", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(1000px 700px at 0% -10%, rgba(79, 143, 180, 0.22), transparent 55%),
+        radial-gradient(900px 700px at 100% 0%, rgba(122, 208, 192, 0.15), transparent 48%),
+        linear-gradient(180deg, #091017, #0c141b);
+    }
+    header {
+      padding: 28px 24px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(122,208,192,0.09), rgba(0,0,0,0));
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 4vw, 2.4rem);
+      letter-spacing: .02em;
+    }
+    .sub {
+      margin: 10px 0 0;
+      max-width: 100ch;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+    }
+    section {
+      background: rgba(16, 32, 44, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.18);
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.1rem;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    p, li {
+      line-height: 1.55;
+      color: var(--ink);
+    }
+    ul {
+      margin: 10px 0 0 18px;
+      padding: 0;
+    }
+    code, pre {
+      font-family: var(--mono);
+    }
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(7, 15, 22, .95);
+      color: #d8ebff;
+      line-height: 1.4;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: .96rem;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      font-size: .8rem;
+    }
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .note {
+      color: var(--muted);
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>ReadyShell Architecture</h1>
+  <p class="sub">
+    End-to-end architecture for the current ReadyShell implementation in ReadyOS. This document is implementation-accurate for the local build and complements the generated overlay inventory report.
+  </p>
+</header>
+<main>
+  <section>
+    <h2>System Shape</h2>
+    <p>ReadyShell is an overlayed C64 app with resident control code, a parse overlay, an execution-core overlay, and command overlays. The resident shell owns orchestration; parsing and most execution live in the shared overlay window.</p>
+    <pre>user types line
+    |
+    v
+resident shell loop
+    |
+    +--&gt; load parser overlay if needed
+    |       parse source -&gt; AST / runtime structures
+    |
+    +--&gt; restore exec overlay (rsvm)
+            execute stages
+              |
+              +--&gt; exec-core command
+              `--&gt; external command overlay call
+                        |
+                        +--&gt; load command overlay from disk
+                        +--&gt; run command
+                        `--&gt; restore rsvm from REU cache</pre>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>Runtime Memory Model</h2>
+      <table>
+        <thead>
+          <tr><th>Region</th><th>Range</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Resident app window</td><td><code>$1000-$C5FF</code></td><td>ReadyShell-owned app RAM</td></tr>
+          <tr><td>Overlay load bytes</td><td><code>$8DFE-$8DFF</code></td><td>Overlay PRG load-address bytes</td></tr>
+          <tr><td>Overlay execution window</td><td><code>$8E00-$C5FF</code></td><td>Shared live overlay window</td></tr>
+          <tr><td>Resident BSS</td><td><code>$877B-$8971</code></td><td>Resident writable state</td></tr>
+          <tr><td>Resident heap</td><td><code>$8972-$8DFD</code></td><td>cc65 heap below overlay load</td></tr>
+          <tr><td>High runtime area</td><td><code>$CA00-$CFFF</code></td><td>Resident runtime state outside app snapshot</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Resident growth reduces heap directly. Overlay growth does not reduce heap, but every overlay must still fit the <code>0x3800</code> window.</p>
+    </div>
+    <div>
+      <h2>Overlay Set</h2>
+      <table>
+        <thead>
+          <tr><th>Overlay</th><th>File</th><th>Role</th><th>Loading</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td><code>rsparser.prg</code></td><td>lexer, parser, parse support</td><td>boot-loaded, REU-cached</td></tr>
+          <tr><td>2</td><td><code>rsvm.prg</code></td><td>values, vars, pipes, formatting, shared execution</td><td>boot-loaded, REU-cached</td></tr>
+          <tr><td>3</td><td><code>rsdrvilst.prg</code></td><td><code>DRVI</code>, <code>LST</code></td><td>disk-loaded on demand</td></tr>
+          <tr><td>4</td><td><code>rsldv.prg</code></td><td><code>LDV</code></td><td>disk-loaded on demand</td></tr>
+          <tr><td>5</td><td><code>rsstv.prg</code></td><td><code>STV</code></td><td>disk-loaded on demand</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Command Families</h2>
+    <p>ReadyShell commands split into exec-core commands and external commands.</p>
+    <ul>
+      <li>Exec-core commands in <code>OVERLAY2</code>: <code>PRT</code>, <code>MORE</code>, <code>TOP</code>, <code>SEL</code>, <code>GEN</code>, <code>TAP</code></li>
+      <li>External commands in command overlays: <code>DRVI</code>, <code>LST</code>, <code>LDV</code>, <code>STV</code></li>
+    </ul>
+    <p>External commands are driven through one generic resident execution path plus the REU-backed command registry.</p>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>Pipeline And Parse Flow</h2>
+      <pre>source line
+   |
+   v
+OVERLAY1: lexer + parser
+   |
+   v
+resident regains control
+   |
+   v
+OVERLAY2: execute pipeline stage-by-stage
+   |
+   +--&gt; expr stage
+   +--&gt; filter stage
+   +--&gt; foreach stage
+   +--&gt; exec-core command
+   `--&gt; external command</pre>
+      <p>The shared external-command protocol vocabulary is <code>BEGIN</code>, <code>ITEM</code>, <code>RUN</code>, <code>PROCESS</code>, and <code>END</code>.</p>
+    </div>
+    <div>
+      <h2>External Command Registry</h2>
+      <table>
+        <thead>
+          <tr><th>Region</th><th>Range</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Registry header</td><td><code>$488010-$488017</code></td><td>magic, version, counts</td></tr>
+          <tr><td>Command descriptors</td><td><code>$488020-$48807F</code></td><td>external command metadata</td></tr>
+          <tr><td>Overlay state table</td><td><code>$488080-$4880C7</code></td><td>overlay load/cache state</td></tr>
+        </tbody>
+      </table>
+      <p class="note">The registry is stored in REU metadata rather than resident heap/BSS, so new external commands do not require resident per-command wrapper growth.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>External Command Call Flow</h2>
+    <pre>OVERLAY2 decides command is external
+    |
+    v
+resident vm_cmd_external()
+    |
+    v
+lookup descriptor in REU registry
+    |
+    v
+prepare external overlay from overlay-state record
+    |
+    v
+load overlay from disk into overlay window
+    |
+    v
+call one overlay dispatcher with handler id
+    |
+    v
+command overlay runs command body
+    |
+    v
+resident restores OVERLAY2 from REU</pre>
+    <p>Repeating <code>LST</code> repeats the disk load. The registry stores metadata about external overlays; it does not make them REU-cached automatically.</p>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>REU Usage</h2>
+      <pre>bank 0x40
+
++----------------------------------------+ $400000
+| OVERLAY1 parse slot                    |
+| full overlay-window image (0x3800)     |
++----------------------------------------+ $403800
+| OVERLAY2 exec slot                     |
+| full overlay-window image (0x3800)     |
++----------------------------------------+ $407000
+| free tail                              |
+| 0x9000 bytes                           |
++----------------------------------------+ $40FFFF</pre>
+      <p class="note">These are full-window snapshots, not just file payloads, so writable overlay data survives switching.</p>
+    </div>
+    <div>
+      <h2>Shared State Banks</h2>
+      <pre>bank 0x43
+  debug/probe ring and verification bytes
+
+bank 0x48
+  command scratch     $480000-$487FFF
+  command registry    $488010-$4880C7
+  shared metadata     $4880E0-$4880EB
+  pause flag          $4880F0
+  REU heap metadata   $488000-$4880FF
+  REU value arena     $488100-$48FEFF</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>Responsibilities</h2>
+    <ul>
+      <li>Resident code owns the shell loop, overlay boot/load/restore logic, generic external command dispatch, screen/platform glue, and REU coordination.</li>
+      <li>Overlay 1 owns lexing, parsing, parse support, and cleanup.</li>
+      <li>Overlay 2 owns runtime values, variables, formatting, pipes, command lookup, capability classification, and shared execution helpers.</li>
+      <li>Command overlays own command-specific disk logic, serialization logic, and overlay-local dispatchers.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Current Constraints</h2>
+    <ul>
+      <li>Resident heap below the overlay load address is only <code>1164</code> bytes.</li>
+      <li><code>OVERLAY2</code> is the tightest overlay and remains the next likely growth bottleneck.</li>
+      <li>External command overlays still disk-load on every call unless a later change adds REU caching for them.</li>
+      <li>The registry removes resident per-command glue, but command-name and capability growth in <code>OVERLAY2</code> still matters.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

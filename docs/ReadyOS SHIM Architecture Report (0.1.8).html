@@ -544,7 +544,9 @@ $C9F9: RTS</pre>
               <tr><td class="mono">0</td><td>launcher snapshot + launcher resume tail</td></tr>
               <tr><td class="mono">0-23</td><td>bitmap-tracked app-slot namespace</td></tr>
               <tr><td class="mono">24+</td><td>dynamic allocator pool</td></tr>
-              <tr><td class="mono">$40-$43</td><td>ReadyShell overlay/debug banks</td></tr>
+              <tr><td class="mono">$40</td><td>ReadyShell shared core-overlay cache bank for overlays 1-2</td></tr>
+              <tr><td class="mono">$43</td><td>ReadyShell REU debug ring</td></tr>
+              <tr><td class="mono">$48</td><td>ReadyShell scratch, registry, metadata, and value arena</td></tr>
             </tbody>
           </table>
           <h3>Bank 0 split</h3>
@@ -651,16 +653,16 @@ tail end              = $10000</pre>
           </p>
           <h3>Current app images (0.1.8 addendum)</h3>
           <table>
-            <thead><tr><th>App</th><th>Runtime end</th><th>BSS bytes</th><th>Headroom to $C600</th></tr></thead>
+            <thead><tr><th>App</th><th>Runtime end</th><th>BSS bytes</th><th>Headroom to $C5FF</th></tr></thead>
             <tbody>
-              <tr><td class="mono">dizzy</td><td class="mono">$BB38</td><td class="mono">6327</td><td class="mono">2759</td></tr>
-              <tr><td class="mono">tasklist</td><td class="mono">$AA80</td><td class="mono">8927</td><td class="mono">7039</td></tr>
-              <tr><td class="mono">calcplus</td><td class="mono">$A637</td><td class="mono">1321</td><td class="mono">8136</td></tr>
-              <tr><td class="mono">cal26</td><td class="mono">$A048</td><td class="mono">4803</td><td class="mono">9655</td></tr>
-              <tr><td class="mono">simplecells</td><td class="mono">$9F06</td><td class="mono">2142</td><td class="mono">9977</td></tr>
-              <tr><td class="mono">quicknotes</td><td class="mono">$9D07</td><td class="mono">6031</td><td class="mono">10488</td></tr>
-              <tr><td class="mono">simplefiles</td><td class="mono">$984D</td><td class="mono">4397</td><td class="mono">11698</td></tr>
-              <tr><td class="mono">launcher</td><td class="mono">$9BDE</td><td class="mono">4717</td><td class="mono">10785</td></tr>
+              <tr><td class="mono">dizzy</td><td class="mono">$BEAE</td><td class="mono">6327</td><td class="mono">1873</td></tr>
+              <tr><td class="mono">tasklist</td><td class="mono">$AD04</td><td class="mono">8927</td><td class="mono">6395</td></tr>
+              <tr><td class="mono">calcplus</td><td class="mono">$A98F</td><td class="mono">1321</td><td class="mono">7280</td></tr>
+              <tr><td class="mono">cal26</td><td class="mono">$A285</td><td class="mono">4803</td><td class="mono">9082</td></tr>
+              <tr><td class="mono">simplecells</td><td class="mono">$A143</td><td class="mono">2142</td><td class="mono">9404</td></tr>
+              <tr><td class="mono">quicknotes</td><td class="mono">$9F8B</td><td class="mono">6031</td><td class="mono">9844</td></tr>
+              <tr><td class="mono">simplefiles</td><td class="mono">$948C</td><td class="mono">4397</td><td class="mono">12659</td></tr>
+              <tr><td class="mono">launcher</td><td class="mono">$9F54</td><td class="mono">4717</td><td class="mono">9899</td></tr>
             </tbody>
           </table>
         </div>
@@ -669,10 +671,10 @@ tail end              = $10000</pre>
           <ul>
             <li><strong>Normal apps:</strong> <span class="mono">cfg/ready_app.cfg</span> puts <span class="mono">BSS</span> directly inside the <span class="mono">$1000-$C5FF</span> app window.</li>
             <li><strong>Overlay app:</strong> <span class="mono">readyshell</span> uses <span class="mono">cfg/ready_app_overlay.cfg</span>, not the normal app linker contract.</li>
-            <li><strong>Historical resident Readyshell image:</strong> the previous local snapshot ended at <span class="mono">$9B74</span>, with resident <span class="mono">BSS = 171</span> bytes and raw headroom <span class="mono">10891</span> bytes to <span class="mono">$C600</span>.</li>
-            <li><strong>Current resident ReadyShell image:</strong> the current <span class="mono">0.1.8</span> map has resident <span class="mono">BSS $9B02-$9BAC</span>, <span class="mono">BSS = 171</span> bytes, and raw resident headroom <span class="mono">10835</span> bytes to <span class="mono">$C600</span>.</li>
-            <li><strong>True current ReadyShell headroom:</strong> overlay payload fit is tighter than resident-to-<span class="mono">$C600</span>. Current overlay1 is <span class="mono">$A1C0-$C278</span> and leaves <span class="mono">$0387 / 903</span> bytes; overlay2 leaves <span class="mono">1655</span> bytes; overlay3 leaves <span class="mono">6934</span> bytes.</li>
-            <li><strong>Overlay guardrail:</strong> release overlay size remains <span class="mono">$2440</span> and debug overlay size remains <span class="mono">$2480</span>. The old explicit-C-stack-reserve wording is retained as historical shorthand, but current safety depends on ONCE/BSS ending below <span class="mono">__OVERLAY_LOADADDR__</span>, overlays loading at <span class="mono">$A1C0</span>, and ReadyShell stack relocation being handled separately.</li>
+            <li><strong>Historical resident ReadyShell image:</strong> the previous local snapshot ended at <span class="mono">$9B74</span>, with a much smaller resident image. Those values are retained only for historical comparison.</li>
+            <li><strong>Current resident ReadyShell image:</strong> the current <span class="mono">0.1.8</span> map has resident <span class="mono">BSS $877B-$8971</span> (<span class="mono">503</span> bytes), resident heap <span class="mono">$8972-$8DFD</span> (<span class="mono">1164</span> bytes), and overlay load-address bytes at <span class="mono">$8DFE-$8DFF</span>.</li>
+            <li><strong>True current ReadyShell headroom:</strong> overlay payload fit is tighter than the resident writable gap. Current overlay1 is <span class="mono">$8E00-$C0CC</span> and leaves <span class="mono">1331</span> bytes; overlay2 leaves <span class="mono">288</span> bytes; overlay3 leaves <span class="mono">6593</span> bytes; overlay4 leaves <span class="mono">3182</span> bytes; overlay5 leaves <span class="mono">5366</span> bytes.</li>
+            <li><strong>Overlay guardrail:</strong> release overlay size is <span class="mono">$3800</span> and debug overlay size is <span class="mono">$3B00</span>. The old explicit-C-stack-reserve wording is retained as historical shorthand, but current safety depends on ONCE/BSS ending below <span class="mono">__OVERLAY_LOADADDR__</span>, overlays loading at <span class="mono">$8E00</span>, and ReadyShell stack relocation being handled separately.</li>
           </ul>
         </div>
       </div>

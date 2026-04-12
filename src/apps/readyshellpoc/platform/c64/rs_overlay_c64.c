@@ -2,6 +2,7 @@
 #include "../rs_platform.h"
 #include "../rs_memcfg.h"
 #include "../../core/rs_cmd_overlay.h"
+#include "../../core/rs_cmd_registry.h"
 #include "../../core/rs_ui_state.h"
 
 #ifndef RS_C64_OVERLAY_RUNTIME
@@ -31,6 +32,7 @@
 #define RS_OVL_RC_REU_REQUIRED 0xE9u
 #define RS_OVL_RC_REU_CACHE    0xEAu
 #define RS_OVL_RC_REU_CMD      0xEBu
+#define RS_OVL_RC_REU_REG      0xECu
 
 static unsigned short g_overlay1_size = 0u;
 static unsigned short g_overlay2_size = 0u;
@@ -141,10 +143,9 @@ extern unsigned char _OVERLAY4_SIZE__[];
 extern unsigned char _OVERLAY5_LOAD__[];
 extern unsigned char _OVERLAY5_SIZE__[];
 
-extern int rs_vmovl_cmd_drvi(RSCommandFrame* frame);
-extern int rs_vmovl_cmd_lst(RSCommandFrame* frame);
-extern int rs_vmovl_cmd_ldv(RSCommandFrame* frame);
-extern int rs_vmovl_cmd_stv(RSCommandFrame* frame);
+extern int rs_vmovl_overlay3(unsigned char handler, RSCommandFrame* frame);
+extern int rs_vmovl_overlay4(unsigned char handler, RSCommandFrame* frame);
+extern int rs_vmovl_overlay5(unsigned char handler, RSCommandFrame* frame);
 
 static int rs_overlay_name_normalized(const char* path, char* out, unsigned short max) {
   unsigned short i;
@@ -335,6 +336,30 @@ static int rs_overlay_load2_disk(void) {
   return -1;
 }
 
+static int rs_overlay_phase_target(unsigned char phase,
+                                   unsigned char** load,
+                                   unsigned short* size) {
+  if (!load || !size) {
+    return -1;
+  }
+  if (phase == RS_OVERLAY_PHASE_CMD3) {
+    *load = _OVERLAY3_LOAD__;
+    *size = g_overlay3_size;
+    return 0;
+  }
+  if (phase == RS_OVERLAY_PHASE_CMD4) {
+    *load = _OVERLAY4_LOAD__;
+    *size = g_overlay4_size;
+    return 0;
+  }
+  if (phase == RS_OVERLAY_PHASE_CMD5) {
+    *load = _OVERLAY5_LOAD__;
+    *size = g_overlay5_size;
+    return 0;
+  }
+  return -1;
+}
+
 
 int rs_overlay_boot_with_progress(RSOverlayProgressFn progress, void* user) {
   unsigned overlay_size;
@@ -384,6 +409,10 @@ int rs_overlay_boot_with_progress(RSOverlayProgressFn progress, void* user) {
   rs_overlay_dbg_put(reu_ok ? 'Q' : 'q');
   if (!reu_ok) {
     g_overlay_last_rc = RS_OVL_RC_REU_REQUIRED;
+    return -1;
+  }
+  if (rs_cmd_registry_seed() != 0) {
+    g_overlay_last_rc = RS_OVL_RC_REU_REG;
     return -1;
   }
   rs_overlay_meta_clear();
@@ -507,11 +536,10 @@ int rs_overlay_prepare_exec(void) {
   return -1;
 }
 
-static int rs_overlay_prepare_command(RSCommandId id) {
+static int rs_overlay_prepare_command(const RSExternalCmdDescriptor* desc) {
+  RSExternalOverlayState state;
   unsigned char* load;
   unsigned short size;
-  unsigned char phase;
-  const char* name;
 
   rs_overlay_dbg_put('D');
   if (!g_overlay_loaded) {
@@ -527,35 +555,20 @@ static int rs_overlay_prepare_command(RSCommandId id) {
     return -1;
   }
 
-  if (id == RS_CMD_DRVI) {
-    name = "0:rsdrvilst,p";
-    load = _OVERLAY3_LOAD__;
-    size = g_overlay3_size;
-    phase = RS_OVERLAY_PHASE_CMD3;
-  } else if (id == RS_CMD_LST) {
-    name = "0:rsdrvilst,p";
-    load = _OVERLAY3_LOAD__;
-    size = g_overlay3_size;
-    phase = RS_OVERLAY_PHASE_CMD3;
-  } else if (id == RS_CMD_LDV) {
-    name = "0:rsldv,p";
-    load = _OVERLAY4_LOAD__;
-    size = g_overlay4_size;
-    phase = RS_OVERLAY_PHASE_CMD4;
-  } else if (id == RS_CMD_STV) {
-    name = "0:rsstv,p";
-    load = _OVERLAY5_LOAD__;
-    size = g_overlay5_size;
-    phase = RS_OVERLAY_PHASE_CMD5;
-  } else {
+  if (!desc ||
+      rs_cmd_registry_read_overlay_state(desc->overlay_index, &state) != 0 ||
+      rs_overlay_phase_target(state.overlay_phase, &load, &size) != 0) {
     g_overlay_last_rc = RS_OVL_RC_REU_CMD;
     rs_overlay_dbg_put('!');
     return -1;
   }
 
   cbm_k_clall();
-  if (rs_overlay_try_load(name, load, size, RS_OVERLAY_UNIT) == 0) {
-    rs_overlay_set_phase(phase);
+  if (rs_overlay_try_load(state.disk_name, load, size, RS_OVERLAY_UNIT) == 0) {
+    rs_overlay_set_phase(state.overlay_phase);
+    (void)rs_cmd_registry_update_overlay_state(desc->overlay_index,
+                                               RS_CMD_OVL_STATE_SESSION_LOADED,
+                                               0u);
     rs_overlay_dbg_put('d');
     return 0;
   }
@@ -564,23 +577,23 @@ static int rs_overlay_prepare_command(RSCommandId id) {
 }
 
 int rs_overlay_command_call(RSCommandId id, unsigned char op, RSCommandFrame* frame) {
+  RSExternalCmdDescriptor desc;
   int rc;
   if (!frame) {
     return -1;
   }
   frame->id = id;
   frame->op = op;
-  if (rs_overlay_prepare_command(id) != 0) {
+  if (rs_cmd_registry_lookup_external(id, &desc) != 0 ||
+      rs_overlay_prepare_command(&desc) != 0) {
     return -1;
   }
-  if (id == RS_CMD_DRVI) {
-    rc = rs_vmovl_cmd_drvi(frame);
-  } else if (id == RS_CMD_LST) {
-    rc = rs_vmovl_cmd_lst(frame);
-  } else if (id == RS_CMD_LDV) {
-    rc = rs_vmovl_cmd_ldv(frame);
-  } else if (id == RS_CMD_STV) {
-    rc = rs_vmovl_cmd_stv(frame);
+  if (desc.overlay_index == 0u) {
+    rc = rs_vmovl_overlay3(desc.handler, frame);
+  } else if (desc.overlay_index == 1u) {
+    rc = rs_vmovl_overlay4(desc.handler, frame);
+  } else if (desc.overlay_index == 2u) {
+    rc = rs_vmovl_overlay5(desc.handler, frame);
   } else {
     rc = -1;
   }

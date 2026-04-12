@@ -1,6 +1,7 @@
 #include "rs_vm.h"
 
 #include "rs_cmd.h"
+#include "rs_cmd_registry.h"
 #include "rs_cmd_overlay.h"
 #include "rs_ui_state.h"
 #include "rs_format.h"
@@ -999,116 +1000,54 @@ static void vm_cmd_frame_init(RSCommandFrame* frame,
   frame->err = err;
 }
 
-static int vm_cmd_drvi(RSVM* vm,
-                       const RSPipeline* pipeline,
-                       unsigned short stage_index,
-                       RSValue* args,
-                       unsigned short arg_count,
-                       RSOutCollect* collect,
-                       RSError* err) {
-  RSValue result;
-  RSValue normalized;
-  RSCommandFrame frame;
-  int rc;
-  (void)vm;
-  rs_value_init_false(&result);
-  rs_value_init_false(&normalized);
-  vm_cmd_frame_init(&frame, args, arg_count, 0, 0, &result, err);
-  rc = rs_overlay_command_call(RS_CMD_DRVI, RS_CMD_OVL_OP_RUN, &frame);
-  if (rc != 0) {
-    rs_value_free(&result);
-    vm_err(err, rc == -2 ? "DRVI arg" : "DRVI fail");
-    return -1;
-  }
-  if (rs_value_clone(&normalized, &result) != 0) {
-    rs_value_free(&result);
-    rs_value_free(&normalized);
-    vm_err(err, "DRVI normalize fail");
-    return -1;
-  }
-  rs_value_free(&result);
-  rc = vm_exec_pipeline_from(vm,
-                             pipeline,
-                             (unsigned short)(stage_index + 1u),
-                             &normalized,
-                             1,
-                             collect,
-                             err);
-  rs_value_free(&normalized);
-  return rc;
-}
-
-static int vm_cmd_lst(RSVM* vm,
-                      const RSPipeline* pipeline,
-                      unsigned short stage_index,
-                      RSValue* args,
-                      unsigned short arg_count,
-                      RSOutCollect* collect,
-                      RSError* err) {
-  RSCommandFrame frame;
-  RSValue item;
-  unsigned short i;
-  int rc;
-  rs_value_init_false(&item);
-  vm_cmd_frame_init(&frame, args, arg_count, 0, 0, &item, err);
-  rc = rs_overlay_command_call(RS_CMD_LST, RS_CMD_OVL_OP_BEGIN, &frame);
-  if (rc != 0) {
-    vm_err(err, rc == -2 ? "LST arg" : "LST fail");
-    return -1;
-  }
-  for (i = 0u; i < frame.count; ++i) {
-    frame.index = i;
-    rs_value_free(&item);
-    rs_value_init_false(&item);
-    rc = rs_overlay_command_call(RS_CMD_LST, RS_CMD_OVL_OP_ITEM, &frame);
-    if (rc != 0) {
-      rs_value_free(&item);
-      vm_err(err, "LST fail");
-      return -1;
-    }
-    if (vm_exec_pipeline_from(vm,
-                              pipeline,
-                              (unsigned short)(stage_index + 1u),
-                              &item,
-                              1,
-                              collect,
-                              err) != 0) {
-      rs_value_free(&item);
-      return -1;
-    }
-  }
-  rs_value_free(&item);
-  return 0;
-}
-
-static int vm_cmd_ldv(RSVM* vm,
-                      const RSPipeline* pipeline,
-                      unsigned short stage_index,
-                      RSValue* args,
-                      unsigned short arg_count,
-                      RSOutCollect* collect,
-                      RSError* err) {
+static int vm_cmd_external(RSVM* vm,
+                           RSCommandId id,
+                           const RSPipeline* pipeline,
+                           unsigned short stage_index,
+                           const RSValue* current,
+                           int has_current,
+                           RSValue* args,
+                           unsigned short arg_count,
+                           RSOutCollect* collect,
+                           RSError* err) {
   RSValue result;
   RSCommandFrame frame;
+  unsigned char op_caps;
+  unsigned char use_items;
   unsigned short i;
   int rc;
+
+  op_caps = rs_cmd_external_caps(id);
+  if (op_caps == 0u) {
+    vm_err(err, "command protocol");
+    return -1;
+  }
+
+  use_items = 0u;
+  if ((op_caps & RS_CMD_REG_CAP_BEGIN) != 0u &&
+      (op_caps & RS_CMD_REG_CAP_ITEM) != 0u &&
+      (((op_caps & RS_CMD_REG_CAP_RUN) == 0u) || stage_index + 1u < pipeline->count)) {
+    use_items = 1u;
+  }
+
   rs_value_init_false(&result);
-  vm_cmd_frame_init(&frame, args, arg_count, 0, 0, &result, err);
-  if (stage_index + 1u < pipeline->count) {
-    rc = rs_overlay_command_call(RS_CMD_LDV, RS_CMD_OVL_OP_BEGIN, &frame);
+  vm_cmd_frame_init(&frame, args, arg_count, current, has_current, &result, err);
+
+  if (use_items) {
+    rc = rs_overlay_command_call(id, RS_CMD_OVL_OP_BEGIN, &frame);
     if (rc != 0) {
       rs_value_free(&result);
-      vm_err(err, rc == -2 ? "LDV path" : "LDV parse");
+      vm_err(err, rc == -2 ? "command args" : "command fail");
       return -1;
     }
     for (i = 0u; i < frame.count; ++i) {
       frame.index = i;
       rs_value_free(&result);
       rs_value_init_false(&result);
-      rc = rs_overlay_command_call(RS_CMD_LDV, RS_CMD_OVL_OP_ITEM, &frame);
+      rc = rs_overlay_command_call(id, RS_CMD_OVL_OP_ITEM, &frame);
       if (rc != 0) {
         rs_value_free(&result);
-        vm_err(err, "LDV parse");
+        vm_err(err, "command fail");
         return -1;
       }
       if (vm_exec_pipeline_from(vm,
@@ -1125,10 +1064,17 @@ static int vm_cmd_ldv(RSVM* vm,
     rs_value_free(&result);
     return 0;
   }
-  rc = rs_overlay_command_call(RS_CMD_LDV, RS_CMD_OVL_OP_RUN, &frame);
+
+  if ((op_caps & RS_CMD_REG_CAP_RUN) == 0u) {
+    rs_value_free(&result);
+    vm_err(err, "command protocol");
+    return -1;
+  }
+
+  rc = rs_overlay_command_call(id, RS_CMD_OVL_OP_RUN, &frame);
   if (rc != 0) {
     rs_value_free(&result);
-    vm_err(err, rc == -2 ? "LDV path" : "LDV parse");
+    vm_err(err, rc == -2 ? "command args" : "command fail");
     return -1;
   }
   rc = vm_emit_result(vm,
@@ -1137,38 +1083,6 @@ static int vm_cmd_ldv(RSVM* vm,
                       &result,
                       collect,
                       err);
-  rs_value_free(&result);
-  return rc;
-}
-
-static int vm_cmd_stv(RSVM* vm,
-                      const RSPipeline* pipeline,
-                      unsigned short stage_index,
-                      const RSValue* current,
-                      int has_current,
-                      RSValue* args,
-                      unsigned short arg_count,
-                      RSOutCollect* collect,
-                      RSError* err) {
-  RSValue result;
-  RSCommandFrame frame;
-  int rc;
-
-  rs_value_init_false(&result);
-  vm_cmd_frame_init(&frame, args, arg_count, current, has_current, &result, err);
-  rc = rs_overlay_command_call(RS_CMD_STV, RS_CMD_OVL_OP_RUN, &frame);
-  if (rc != 0) {
-    rs_value_free(&result);
-    vm_err(err, rc == -2 ? "STV args" : "STV ser");
-    return -1;
-  }
-  rc = vm_exec_pipeline_from(vm,
-                             pipeline,
-                             (unsigned short)(stage_index + 1u),
-                             &result,
-                             1,
-                             collect,
-                             err);
   rs_value_free(&result);
   return rc;
 }
@@ -1212,14 +1126,17 @@ static int vm_exec_command_stage(RSVM* vm,
     rc = vm_cmd_top(vm, pipeline, stage_index, current, has_current, args, arg_count, collect, err);
   } else if (id == RS_CMD_SEL) {
     rc = vm_cmd_sel(vm, pipeline, stage_index, current, has_current, args, arg_count, collect, err);
-  } else if (id == RS_CMD_DRVI) {
-    rc = vm_cmd_drvi(vm, pipeline, stage_index, args, arg_count, collect, err);
-  } else if (id == RS_CMD_LST) {
-    rc = vm_cmd_lst(vm, pipeline, stage_index, args, arg_count, collect, err);
-  } else if (id == RS_CMD_LDV) {
-    rc = vm_cmd_ldv(vm, pipeline, stage_index, args, arg_count, collect, err);
-  } else if (id == RS_CMD_STV) {
-    rc = vm_cmd_stv(vm, pipeline, stage_index, current, has_current, args, arg_count, collect, err);
+  } else if (rs_cmd_is_external(id)) {
+    rc = vm_cmd_external(vm,
+                         id,
+                         pipeline,
+                         stage_index,
+                         current,
+                         has_current,
+                         args,
+                         arg_count,
+                         collect,
+                         err);
   } else {
     rc = -1;
     vm_err(err, "command not implemented");

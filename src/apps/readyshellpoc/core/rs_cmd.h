@@ -18,5 +18,7 @@ typedef enum {
 } RSCommandId;
 
 RSCommandId rs_cmd_id(const char* name);
+int rs_cmd_is_external(RSCommandId id);
+unsigned char rs_cmd_external_caps(RSCommandId id);
 
 #endif

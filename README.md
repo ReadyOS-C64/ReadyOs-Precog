@@ -187,6 +187,8 @@ How it works:
 Notes:
 
 - ReadyShell guide: [src/apps/readyshellpoc/README.md](src/apps/readyshellpoc/README.md)
+- ReadyShell architecture: [docs/ReadyShellArchitecture.md](docs/ReadyShellArchitecture.md)
+- ReadyShell overlay inventory: [docs/readyshell_overlay_inventory.md](docs/readyshell_overlay_inventory.md)
 - `cal26` currently has a known regression: task reading is broken.
 - `showcfg.prg` is a BASIC inspector for the generated `apps.cfg` payload on
   drive `8`.
@@ -214,7 +216,9 @@ REU layout:
 - bank `1`: shared clipboard
 - banks `2-25`: app slots (`24` total)
 - higher banks: dynamic allocation pool
-- banks `$40-$43`: fixed ReadyShell overlay/debug banks
+- bank `$40`: shared ReadyShell core-overlay cache bank
+- bank `$43`: ReadyShell debug/probe ring
+- bank `$48`: ReadyShell scratch, metadata, command registry, and REU value arena
 
 Disk layout:
 
@@ -316,11 +320,14 @@ Public supporting docs in `docs/` currently include:
 - `docs/clipboard_bundle_seq_format.md`
 - `docs/quicknotes_seq_format.md`
 - `docs/simplecells_seq_format.md`
+- [docs/readyshell_overlay_inventory.md](docs/readyshell_overlay_inventory.md)
+- [docs/ReadyShellArchitecture.md](docs/ReadyShellArchitecture.md)
 
 Rendered documentation exports in `docs/` currently include:
 
-- [ReadyOS SHIM Architecture Report (HTML)](docs/ReadyOS%20SHIM%20Architecture%20Report%20%280.1.8%20%3A%20local%200.1.8G%29.html)
-- [ReadyOS SHIM Architecture Report (PDF)](docs/ReadyOS%20SHIM%20Architecture%20Report%20%280.1.8%20%3A%20local%200.1.8G%29.pdf)
+- [ReadyOS SHIM Architecture Report (HTML)](docs/ReadyOS%20SHIM%20Architecture%20Report%20%280.1.8%29.html)
+- [ReadyShell Overlay Inventory (HTML)](docs/readyshell_overlay_inventory.html)
+- [ReadyShell Architecture (HTML)](docs/ReadyShellArchitecture.html)
 
 ## Repository Layout
 

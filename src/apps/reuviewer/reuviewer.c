@@ -29,8 +29,7 @@
 #define CHAR_CLIP   0x03  /* 'C' screen code */
 #define CHAR_ALLOC  0x15  /* 'U' screen code (user/alloc) */
 #define CHAR_RSVD   0x12  /* 'R' screen code (reserved app slot) */
-#define CHAR_RS1    49    /* '1' screen code */
-#define CHAR_RS2    50    /* '2' screen code */
+#define CHAR_RSC    0x13  /* 'S' screen code */
 #define CHAR_RSD    0x04  /* 'D' screen code */
 
 #define SHIM_CURRENT_BANK ((unsigned char*)0xC834)
@@ -97,8 +96,7 @@ static void draw_summary(void) {
     unsigned char clip_count;
     unsigned char alloc_count;
     unsigned char rsv_count;
-    unsigned char rs1_count;
-    unsigned char rs2_count;
+    unsigned char rsc_count;
     unsigned char rsd_count;
     unsigned char rs_count;
 
@@ -107,10 +105,9 @@ static void draw_summary(void) {
     clip_count = reu_count_type(REU_CLIPBOARD);
     alloc_count = reu_count_type(REU_APP_ALLOC);
     rsv_count = reu_count_type(REU_RESERVED);
-    rs1_count = reu_count_type(REU_RS_OVL1);
-    rs2_count = reu_count_type(REU_RS_OVL2);
+    rsc_count = reu_count_type(REU_RS_CACHE);
     rsd_count = reu_count_type(REU_RS_DEBUG);
-    rs_count = (unsigned char)(rs1_count + rs2_count + rsd_count);
+    rs_count = (unsigned char)(rsc_count + rsd_count);
 
     tui_puts(1, TITLE_Y + 1, "256 BANKS", TUI_COLOR_WHITE);
 
@@ -132,12 +129,10 @@ static void draw_summary(void) {
     tui_clear_line(TITLE_Y + 2, 0, 40, TUI_COLOR_WHITE);
     tui_puts(1, TITLE_Y + 2, "RS:", TUI_COLOR_GRAY2);
     tui_print_uint(4, TITLE_Y + 2, rs_count, TUI_COLOR_WHITE);
-    tui_puts(8, TITLE_Y + 2, "1:", TUI_COLOR_LIGHTBLUE);
-    tui_print_uint(10, TITLE_Y + 2, rs1_count, TUI_COLOR_LIGHTBLUE);
-    tui_puts(14, TITLE_Y + 2, "2:", TUI_COLOR_GREEN);
-    tui_print_uint(16, TITLE_Y + 2, rs2_count, TUI_COLOR_GREEN);
-    tui_puts(22, TITLE_Y + 2, "D:", TUI_COLOR_ORANGE);
-    tui_print_uint(24, TITLE_Y + 2, rsd_count, TUI_COLOR_ORANGE);
+    tui_puts(8, TITLE_Y + 2, "S:", TUI_COLOR_LIGHTBLUE);
+    tui_print_uint(10, TITLE_Y + 2, rsc_count, TUI_COLOR_LIGHTBLUE);
+    tui_puts(16, TITLE_Y + 2, "D:", TUI_COLOR_ORANGE);
+    tui_print_uint(18, TITLE_Y + 2, rsd_count, TUI_COLOR_ORANGE);
 }
 
 static void draw_legend(void) {
@@ -153,12 +148,10 @@ static void draw_legend(void) {
     tui_puts(13, 3, "U", TUI_COLOR_GRAY3);
     tui_putc(16, 3, CHAR_RSVD, TUI_COLOR_LIGHTRED);
     tui_puts(17, 3, "R", TUI_COLOR_GRAY3);
-    tui_putc(20, 3, CHAR_RS1, TUI_COLOR_LIGHTBLUE);
-    tui_puts(21, 3, "1", TUI_COLOR_GRAY3);
-    tui_putc(24, 3, CHAR_RS2, TUI_COLOR_GREEN);
-    tui_puts(25, 3, "2", TUI_COLOR_GRAY3);
-    tui_putc(28, 3, CHAR_RSD, TUI_COLOR_ORANGE);
-    tui_puts(29, 3, "D", TUI_COLOR_GRAY3);
+    tui_putc(20, 3, CHAR_RSC, TUI_COLOR_LIGHTBLUE);
+    tui_puts(21, 3, "S", TUI_COLOR_GRAY3);
+    tui_putc(24, 3, CHAR_RSD, TUI_COLOR_ORANGE);
+    tui_puts(25, 3, "D", TUI_COLOR_GRAY3);
     tui_puts(36, 3, "RS", TUI_COLOR_GRAY3);
 }
 
@@ -209,13 +202,9 @@ static void draw_grid(void) {
                     ch = CHAR_RSVD;
                     color = TUI_COLOR_LIGHTRED;
                     break;
-                case REU_RS_OVL1:
-                    ch = CHAR_RS1;
+                case REU_RS_CACHE:
+                    ch = CHAR_RSC;
                     color = TUI_COLOR_LIGHTBLUE;
-                    break;
-                case REU_RS_OVL2:
-                    ch = CHAR_RS2;
-                    color = TUI_COLOR_GREEN;
                     break;
                 case REU_RS_DEBUG:
                     ch = CHAR_RSD;
@@ -263,8 +252,7 @@ static void draw_detail(void) {
         case REU_CLIPBOARD: type_str = "CLIPBOARD"; break;
         case REU_APP_ALLOC: type_str = "APP ALLOC"; break;
         case REU_RESERVED:  type_str = "APP SLOT RSV"; break;
-        case REU_RS_OVL1:   type_str = "RS OVL1 CACHE"; break;
-        case REU_RS_OVL2:   type_str = "RS OVL2 CACHE"; break;
+        case REU_RS_CACHE:  type_str = "RS CACHE"; break;
         case REU_RS_DEBUG:  type_str = "RS DEBUG/PROBE"; break;
         default:            type_str = "UNKNOWN"; break;
     }
@@ -277,7 +265,7 @@ static void draw_detail(void) {
 
 static void draw_help(void) {
     tui_puts(0, HELP_Y, "CURSORS:NAVIGATE  READ-ONLY VIEW", TUI_COLOR_GRAY3);
-    tui_puts(0, HELP_Y + 1, "1/2/D:RS  F2/F4:APPS  CTRL+B", TUI_COLOR_GRAY3);
+    tui_puts(0, HELP_Y + 1, "S/D:RS  F2/F4:APPS  CTRL+B", TUI_COLOR_GRAY3);
 }
 
 static void draw_status(void) {

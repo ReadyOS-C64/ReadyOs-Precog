@@ -1,4 +1,5 @@
 #include "rs_cmd.h"
+#include "rs_cmd_registry.h"
 
 /* Overlay2-resident scratch buffers used by C64 VM command execution paths. */
 char rs_vm_fmt_buf[128];
@@ -36,4 +37,30 @@ RSCommandId rs_cmd_id(const char* name) {
     return RS_CMD_TAP;
   }
   return RS_CMD_UNKNOWN;
+}
+
+int rs_cmd_is_external(RSCommandId id) {
+  return id == RS_CMD_LDV ||
+         id == RS_CMD_STV ||
+         id == RS_CMD_LST ||
+         id == RS_CMD_DRVI;
+}
+
+unsigned char rs_cmd_external_caps(RSCommandId id) {
+  if (id == RS_CMD_DRVI) {
+    return RS_CMD_REG_CAP_RUN;
+  }
+  if (id == RS_CMD_LST) {
+    return (unsigned char)(RS_CMD_REG_CAP_BEGIN | RS_CMD_REG_CAP_ITEM);
+  }
+  if (id == RS_CMD_LDV) {
+    return (unsigned char)(RS_CMD_REG_CAP_BEGIN | RS_CMD_REG_CAP_ITEM | RS_CMD_REG_CAP_RUN);
+  }
+  if (id == RS_CMD_STV) {
+    return (unsigned char)(RS_CMD_REG_CAP_BEGIN |
+                           RS_CMD_REG_CAP_PROCESS |
+                           RS_CMD_REG_CAP_END |
+                           RS_CMD_REG_CAP_RUN);
+  }
+  return 0u;
 }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ReadyShell Overlay Inventory Report (v0.1.8C)</title>
+  <title>ReadyShell Overlay Inventory Report (v0.1.8M)</title>
   <style>
     :root {
       --bg: #091017;
@@ -232,7 +232,7 @@
 </head>
 <body>
 <header>
-  <h1>ReadyShell Overlay Inventory Report (v0.1.8C)</h1>
+  <h1>ReadyShell Overlay Inventory Report (v0.1.8M)</h1>
   <p class="sub">
     Artifact-backed inventory for the current ReadyShell overlay system. This report is generated from the live build
     outputs, the ReadyShell linker map, and the active D71 disk image instead of hand-maintained notes.
@@ -243,16 +243,16 @@
     <h2>Executive Summary</h2>
     <div class="cards">
       <div class="card"><div class="k">Profile</div><div class="v"><code>precog-dual-d71</code></div></div>
-      <div class="card"><div class="k">Disk Source</div><div class="v"><code>releases/0.1.8/precog-dual-d71/readyos-v0.1.8c-dual-d71_1.d71</code></div></div>
+      <div class="card"><div class="k">Disk Source</div><div class="v"><code>releases/0.1.8/precog-dual-d71/readyos-v0.1.8m-dual-d71_1.d71</code></div></div>
       <div class="card"><div class="k">Overlay Window</div><div class="v"><code>$8E00-$C5FF</code></div></div>
       <div class="card"><div class="k">Window Size</div><div class="v">14336 bytes</div></div>
-      <div class="card"><div class="k">Resident Heap</div><div class="v">1474 bytes</div></div>
+      <div class="card"><div class="k">Resident Heap</div><div class="v">1164 bytes</div></div>
     </div>
-    <div class="note">
+      <div class="note">
       Overlays 1-2 are boot-loaded once and cached in one shared REU bank using
       two full-window slots.
       Overlays 3-5 are loaded from disk on demand. Bank
-      <code>0x48</code> is shared for overlay metadata, pause state, command handoff scratch,
+      <code>0x48</code> is shared for the external-command registry, overlay metadata, pause state, command handoff scratch,
       and the REU-backed ReadyShell value arena.
     </div>
   </section>
@@ -264,15 +264,15 @@
         <li><strong>Resident app window:</strong> <code>$1000-$C5FF</code> (46592 bytes)</li>
         <li><strong>Overlay load bytes:</strong> <code>$8DFE-$8DFF</code></li>
         <li><strong>Overlay execution window:</strong> <code>$8E00-$C5FF</code> (14336 bytes)</li>
-        <li><strong>Resident BSS:</strong> <code>$8644-$883A</code> (503 bytes)</li>
-        <li><strong>Resident heap:</strong> <code>$883C-$8DFD</code> (1474 bytes)</li>
+        <li><strong>Resident BSS:</strong> <code>$877B-$8971</code> (503 bytes)</li>
+        <li><strong>Resident heap:</strong> <code>$8972-$8DFD</code> (1164 bytes)</li>
         <li><strong>High RAM runtime:</strong> <code>$CA00-$CFFF</code> (1536 bytes)</li>
       </ul>
     </div>
     <div>
       <h2>REU Layout</h2>
       <ul>
-        <li><strong>Shared cache bank:</strong> <code>$400000-$40FFFF</code> (65536 bytes)</li><li><strong>Overlay 1 parse slot:</strong> <code>$400000-$4037FF</code> (14336 bytes)</li><li><strong>Overlay 2 exec slot:</strong> <code>$403800-$406FFF</code> (14336 bytes)</li><li><strong>Shared bank free tail:</strong> <code>$407000-$40FFFF</code> (36864 bytes)</li><li><strong>Debug trace ring:</strong> <code>$43F000-$43F20F</code> (528 bytes)</li><li><strong>Command scratch:</strong> <code>$480000-$487FFF</code> (32768 bytes)</li><li><strong>Shared metadata:</strong> <code>$4880E0-$4880EB</code> (12 bytes)</li><li><strong>Pause flag:</strong> <code>$4880F0</code> (1 byte)</li><li><strong>Heap metadata:</strong> <code>$488000-$4880FF</code></li><li><strong>Heap arena:</strong> <code>$488100-$48FEFF</code> (32256 bytes)</li>
+        <li><strong>Shared cache bank:</strong> <code>$400000-$40FFFF</code> (65536 bytes)</li><li><strong>Overlay 1 parse slot:</strong> <code>$400000-$4037FF</code> (14336 bytes)</li><li><strong>Overlay 2 exec slot:</strong> <code>$403800-$406FFF</code> (14336 bytes)</li><li><strong>Shared bank free tail:</strong> <code>$407000-$40FFFF</code> (36864 bytes)</li><li><strong>Debug trace ring:</strong> <code>$43F000-$43F20F</code> (528 bytes)</li><li><strong>Command scratch:</strong> <code>$480000-$487FFF</code> (32768 bytes)</li><li><strong>Command registry header:</strong> <code>$488010-$488017</code> (8 bytes)</li><li><strong>Command descriptor table:</strong> <code>$488020-$48807F</code> (96 bytes)</li><li><strong>Overlay state table:</strong> <code>$488080-$4880C7</code> (72 bytes)</li><li><strong>Shared metadata:</strong> <code>$4880E0-$4880EB</code> (12 bytes)</li><li><strong>Pause flag:</strong> <code>$4880F0</code> (1 byte)</li><li><strong>Heap metadata:</strong> <code>$488000-$4880FF</code></li><li><strong>Heap arena:</strong> <code>$488100-$48FEFF</code> (32256 bytes)</li>
       </ul>
     </div>
   </section>
@@ -284,13 +284,14 @@
         <div class="bank-title">Bank <code>0x40</code>: Core Overlay Cache</div>
         <div class="stack">
           <div class="slot parse"><strong>Overlay 1 parse slot</strong> <code>$400000-$4037FF</code><small>Full <code>0x3800</code>-byte window image for <code>rsparser.prg</code>. Live payload is <code>13005</code> bytes, but the cache stores the whole overlay window so writable overlay data survives phase switching.</small></div>
-          <div class="slot exec"><strong>Overlay 2 exec slot</strong> <code>$403800-$406FFF</code><small>Full <code>0x3800</code>-byte window image for <code>rsvm.prg</code>. Live payload is <code>13897</code> bytes.</small></div>
+          <div class="slot exec"><strong>Overlay 2 exec slot</strong> <code>$403800-$406FFF</code><small>Full <code>0x3800</code>-byte window image for <code>rsvm.prg</code>. Live payload is <code>14048</code> bytes.</small></div>
           <div class="slot free"><strong>Free tail</strong> <code>$407000-$40FFFF</code><small><code>36864</code> bytes currently left free because overlays 1 and 2 now share one bank instead of consuming separate banks.</small></div>
         </div>
       </div>
       <div class="bank">
         <div class="bank-title">Bank <code>0x48</code>: Shared Shell State</div>
         <div class="stack">
+          <div class="slot meta"><strong>Command registry</strong> <code>$488010-$4880C7</code><small>Registry header, external-command descriptors, and per-overlay load/cache state stored in REU metadata so new external commands do not consume resident BSS.</small></div>
           <div class="slot meta"><strong>Shared metadata + pause</strong> <code>$4880E0-$4880F0</code><small>Overlay cache metadata record plus the shared pause bit used by the resident line printer and <code>MORE</code>.</small></div>
           <div class="slot heap"><strong>Command scratch + value arena</strong> <code>$480000-$48FEFF</code><small>Command handoff scratch, REU heap metadata, and the persistent value arena for REU-backed strings, arrays, and objects.</small></div>
         </div>
@@ -317,7 +318,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td>1</td><td>Parser / Lexer</td><td><code>rsparser.prg</code></td><td><code>rsparser</code></td><td class='num'>13007</td><td class='num'>52</td><td class='num'>13005</td><td class='num'>90.7%</td><td>None directly; parse phase support.</td><td>bank <code>0x40</code> slot <code>$400000-$4037FF</code></td></tr><tr><td>2</td><td>Execution Core</td><td><code>rsvm.prg</code></td><td><code>rsvm</code></td><td class='num'>13899</td><td class='num'>55</td><td class='num'>13897</td><td class='num'>96.9%</td><td>PRT, MORE, TOP, SEL, GEN, TAP and the shared execution paths that command overlays return to.</td><td>bank <code>0x40</code> slot <code>$403800-$406FFF</code></td></tr><tr><td>3</td><td>Drive Info + Directory Listing</td><td><code>rsdrvilst.prg</code></td><td><code>rsdrvilst</code></td><td class='num'>7704</td><td class='num'>31</td><td class='num'>7702</td><td class='num'>53.7%</td><td>DRVI, LST</td><td>disk only</td></tr><tr><td>4</td><td>Load Value</td><td><code>rsldv.prg</code></td><td><code>rsldv</code></td><td class='num'>11148</td><td class='num'>44</td><td class='num'>11146</td><td class='num'>77.7%</td><td>LDV</td><td>disk only</td></tr><tr><td>5</td><td>Store Value</td><td><code>rsstv.prg</code></td><td><code>rsstv</code></td><td class='num'>8964</td><td class='num'>36</td><td class='num'>8962</td><td class='num'>62.5%</td><td>STV</td><td>disk only</td></tr>
+          <tr><td>1</td><td>Parser / Lexer</td><td><code>rsparser.prg</code></td><td><code>rsparser</code></td><td class='num'>13007</td><td class='num'>52</td><td class='num'>13005</td><td class='num'>90.7%</td><td>None directly; parse phase support.</td><td>bank <code>0x40</code> slot <code>$400000-$4037FF</code></td></tr><tr><td>2</td><td>Execution Core</td><td><code>rsvm.prg</code></td><td><code>rsvm</code></td><td class='num'>14050</td><td class='num'>56</td><td class='num'>14048</td><td class='num'>98.0%</td><td>PRT, MORE, TOP, SEL, GEN, TAP and the shared execution paths that command overlays return to.</td><td>bank <code>0x40</code> slot <code>$403800-$406FFF</code></td></tr><tr><td>3</td><td>Drive Info + Directory Listing</td><td><code>rsdrvilst.prg</code></td><td><code>rsdrvilst</code></td><td class='num'>7745</td><td class='num'>31</td><td class='num'>7743</td><td class='num'>54.0%</td><td>DRVI, LST</td><td>disk only</td></tr><tr><td>4</td><td>Load Value</td><td><code>rsldv.prg</code></td><td><code>rsldv</code></td><td class='num'>11156</td><td class='num'>44</td><td class='num'>11154</td><td class='num'>77.8%</td><td>LDV</td><td>disk only</td></tr><tr><td>5</td><td>Store Value</td><td><code>rsstv.prg</code></td><td><code>rsstv</code></td><td class='num'>8972</td><td class='num'>36</td><td class='num'>8970</td><td class='num'>62.6%</td><td>STV</td><td>disk only</td></tr>
         </tbody>
       </table>
     </div>
@@ -338,27 +339,27 @@
     <ul>
       <li><strong>Build PRG:</strong> <code>readyshell.prg</code></li>
       <li><strong>Disk name:</strong> <code>readyshell</code></li>
-      <li><strong>Disk footprint:</strong> 30278 bytes, 120 D71 blocks</li>
-      <li><strong>Resident sources:</strong> <code>readyshellpoc.c, rs_token.c, rs_bc.c, rs_errors.c, rs_vm_c64.c, rs_overlay_c64.c, rs_platform_c64.c, rs_screen_c64.c, tui_nav.c, reu_mgr_dma.c, resume_state_ctx.c, resume_state_core.c</code></li>
+      <li><strong>Disk footprint:</strong> 30589 bytes, 121 D71 blocks</li>
+      <li><strong>Resident sources:</strong> <code>readyshellpoc.c, rs_token.c, rs_bc.c, rs_errors.c, rs_cmd_registry.c, rs_vm_c64.c, rs_overlay_c64.c, rs_platform_c64.c, rs_screen_c64.c, tui_nav.c, reu_mgr_dma.c, resume_state_ctx.c, resume_state_core.c</code></li>
       <li><strong>Resident asm/runtime:</strong> <code>rs_runtime_c64.s</code></li>
       <li><strong>Role:</strong> Resident app shell loop plus vm/overlay runtime. Command tokens resolved here, then dispatched to overlay 2 or command overlays.</li>
-      <li><strong>Current resident segments:</strong> <code>CODE $7162</code>, <code>RODATA $040A</code>, <code>DATA $0051</code>, <code>INIT $001C</code>, <code>ONCE $0038</code>, <code>BSS $01F7</code></li>
+      <li><strong>Current resident segments:</strong> <code>CODE $7296</code>, <code>RODATA $040D</code>, <code>DATA $0051</code>, <code>INIT $001C</code>, <code>ONCE $0038</code>, <code>BSS $01F7</code></li>
     </ul>
   </section>
 
   <section>
     <h2>Per-Overlay Detail</h2>
     <div class="detail-grid">
-      <section class='card'><h3>Overlay 1: Parser / Lexer</h3><p>Lexer, parser, AST construction, and parse cleanup.</p><ul><li><strong>Build PRG:</strong> <code>rsparser.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsparser.prg</code></li><li><strong>Disk filename:</strong> <code>rsparser</code></li><li><strong>Source files:</strong> <code>rs_lexer.c, rs_parse.c, rs_parse_support.c, rs_parse_free.c</code></li><li><strong>Commands:</strong> None directly; parse phase support.</li><li><strong>Live window range:</strong> <code>$8E00-$C0CC</code> (13005 bytes)</li><li><strong>Window share:</strong> 90.7% used, 1331 bytes free</li><li><strong>Disk footprint:</strong> 13007 bytes, 52 D71 blocks</li><li><strong>REU policy:</strong> Boot-loaded from disk, then cached in the shared core-overlay REU bank.</li><li><strong>RAM notes:</strong> Lives entirely inside the shared overlay window while active.</li></ul></section><section class='card'><h3>Overlay 2: Execution Core</h3><p>Values, variables, formatting, pipes, and shared execution helpers.</p><ul><li><strong>Build PRG:</strong> <code>rsvm.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsvm.prg</code></li><li><strong>Disk filename:</strong> <code>rsvm</code></li><li><strong>Source files:</strong> <code>rs_vars.c, rs_value.c, rs_format.c, rs_cmd.c, rs_pipe.c</code></li><li><strong>Commands:</strong> PRT, MORE, TOP, SEL, GEN, TAP and the shared execution paths that command overlays return to.</li><li><strong>Live window range:</strong> <code>$8E00-$C448</code> (13897 bytes)</li><li><strong>Window share:</strong> 96.9% used, 439 bytes free</li><li><strong>Disk footprint:</strong> 13899 bytes, 55 D71 blocks</li><li><strong>REU policy:</strong> Boot-loaded from disk, then cached in the shared core-overlay REU bank.</li><li><strong>RAM notes:</strong> Includes rs_vm_fmt_buf[128] and rs_vm_line_buf[384] inside the overlay image.</li></ul></section><section class='card'><h3>Overlay 3: Drive Info + Directory Listing</h3><p>Shared command overlay for DRVI and LST.</p><ul><li><strong>Build PRG:</strong> <code>rsdrvilst.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsdrvilst.prg</code></li><li><strong>Disk filename:</strong> <code>rsdrvilst</code></li><li><strong>Source files:</strong> <code>rs_cmd_lst_c64.c, rs_cmd_drvi_c64.c</code></li><li><strong>Commands:</strong> DRVI, LST</li><li><strong>Live window range:</strong> <code>$8E00-$AC15</code> (7702 bytes)</li><li><strong>Window share:</strong> 53.7% used, 6634 bytes free</li><li><strong>Disk footprint:</strong> 7704 bytes, 31 D71 blocks</li><li><strong>REU policy:</strong> Loaded from disk on demand for each command call. No dedicated REU cache.</li><li><strong>RAM notes:</strong> Shares the inter-command REU handoff area at 0x480000-0x487FFF.</li></ul></section><section class='card'><h3>Overlay 4: Load Value</h3><p>Single-command overlay for LDV.</p><ul><li><strong>Build PRG:</strong> <code>rsldv.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsldv.prg</code></li><li><strong>Disk filename:</strong> <code>rsldv</code></li><li><strong>Source files:</strong> <code>rs_cmd_ldv_c64.c</code></li><li><strong>Commands:</strong> LDV</li><li><strong>Live window range:</strong> <code>$8E00-$B989</code> (11146 bytes)</li><li><strong>Window share:</strong> 77.7% used, 3190 bytes free</li><li><strong>Disk footprint:</strong> 11148 bytes, 44 D71 blocks</li><li><strong>REU policy:</strong> Loaded from disk on demand for each command call. No dedicated REU cache.</li><li><strong>RAM notes:</strong> Uses the shared handoff region plus the REU-backed value arena in bank 0x48 when hydrating pointer-backed values.</li></ul></section><section class='card'><h3>Overlay 5: Store Value</h3><p>Single-command overlay for STV.</p><ul><li><strong>Build PRG:</strong> <code>rsstv.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsstv.prg</code></li><li><strong>Disk filename:</strong> <code>rsstv</code></li><li><strong>Source files:</strong> <code>rs_cmd_stv_c64.c</code></li><li><strong>Commands:</strong> STV</li><li><strong>Live window range:</strong> <code>$8E00-$B101</code> (8962 bytes)</li><li><strong>Window share:</strong> 62.5% used, 5374 bytes free</li><li><strong>Disk footprint:</strong> 8964 bytes, 36 D71 blocks</li><li><strong>REU policy:</strong> Loaded from disk on demand for each command call. No dedicated REU cache.</li><li><strong>RAM notes:</strong> Uses the shared handoff region plus the REU-backed value arena in bank 0x48 when serializing pointer-backed values.</li></ul></section>
+      <section class='card'><h3>Overlay 1: Parser / Lexer</h3><p>Lexer, parser, AST construction, and parse cleanup.</p><ul><li><strong>Build PRG:</strong> <code>rsparser.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsparser.prg</code></li><li><strong>Disk filename:</strong> <code>rsparser</code></li><li><strong>Source files:</strong> <code>rs_lexer.c, rs_parse.c, rs_parse_support.c, rs_parse_free.c</code></li><li><strong>Commands:</strong> None directly; parse phase support.</li><li><strong>Live window range:</strong> <code>$8E00-$C0CC</code> (13005 bytes)</li><li><strong>Window share:</strong> 90.7% used, 1331 bytes free</li><li><strong>Disk footprint:</strong> 13007 bytes, 52 D71 blocks</li><li><strong>REU policy:</strong> Boot-loaded from disk, then cached in the shared core-overlay REU bank.</li><li><strong>RAM notes:</strong> Lives entirely inside the shared overlay window while active.</li></ul></section><section class='card'><h3>Overlay 2: Execution Core</h3><p>Values, variables, formatting, pipes, and shared execution helpers.</p><ul><li><strong>Build PRG:</strong> <code>rsvm.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsvm.prg</code></li><li><strong>Disk filename:</strong> <code>rsvm</code></li><li><strong>Source files:</strong> <code>rs_vars.c, rs_value.c, rs_format.c, rs_cmd.c, rs_pipe.c</code></li><li><strong>Commands:</strong> PRT, MORE, TOP, SEL, GEN, TAP and the shared execution paths that command overlays return to.</li><li><strong>Live window range:</strong> <code>$8E00-$C4DF</code> (14048 bytes)</li><li><strong>Window share:</strong> 98.0% used, 288 bytes free</li><li><strong>Disk footprint:</strong> 14050 bytes, 56 D71 blocks</li><li><strong>REU policy:</strong> Boot-loaded from disk, then cached in the shared core-overlay REU bank.</li><li><strong>RAM notes:</strong> Includes rs_vm_fmt_buf[128] and rs_vm_line_buf[384] inside the overlay image.</li></ul></section><section class='card'><h3>Overlay 3: Drive Info + Directory Listing</h3><p>Shared command overlay for DRVI and LST.</p><ul><li><strong>Build PRG:</strong> <code>rsdrvilst.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsdrvilst.prg</code></li><li><strong>Disk filename:</strong> <code>rsdrvilst</code></li><li><strong>Source files:</strong> <code>rs_cmd_lst_c64.c, rs_cmd_drvi_c64.c</code></li><li><strong>Commands:</strong> DRVI, LST</li><li><strong>Live window range:</strong> <code>$8E00-$AC3E</code> (7743 bytes)</li><li><strong>Window share:</strong> 54.0% used, 6593 bytes free</li><li><strong>Disk footprint:</strong> 7745 bytes, 31 D71 blocks</li><li><strong>REU policy:</strong> Loaded from disk on demand for each command call. No dedicated REU cache.</li><li><strong>RAM notes:</strong> Shares the inter-command REU handoff area at 0x480000-0x487FFF.</li></ul></section><section class='card'><h3>Overlay 4: Load Value</h3><p>Single-command overlay for LDV.</p><ul><li><strong>Build PRG:</strong> <code>rsldv.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsldv.prg</code></li><li><strong>Disk filename:</strong> <code>rsldv</code></li><li><strong>Source files:</strong> <code>rs_cmd_ldv_c64.c</code></li><li><strong>Commands:</strong> LDV</li><li><strong>Live window range:</strong> <code>$8E00-$B991</code> (11154 bytes)</li><li><strong>Window share:</strong> 77.8% used, 3182 bytes free</li><li><strong>Disk footprint:</strong> 11156 bytes, 44 D71 blocks</li><li><strong>REU policy:</strong> Loaded from disk on demand for each command call. No dedicated REU cache.</li><li><strong>RAM notes:</strong> Uses the shared handoff region plus the REU-backed value arena in bank 0x48 when hydrating pointer-backed values.</li></ul></section><section class='card'><h3>Overlay 5: Store Value</h3><p>Single-command overlay for STV.</p><ul><li><strong>Build PRG:</strong> <code>rsstv.prg</code></li><li><strong>Disk staging PRG:</strong> <code>obj/rsstv.prg</code></li><li><strong>Disk filename:</strong> <code>rsstv</code></li><li><strong>Source files:</strong> <code>rs_cmd_stv_c64.c</code></li><li><strong>Commands:</strong> STV</li><li><strong>Live window range:</strong> <code>$8E00-$B109</code> (8970 bytes)</li><li><strong>Window share:</strong> 62.6% used, 5366 bytes free</li><li><strong>Disk footprint:</strong> 8972 bytes, 36 D71 blocks</li><li><strong>REU policy:</strong> Loaded from disk on demand for each command call. No dedicated REU cache.</li><li><strong>RAM notes:</strong> Uses the shared handoff region plus the REU-backed value arena in bank 0x48 when serializing pointer-backed values.</li></ul></section>
     </div>
   </section>
 
   <section>
     <h2>Observations</h2>
     <ul>
-      <li>Overlay 2 is effectively full at 13897 bytes of 14336 (96.9%).</li>
+      <li>Overlay 2 is effectively full at 14048 bytes of 14336 (98.0%).</li>
       <li>Overlay 1 is also large at 13005 bytes (90.7%).</li>
-      <li>The resident heap below the overlay load address is only 1474 bytes, so large working sets depend on overlays and REU-backed storage.</li>
+      <li>The resident heap below the overlay load address is only 1164 bytes, so large working sets depend on overlays and REU-backed storage.</li>
       <li>Overlays 1-2 now share bank <code>0x40</code> and leave a free tail of 36864 bytes in that bank instead of consuming separate banks.</li>
       <li>Command overlays 3-5 are smaller, but they pay a disk-load cost on every command invocation because they are not cached in fixed REU banks today.</li>
       <li>Overlay 2 owns the shared formatting buffers, which is why it consumes almost the entire overlay window.</li>

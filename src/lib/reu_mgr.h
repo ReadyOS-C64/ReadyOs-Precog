@@ -12,8 +12,7 @@
 #define REU_CLIPBOARD  2
 #define REU_APP_ALLOC  3
 #define REU_RESERVED   4
-#define REU_RS_OVL1    5
-#define REU_RS_OVL2    6
+#define REU_RS_CACHE   5
 #define REU_RS_DEBUG   8
 #define REU_RS_SCRATCH 13
 
@@ -27,8 +26,7 @@
 #define REU_FIRST_DYNAMIC 24
 
 /* ReadyShell fixed REU ownership (absolute offsets in 0x40xxxx-0x43xxxx range) */
-#define REU_BANK_RS_OVL1  0x40
-#define REU_BANK_RS_OVL2  0x41
+#define REU_BANK_RS_CACHE 0x40
 #define REU_BANK_RS_DEBUG 0x43
 #define REU_BANK_RS_SCRATCH 0x48
 

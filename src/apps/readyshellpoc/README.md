@@ -5,6 +5,8 @@ This document describes the **current ReadyShell app in ReadyOS**, with examples
 It is intentionally implementation-accurate for this build, not a forward-looking spec.
 
 For a broader recipe-style walkthrough, see [ReadyShelltutorial.md](./ReadyShelltutorial.md).
+For the implementation architecture, see [../../docs/ReadyShellArchitecture.md](../../docs/ReadyShellArchitecture.md).
+For the generated overlay/runtime inventory, see [../../docs/readyshell_overlay_inventory.md](../../docs/readyshell_overlay_inventory.md).
 
 ## 1. Scope: What Is Implemented
 
@@ -84,8 +86,8 @@ Current release build memory layout:
 - Resident app window: `$1000-$C5FF` (`46592` bytes)
 - Overlay load-address bytes: `$8DFE-$8DFF`
 - Overlay execution window: `$8E00-$C5FF` (`14336` bytes)
-- Resident BSS: `$8673-$8869` (`503` bytes)
-- Resident heap: `$886A-$8DFD` (`1428` bytes)
+- Resident BSS: `$877B-$8971` (`503` bytes)
+- Resident heap: `$8972-$8DFD` (`1164` bytes)
 - High RAM runtime outside the app snapshot: `$CA00-$CFFF`
 
 Overlay policy:
@@ -93,8 +95,8 @@ Overlay policy:
 - Overlays `1` and `2` are still separate files on disk
 - They now share one REU cache bank, `0x40`
 - Each shared cache slot stores the full overlay window size, not just file bytes
-- Overlays `3-6` remain disk-loaded command overlays
-- Shared REU metadata, pause state, command scratch, and the value arena live in bank `0x48`
+- Overlays `3-5` remain disk-loaded command overlays
+- Shared REU metadata, command registry, pause state, command scratch, and the value arena live in bank `0x48`
 
 Shared REU cache layout:
 
@@ -114,7 +116,7 @@ bank 0x40
 Current overlay set:
 
 - `OVERLAY1` `rsparser.prg`: parser / lexer, `13005` live bytes, cached in bank `0x40` parse slot
-- `OVERLAY2` `rsvm.prg`: execution core for `PRT`, `MORE`, `TOP`, `SEL`, `GEN`, `TAP`, `13897` live bytes, cached in bank `0x40` exec slot
+- `OVERLAY2` `rsvm.prg`: execution core for `PRT`, `MORE`, `TOP`, `SEL`, `GEN`, `TAP`, `14048` live bytes, cached in bank `0x40` exec slot
 - `OVERLAY3` `rsdrvilst.prg`: `DRVI` + `LST`, disk-loaded
 - `OVERLAY4` `rsldv.prg`: `LDV`, disk-loaded
 - `OVERLAY5` `rsstv.prg`: `STV`, disk-loaded
@@ -186,7 +188,7 @@ PRT $C
 
 C64 build variable slot limit:
 
-- Up to **16 named variables** (`$NAME`)
+- Up to **24 named variables** (`$NAME`)
 
 When assignment RHS is a pipeline:
 

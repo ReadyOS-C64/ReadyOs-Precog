@@ -1,4 +1,5 @@
 #include "rs_cmd_overlay.h"
+#include "rs_cmd_registry.h"
 
 #include "rs_cmd_ser_local.h"
 
@@ -264,8 +265,8 @@ static int stv_run_direct(RSCommandFrame* frame) {
   return 0;
 }
 
-int rs_vmovl_cmd_stv(RSCommandFrame* frame) {
-  if (!frame) {
+int rs_vmovl_overlay5(unsigned char handler, RSCommandFrame* frame) {
+  if (!frame || handler != RS_CMD_HANDLER_OVL5_STV) {
     return -1;
   }
   if (frame->op == RS_CMD_OVL_OP_BEGIN) {

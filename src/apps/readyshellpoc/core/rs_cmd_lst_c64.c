@@ -199,7 +199,7 @@ static int lst_item(RSCommandFrame* frame) {
   return 0;
 }
 
-int rs_vmovl_cmd_lst(RSCommandFrame* frame) {
+int rs_vmovl_overlay3_lst(RSCommandFrame* frame) {
   if (!frame) {
     return -1;
   }

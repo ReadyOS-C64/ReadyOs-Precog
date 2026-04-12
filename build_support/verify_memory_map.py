@@ -382,13 +382,11 @@ def main():
     try:
         reu_total = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_TOTAL_BANKS")
         reu_first = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_FIRST_DYNAMIC")
-        reu_rs_ovl1 = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_BANK_RS_OVL1")
-        reu_rs_ovl2 = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_BANK_RS_OVL2")
+        reu_rs_cache = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_BANK_RS_CACHE")
         reu_rs_debug = parse_define(ROOT / "src" / "lib" / "reu_mgr.h", "REU_BANK_RS_DEBUG")
         ok &= check("REU total banks", reu_total == int(spec["reu_contract"]["total_banks"]), str(reu_total))
         ok &= check("REU first dynamic", reu_first == int(spec["reu_contract"]["first_dynamic"]), str(reu_first))
-        ok &= check("REU bank RS ovl1", reu_rs_ovl1 == int(spec["reu_contract"]["bank_rs_ovl1"]), str(reu_rs_ovl1))
-        ok &= check("REU bank RS ovl2", reu_rs_ovl2 == int(spec["reu_contract"]["bank_rs_ovl2"]), str(reu_rs_ovl2))
+        ok &= check("REU bank RS cache", reu_rs_cache == int(spec["reu_contract"]["bank_rs_cache"]), str(reu_rs_cache))
         ok &= check("REU bank RS debug", reu_rs_debug == int(spec["reu_contract"]["bank_rs_debug"]), str(reu_rs_debug))
     except ValueError as ex:
         ok &= check("reu_mgr.h constants", False, str(ex))

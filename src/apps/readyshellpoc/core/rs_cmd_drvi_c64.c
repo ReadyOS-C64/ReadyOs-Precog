@@ -1,4 +1,5 @@
 #include "rs_cmd_overlay.h"
+#include "rs_cmd_registry.h"
 
 #include "rs_cmd_dir_local.h"
 #include "rs_cmd_value_local.h"
@@ -126,7 +127,9 @@ static int drvi_make_object(unsigned char drive, RSValue* out) {
   return 0;
 }
 
-int rs_vmovl_cmd_drvi(RSCommandFrame* frame) {
+extern int rs_vmovl_overlay3_lst(RSCommandFrame* frame);
+
+static int drvi_run(RSCommandFrame* frame) {
   unsigned short drive16;
   unsigned char drive;
 
@@ -144,6 +147,16 @@ int rs_vmovl_cmd_drvi(RSCommandFrame* frame) {
 
   frame->drive = drive;
   return drvi_make_object(drive, frame->out);
+}
+
+int rs_vmovl_overlay3(unsigned char handler, RSCommandFrame* frame) {
+  if (handler == RS_CMD_HANDLER_OVL3_DRVI) {
+    return drvi_run(frame);
+  }
+  if (handler == RS_CMD_HANDLER_OVL3_LST) {
+    return rs_vmovl_overlay3_lst(frame);
+  }
+  return -1;
 }
 
 #if defined(__CC65__)

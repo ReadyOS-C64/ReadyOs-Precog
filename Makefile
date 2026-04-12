@@ -183,6 +183,7 @@ READYSHELL_RESIDENT_SRCS = \
 	$(READYSHELL_CORE_DIR)/rs_token.c \
 	$(READYSHELL_CORE_DIR)/rs_bc.c \
 	$(READYSHELL_CORE_DIR)/rs_errors.c \
+	$(READYSHELL_CORE_DIR)/rs_cmd_registry.c \
 	$(READYSHELL_CORE_DIR)/rs_vm_c64.c \
 	$(READYSHELL_PLATFORM_C64_DIR)/rs_overlay_c64.c \
 	$(READYSHELL_PLATFORM_C64_DIR)/rs_platform_c64.c \
@@ -566,6 +567,7 @@ readyshell-vm-smoke-host:
 		$(BUILD_SUPPORT_DIR)/readyshell_vm_smoke.c \
 		$(BUILD_SUPPORT_DIR)/readyshell_overlay_host_stub.c \
 		$(READYSHELL_CORE_DIR)/rs_vm_c64.c \
+		$(READYSHELL_CORE_DIR)/rs_cmd_registry.c \
 		$(READYSHELL_CORE_DIR)/rs_parse.c \
 		$(READYSHELL_CORE_DIR)/rs_parse_support.c \
 		$(READYSHELL_CORE_DIR)/rs_parse_free.c \

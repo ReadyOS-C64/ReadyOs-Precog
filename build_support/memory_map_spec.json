@@ -13,8 +13,9 @@
       "debug": "0x3B00"
     },
     "reu_offsets": {
+      "shared_cache_bank": "0x400000",
       "overlay1": "0x400000",
-      "overlay2": "0x410000",
+      "overlay2": "0x403800",
       "debug_head": "0x43F000",
       "debug_data": "0x43F010"
     }
@@ -31,8 +32,7 @@
     "bank_clipboard": 1,
     "bank_app_base": 2,
     "bank_app_count": 24,
-    "bank_rs_ovl1": 64,
-    "bank_rs_ovl2": 65,
+    "bank_rs_cache": 64,
     "bank_rs_debug": 67
   },
   "map_files": [

@@ -391,6 +391,14 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
     dbg_data_off = parse_define(overlay_c, "RS_REU_DBG_DATA_OFF")
     dbg_data_len = parse_define(overlay_c, "RS_REU_DBG_DATA_LEN")
     shared_meta_off = parse_define(ui_state_h, "RS_REU_SHARED_META_OFF")
+    cmd_reg_hdr_off = parse_define(ui_state_h, "RS_REU_CMD_REG_HDR_OFF")
+    cmd_reg_hdr_len = parse_define(ui_state_h, "RS_REU_CMD_REG_HDR_LEN")
+    cmd_reg_desc_off = parse_define(ui_state_h, "RS_REU_CMD_REG_DESC_OFF")
+    cmd_reg_desc_len = parse_define(ui_state_h, "RS_REU_CMD_REG_DESC_LEN")
+    cmd_reg_desc_cap = parse_define(ui_state_h, "RS_REU_CMD_REG_DESC_CAP")
+    cmd_reg_state_off = parse_define(ui_state_h, "RS_REU_CMD_REG_STATE_OFF")
+    cmd_reg_state_len = parse_define(ui_state_h, "RS_REU_CMD_REG_STATE_LEN")
+    cmd_reg_state_cap = parse_define(ui_state_h, "RS_REU_CMD_REG_STATE_CAP")
     ovl_meta_off = shared_meta_off
     ovl_meta_len = parse_define(ui_state_h, "RS_REU_OVL_CACHE_META_LEN")
     ovl_cache_bank = parse_define(ui_state_h, "RS_REU_OVL_CACHE_BANK")
@@ -487,6 +495,14 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
         "dbg_span_len": dbg_data_off + dbg_data_len - dbg_head_off,
         "heap_bank_base": heap_bank_base,
         "shared_meta_off": shared_meta_off,
+        "cmd_reg_hdr_off": cmd_reg_hdr_off,
+        "cmd_reg_hdr_len": cmd_reg_hdr_len,
+        "cmd_reg_desc_off": cmd_reg_desc_off,
+        "cmd_reg_desc_len": cmd_reg_desc_len,
+        "cmd_reg_desc_cap": cmd_reg_desc_cap,
+        "cmd_reg_state_off": cmd_reg_state_off,
+        "cmd_reg_state_len": cmd_reg_state_len,
+        "cmd_reg_state_cap": cmd_reg_state_cap,
         "ovl_meta_off": ovl_meta_off,
         "ovl_meta_len": ovl_meta_len,
         "ovl_cache_bank": ovl_cache_bank,
@@ -561,6 +577,9 @@ def render_markdown(ctx: dict[str, object]) -> str:
             f"| Shared bank free tail | `{fmt_hex24(ctx['cache_tail_start'])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}` | `{ctx['cache_tail_size']}` | Currently unused tail after the two core overlay slots. |",
             f"| Debug trace ring | `{fmt_hex24(ctx['dbg_head_off'])}-{fmt_hex24(ctx['dbg_end_off'])}` | `{ctx['dbg_span_len']}` | Overlay debug markers and verification state. |",
             f"| Command scratch | `{fmt_hex24(ctx['scratch_off'])}-{fmt_hex24(ctx['scratch_off'] + ctx['scratch_len'] - 1)}` | `{ctx['scratch_len']}` | Inter-overlay handoff area for command frames and streaming state. |",
+            f"| Command registry header | `{fmt_hex24(ctx['cmd_reg_hdr_off'])}-{fmt_hex24(ctx['cmd_reg_hdr_off'] + ctx['cmd_reg_hdr_len'] - 1)}` | `{ctx['cmd_reg_hdr_len']}` | REU-backed external-command registry header. |",
+            f"| Command descriptor table | `{fmt_hex24(ctx['cmd_reg_desc_off'])}-{fmt_hex24(ctx['cmd_reg_desc_off'] + (ctx['cmd_reg_desc_len'] * ctx['cmd_reg_desc_cap']) - 1)}` | `{ctx['cmd_reg_desc_len'] * ctx['cmd_reg_desc_cap']}` | Fixed-capacity external-command descriptor table in REU metadata. |",
+            f"| Overlay state table | `{fmt_hex24(ctx['cmd_reg_state_off'])}-{fmt_hex24(ctx['cmd_reg_state_off'] + (ctx['cmd_reg_state_len'] * ctx['cmd_reg_state_cap']) - 1)}` | `{ctx['cmd_reg_state_len'] * ctx['cmd_reg_state_cap']}` | Fixed-capacity overlay load/cache state table for external command overlays. |",
             f"| Shared ReadyShell metadata | `{fmt_hex24(ctx['ovl_meta_off'])}-{fmt_hex24(ctx['ovl_meta_off'] + ctx['ovl_meta_len'] - 1)}` | `{ctx['ovl_meta_len']}` | Shared core-overlay cache metadata record. |",
             f"| Pause flag | `{fmt_hex24(ctx['ui_flags_off'])}` | `1` | Shared output-pause bit used by resident output and `MORE`. |",
             f"| REU heap metadata | `{fmt_hex24(ctx['heap_meta_abs'])}-{fmt_hex24(ctx['heap_meta_abs'] + 0xFF)}` | `256` | ReadyShell REU heap header region, including shared metadata bytes. |",
@@ -584,7 +603,7 @@ def render_markdown(ctx: dict[str, object]) -> str:
             "- REU policy split:",
             f"  - overlays {fmt_overlay_nums(ctx['cached_overlays'])} are boot-loaded from disk and cached into one shared REU bank using fixed full-window slots",
             f"  - overlays {fmt_overlay_nums(ctx['demand_overlays'])} are loaded from disk on demand for each command call",
-            "  - bank 0x48 is shared for overlay metadata, pause state, command handoff scratch, and the REU-backed ReadyShell value arena",
+            "  - bank 0x48 is shared for the external-command registry, overlay metadata, pause state, command handoff scratch, and the REU-backed ReadyShell value arena",
             "",
             "## Runtime Memory Map",
             "",
@@ -722,6 +741,9 @@ def render_html(ctx: dict[str, object]) -> str:
         [
             f"<li><strong>Debug trace ring:</strong> <code>{fmt_hex24(ctx['dbg_head_off'])}-{fmt_hex24(ctx['dbg_end_off'])}</code> ({ctx['dbg_span_len']} bytes)</li>",
             f"<li><strong>Command scratch:</strong> <code>{fmt_hex24(ctx['scratch_off'])}-{fmt_hex24(ctx['scratch_off'] + ctx['scratch_len'] - 1)}</code> ({ctx['scratch_len']} bytes)</li>",
+            f"<li><strong>Command registry header:</strong> <code>{fmt_hex24(ctx['cmd_reg_hdr_off'])}-{fmt_hex24(ctx['cmd_reg_hdr_off'] + ctx['cmd_reg_hdr_len'] - 1)}</code> ({ctx['cmd_reg_hdr_len']} bytes)</li>",
+            f"<li><strong>Command descriptor table:</strong> <code>{fmt_hex24(ctx['cmd_reg_desc_off'])}-{fmt_hex24(ctx['cmd_reg_desc_off'] + (ctx['cmd_reg_desc_len'] * ctx['cmd_reg_desc_cap']) - 1)}</code> ({ctx['cmd_reg_desc_len'] * ctx['cmd_reg_desc_cap']} bytes)</li>",
+            f"<li><strong>Overlay state table:</strong> <code>{fmt_hex24(ctx['cmd_reg_state_off'])}-{fmt_hex24(ctx['cmd_reg_state_off'] + (ctx['cmd_reg_state_len'] * ctx['cmd_reg_state_cap']) - 1)}</code> ({ctx['cmd_reg_state_len'] * ctx['cmd_reg_state_cap']} bytes)</li>",
             f"<li><strong>Shared metadata:</strong> <code>{fmt_hex24(ctx['ovl_meta_off'])}-{fmt_hex24(ctx['ovl_meta_off'] + ctx['ovl_meta_len'] - 1)}</code> ({ctx['ovl_meta_len']} bytes)</li>",
             f"<li><strong>Pause flag:</strong> <code>{fmt_hex24(ctx['ui_flags_off'])}</code> (1 byte)</li>",
             f"<li><strong>Heap metadata:</strong> <code>{fmt_hex24(ctx['heap_meta_abs'])}-{fmt_hex24(ctx['heap_meta_abs'] + 0xFF)}</code></li>",
@@ -979,11 +1001,11 @@ def render_html(ctx: dict[str, object]) -> str:
       <div class="card"><div class="k">Window Size</div><div class="v">{ctx['window_size']} bytes</div></div>
       <div class="card"><div class="k">Resident Heap</div><div class="v">{ctx['heap_size']} bytes</div></div>
     </div>
-    <div class="note">
+      <div class="note">
       Overlays {html.escape(fmt_overlay_nums(ctx['cached_overlays']))} are boot-loaded once and cached in one shared REU bank using
       two full-window slots.
       Overlays {html.escape(fmt_overlay_nums(ctx['demand_overlays']))} are loaded from disk on demand. Bank
-      <code>0x48</code> is shared for overlay metadata, pause state, command handoff scratch,
+      <code>0x48</code> is shared for the external-command registry, overlay metadata, pause state, command handoff scratch,
       and the REU-backed ReadyShell value arena.
     </div>
   </section>
@@ -1022,6 +1044,7 @@ def render_html(ctx: dict[str, object]) -> str:
       <div class="bank">
         <div class="bank-title">Bank <code>0x48</code>: Shared Shell State</div>
         <div class="stack">
+          <div class="slot meta"><strong>Command registry</strong> <code>{fmt_hex24(ctx['cmd_reg_hdr_off'])}-{fmt_hex24(ctx['cmd_reg_state_off'] + (ctx['cmd_reg_state_len'] * ctx['cmd_reg_state_cap']) - 1)}</code><small>Registry header, external-command descriptors, and per-overlay load/cache state stored in REU metadata so new external commands do not consume resident BSS.</small></div>
           <div class="slot meta"><strong>Shared metadata + pause</strong> <code>{fmt_hex24(ctx['ovl_meta_off'])}-{fmt_hex24(ctx['ui_flags_off'])}</code><small>Overlay cache metadata record plus the shared pause bit used by the resident line printer and <code>MORE</code>.</small></div>
           <div class="slot heap"><strong>Command scratch + value arena</strong> <code>{fmt_hex24(ctx['scratch_off'])}-{fmt_hex24(ctx['heap_arena_end_abs'])}</code><small>Command handoff scratch, REU heap metadata, and the persistent value arena for REU-backed strings, arrays, and objects.</small></div>
         </div>
@@ -1169,7 +1192,7 @@ def main() -> int:
     parser.add_argument(
         "--html-out",
         type=Path,
-        default=ROOT / "docs" / "reports" / "readyshell_overlay_inventory.html",
+        default=ROOT / "docs" / "readyshell_overlay_inventory.html",
     )
     args = parser.parse_args()
     args.root = args.root.resolve()

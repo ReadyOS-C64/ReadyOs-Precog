@@ -134,7 +134,9 @@
       <li>Clipboard metadata lives in RAM; active clipboard payloads allocate one dynamic REU bank per item rather than using one packed shared bank.</li>
       <li>Bitmap-tracked app-slot namespace: banks <code>0-23</code>.</li>
       <li>Dynamic allocator start: bank <code>24</code>.</li>
-      <li>ReadyShell fixed banks: <code>0x40</code>, <code>0x41</code>, and <code>0x43</code>.</li>
+      <li>ReadyShell shared cache bank: <code>0x40</code> (core overlays 1-2).</li>
+      <li>ReadyShell REU debug bank: <code>0x43</code>.</li>
+      <li>ReadyShell scratch/registry/value bank: <code>0x48</code>.</li>
       <li>Shipped media is profile-driven: <code>cfg/profiles/*.ini</code> generates the selected profile’s <code>apps.cfg</code> on drive <code>8</code>.</li>
     </ul>
     <p class="small">
@@ -171,18 +173,18 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td>launcher</td><td>20831</td><td>20.34 KiB</td><td>31090</td><td>30.36 KiB</td><td class="delta-pos">10259</td><td>20829</td><td>20.34 KiB</td><td>31088</td><td>30.36 KiB</td><td class="delta-pos">10259</td><td>63</td><td>0.06 KiB</td><td>4717</td><td>4.61 KiB</td><td class="delta-pos">4654</td><td>20892</td><td>20.40 KiB</td><td>35807</td><td>34.97 KiB</td><td>25700</td><td>25.10 KiB</td><td>10785</td><td>10.53 KiB</td></tr>
-          <tr><td>editor</td><td>21297</td><td>20.80 KiB</td><td>23347</td><td>22.80 KiB</td><td class="delta-pos">2050</td><td>21295</td><td>20.80 KiB</td><td>23345</td><td>22.80 KiB</td><td class="delta-pos">2050</td><td>9151</td><td>8.94 KiB</td><td>10632</td><td>10.38 KiB</td><td class="delta-pos">1481</td><td>30446</td><td>29.73 KiB</td><td>33979</td><td>33.18 KiB</td><td>16146</td><td>15.77 KiB</td><td>12613</td><td>12.32 KiB</td></tr>
-          <tr><td>calcplus</td><td>37888</td><td>37.00 KiB</td><td>37135</td><td>36.26 KiB</td><td class="delta-neg">-753</td><td>37886</td><td>37.00 KiB</td><td>37133</td><td>36.26 KiB</td><td class="delta-neg">-753</td><td>1292</td><td>1.26 KiB</td><td>1321</td><td>1.29 KiB</td><td class="delta-pos">29</td><td>39178</td><td>38.26 KiB</td><td>38456</td><td>37.55 KiB</td><td>7414</td><td>7.24 KiB</td><td>8136</td><td>7.95 KiB</td></tr>
-          <tr><td>hexview</td><td>15228</td><td>14.87 KiB</td><td>14911</td><td>14.56 KiB</td><td class="delta-neg">-317</td><td>15226</td><td>14.87 KiB</td><td>14909</td><td>14.56 KiB</td><td class="delta-neg">-317</td><td>63</td><td>0.06 KiB</td><td>101</td><td>0.10 KiB</td><td class="delta-pos">38</td><td>15289</td><td>14.93 KiB</td><td>15012</td><td>14.66 KiB</td><td>31303</td><td>30.57 KiB</td><td>31580</td><td>30.84 KiB</td></tr>
-          <tr><td>clipmgr</td><td>22209</td><td>21.69 KiB</td><td>32506</td><td>31.74 KiB</td><td class="delta-pos">10297</td><td>22207</td><td>21.69 KiB</td><td>32504</td><td>31.74 KiB</td><td class="delta-pos">10297</td><td>1660</td><td>1.62 KiB</td><td>1619</td><td>1.58 KiB</td><td class="delta-neg">-41</td><td>23867</td><td>23.31 KiB</td><td>34125</td><td>33.33 KiB</td><td>22725</td><td>22.19 KiB</td><td>12467</td><td>12.17 KiB</td></tr>
-          <tr><td>reuviewer</td><td>14893</td><td>14.54 KiB</td><td>15175</td><td>14.82 KiB</td><td class="delta-pos">282</td><td>14891</td><td>14.54 KiB</td><td>15173</td><td>14.82 KiB</td><td class="delta-pos">282</td><td>14</td><td>0.01 KiB</td><td>51</td><td>0.05 KiB</td><td class="delta-pos">37</td><td>14905</td><td>14.56 KiB</td><td>15226</td><td>14.87 KiB</td><td>31687</td><td>30.94 KiB</td><td>31366</td><td>30.63 KiB</td></tr>
-          <tr><td>tasklist</td><td>35934</td><td>35.09 KiB</td><td>30544</td><td>29.83 KiB</td><td class="delta-neg">-5390</td><td>35932</td><td>35.09 KiB</td><td>30542</td><td>29.83 KiB</td><td class="delta-neg">-5390</td><td>9046</td><td>8.83 KiB</td><td>8944</td><td>8.73 KiB</td><td class="delta-neg">-102</td><td>44978</td><td>43.92 KiB</td><td>39488</td><td>38.56 KiB</td><td>1614</td><td>1.58 KiB</td><td>7104</td><td>6.94 KiB</td></tr>
-          <tr><td>game2048</td><td>19640</td><td>19.18 KiB</td><td>17264</td><td>16.86 KiB</td><td class="delta-neg">-2376</td><td>19638</td><td>19.18 KiB</td><td>17262</td><td>16.86 KiB</td><td class="delta-neg">-2376</td><td>1146</td><td>1.12 KiB</td><td>1203</td><td>1.17 KiB</td><td class="delta-pos">57</td><td>20784</td><td>20.30 KiB</td><td>18467</td><td>18.03 KiB</td><td>25808</td><td>25.20 KiB</td><td>28125</td><td>27.47 KiB</td></tr>
-          <tr><td>cal26</td><td>41228</td><td>40.26 KiB</td><td>32134</td><td>31.38 KiB</td><td class="delta-neg">-9094</td><td>41226</td><td>40.26 KiB</td><td>32132</td><td>31.38 KiB</td><td class="delta-neg">-9094</td><td>4765</td><td>4.65 KiB</td><td>4803</td><td>4.69 KiB</td><td class="delta-pos">38</td><td>45991</td><td>44.91 KiB</td><td>36937</td><td>36.07 KiB</td><td>601</td><td>0.59 KiB</td><td>9655</td><td>9.43 KiB</td></tr>
-          <tr><td>dizzy</td><td>38513</td><td>37.61 KiB</td><td>37506</td><td>36.63 KiB</td><td class="delta-neg">-1007</td><td>38511</td><td>37.61 KiB</td><td>37504</td><td>36.63 KiB</td><td class="delta-neg">-1007</td><td>6295</td><td>6.15 KiB</td><td>6327</td><td>6.18 KiB</td><td class="delta-pos">32</td><td>44806</td><td>43.76 KiB</td><td>43833</td><td>42.81 KiB</td><td>1786</td><td>1.74 KiB</td><td>2759</td><td>2.69 KiB</td></tr>
-          <tr><td>readme</td><td>21704</td><td>21.20 KiB</td><td>20914</td><td>20.42 KiB</td><td class="delta-neg">-790</td><td>21702</td><td>21.19 KiB</td><td>20912</td><td>20.42 KiB</td><td class="delta-neg">-790</td><td>13</td><td>0.01 KiB</td><td>48</td><td>0.05 KiB</td><td class="delta-pos">35</td><td>21715</td><td>21.21 KiB</td><td>20962</td><td>20.47 KiB</td><td>24877</td><td>24.29 KiB</td><td>25630</td><td>25.03 KiB</td></tr>
-          <tr><td>readyshell</td><td>40782</td><td>39.83 KiB</td><td>35586</td><td>34.75 KiB</td><td class="delta-neg">-5196</td><td>40780</td><td>39.82 KiB</td><td>35584</td><td>34.75 KiB</td><td class="delta-neg">-5196</td><td>3530</td><td>3.45 KiB</td><td>171</td><td>0.17 KiB</td><td class="delta-neg">-3359</td><td>44310</td><td>43.27 KiB</td><td>35701</td><td>34.86 KiB</td><td>2282</td><td>2.23 KiB</td><td>10891</td><td>10.64 KiB</td></tr>
+          <tr><td>launcher</td><td>20831</td><td>20.34 KiB</td><td>31978</td><td>31.23 KiB</td><td class="delta-pos">11147</td><td>20829</td><td>20.34 KiB</td><td>31976</td><td>31.23 KiB</td><td class="delta-pos">11147</td><td>63</td><td>0.06 KiB</td><td>4717</td><td>4.61 KiB</td><td class="delta-pos">4654</td><td>20892</td><td>20.40 KiB</td><td>36693</td><td>35.83 KiB</td><td>25700</td><td>25.10 KiB</td><td>9899</td><td>9.67 KiB</td></tr>
+          <tr><td>editor</td><td>21297</td><td>20.80 KiB</td><td>24646</td><td>24.07 KiB</td><td class="delta-pos">3349</td><td>21295</td><td>20.80 KiB</td><td>24644</td><td>24.07 KiB</td><td class="delta-pos">3349</td><td>9151</td><td>8.94 KiB</td><td>9880</td><td>9.65 KiB</td><td class="delta-pos">729</td><td>30446</td><td>29.73 KiB</td><td>34524</td><td>33.71 KiB</td><td>16146</td><td>15.77 KiB</td><td>12068</td><td>11.79 KiB</td></tr>
+          <tr><td>calcplus</td><td>37888</td><td>37.00 KiB</td><td>37993</td><td>37.10 KiB</td><td class="delta-pos">105</td><td>37886</td><td>37.00 KiB</td><td>37991</td><td>37.10 KiB</td><td class="delta-pos">105</td><td>1292</td><td>1.26 KiB</td><td>1321</td><td>1.29 KiB</td><td class="delta-pos">29</td><td>39178</td><td>38.26 KiB</td><td>39312</td><td>38.39 KiB</td><td>7414</td><td>7.24 KiB</td><td>7280</td><td>7.11 KiB</td></tr>
+          <tr><td>hexview</td><td>15228</td><td>14.87 KiB</td><td>13529</td><td>13.21 KiB</td><td class="delta-neg">-1699</td><td>15226</td><td>14.87 KiB</td><td>13527</td><td>13.21 KiB</td><td class="delta-neg">-1699</td><td>63</td><td>0.06 KiB</td><td>101</td><td>0.10 KiB</td><td class="delta-pos">38</td><td>15289</td><td>14.93 KiB</td><td>13628</td><td>13.31 KiB</td><td>31303</td><td>30.57 KiB</td><td>32964</td><td>32.19 KiB</td></tr>
+          <tr><td>clipmgr</td><td>22209</td><td>21.69 KiB</td><td>31406</td><td>30.67 KiB</td><td class="delta-pos">9197</td><td>22207</td><td>21.69 KiB</td><td>31404</td><td>30.67 KiB</td><td class="delta-pos">9197</td><td>1660</td><td>1.62 KiB</td><td>1062</td><td>1.04 KiB</td><td class="delta-neg">-598</td><td>23867</td><td>23.31 KiB</td><td>32466</td><td>31.71 KiB</td><td>22725</td><td>22.19 KiB</td><td>14126</td><td>13.79 KiB</td></tr>
+          <tr><td>reuviewer</td><td>14893</td><td>14.54 KiB</td><td>13451</td><td>13.14 KiB</td><td class="delta-neg">-1442</td><td>14891</td><td>14.54 KiB</td><td>13449</td><td>13.13 KiB</td><td class="delta-neg">-1442</td><td>14</td><td>0.01 KiB</td><td>51</td><td>0.05 KiB</td><td class="delta-pos">37</td><td>14905</td><td>14.56 KiB</td><td>13500</td><td>13.18 KiB</td><td>31687</td><td>30.94 KiB</td><td>33092</td><td>32.32 KiB</td></tr>
+          <tr><td>tasklist</td><td>35934</td><td>35.09 KiB</td><td>31272</td><td>30.54 KiB</td><td class="delta-neg">-4662</td><td>35932</td><td>35.09 KiB</td><td>31270</td><td>30.54 KiB</td><td class="delta-neg">-4662</td><td>9046</td><td>8.83 KiB</td><td>8927</td><td>8.72 KiB</td><td class="delta-neg">-119</td><td>44978</td><td>43.92 KiB</td><td>40197</td><td>39.25 KiB</td><td>1614</td><td>1.58 KiB</td><td>6395</td><td>6.25 KiB</td></tr>
+          <tr><td>game2048</td><td>19640</td><td>19.18 KiB</td><td>15936</td><td>15.56 KiB</td><td class="delta-neg">-3704</td><td>19638</td><td>19.18 KiB</td><td>15934</td><td>15.56 KiB</td><td class="delta-neg">-3704</td><td>1146</td><td>1.12 KiB</td><td>1203</td><td>1.17 KiB</td><td class="delta-pos">57</td><td>20784</td><td>20.30 KiB</td><td>17137</td><td>16.74 KiB</td><td>25808</td><td>25.20 KiB</td><td>29455</td><td>28.76 KiB</td></tr>
+          <tr><td>cal26</td><td>41228</td><td>40.26 KiB</td><td>32709</td><td>31.94 KiB</td><td class="delta-neg">-8519</td><td>41226</td><td>40.26 KiB</td><td>32707</td><td>31.94 KiB</td><td class="delta-neg">-8519</td><td>4765</td><td>4.65 KiB</td><td>4803</td><td>4.69 KiB</td><td class="delta-pos">38</td><td>45991</td><td>44.91 KiB</td><td>37510</td><td>36.63 KiB</td><td>601</td><td>0.59 KiB</td><td>9082</td><td>8.87 KiB</td></tr>
+          <tr><td>dizzy</td><td>38513</td><td>37.61 KiB</td><td>38394</td><td>37.49 KiB</td><td class="delta-neg">-119</td><td>38511</td><td>37.61 KiB</td><td>38392</td><td>37.49 KiB</td><td class="delta-neg">-119</td><td>6295</td><td>6.15 KiB</td><td>6327</td><td>6.18 KiB</td><td class="delta-pos">32</td><td>44806</td><td>43.76 KiB</td><td>44719</td><td>43.67 KiB</td><td>1786</td><td>1.74 KiB</td><td>1873</td><td>1.83 KiB</td></tr>
+          <tr><td>readme</td><td>21704</td><td>21.20 KiB</td><td>19633</td><td>19.17 KiB</td><td class="delta-neg">-2071</td><td>21702</td><td>21.19 KiB</td><td>19631</td><td>19.17 KiB</td><td class="delta-neg">-2071</td><td>13</td><td>0.01 KiB</td><td>48</td><td>0.05 KiB</td><td class="delta-pos">35</td><td>21715</td><td>21.21 KiB</td><td>19679</td><td>19.22 KiB</td><td>24877</td><td>24.29 KiB</td><td>26913</td><td>26.28 KiB</td></tr>
+          <tr><td>readyshell</td><td>40782</td><td>39.83 KiB</td><td>30589</td><td>29.87 KiB</td><td class="delta-neg">-10193</td><td>40780</td><td>39.82 KiB</td><td>30587</td><td>29.87 KiB</td><td class="delta-neg">-10193</td><td>3530</td><td>3.45 KiB</td><td>503</td><td>0.49 KiB</td><td class="delta-neg">-3027</td><td>44310</td><td>43.27 KiB</td><td>31090</td><td>30.36 KiB</td><td>2282</td><td>2.23 KiB</td><td>15502</td><td>15.14 KiB</td></tr>
         </tbody>
       </table>
     </div>
@@ -207,10 +209,10 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td>quicknotes</td><td>29349</td><td>28.66 KiB</td><td>6783</td><td>6.62 KiB</td><td>36132</td><td>35.29 KiB</td><td>10460</td><td>10.21 KiB</td></tr>
-          <tr><td>simplefiles</td><td>30497</td><td>29.78 KiB</td><td>4397</td><td>4.29 KiB</td><td>34856</td><td>34.04 KiB</td><td>11736</td><td>11.46 KiB</td></tr>
-          <tr><td>simplecells</td><td>34473</td><td>33.67 KiB</td><td>2142</td><td>2.09 KiB</td><td>36577</td><td>35.72 KiB</td><td>10015</td><td>9.78 KiB</td></tr>
-          <tr><td>deminer</td><td>21438</td><td>20.94 KiB</td><td>4276</td><td>4.18 KiB</td><td>25714</td><td>25.11 KiB</td><td>20878</td><td>20.39 KiB</td></tr>
+          <tr><td>quicknotes</td><td>30719</td><td>30.00 KiB</td><td>6031</td><td>5.89 KiB</td><td>36748</td><td>35.89 KiB</td><td>9844</td><td>9.61 KiB</td></tr>
+          <tr><td>simplefiles</td><td>29538</td><td>28.85 KiB</td><td>4397</td><td>4.29 KiB</td><td>33933</td><td>33.14 KiB</td><td>12659</td><td>12.36 KiB</td></tr>
+          <tr><td>simplecells</td><td>35048</td><td>34.23 KiB</td><td>2142</td><td>2.09 KiB</td><td>37188</td><td>36.32 KiB</td><td>9404</td><td>9.18 KiB</td></tr>
+          <tr><td>deminer</td><td>20112</td><td>19.64 KiB</td><td>4276</td><td>4.18 KiB</td><td>24386</td><td>23.81 KiB</td><td>22206</td><td>21.69 KiB</td></tr>
         </tbody>
       </table>
     </div>
@@ -220,8 +222,14 @@
     <h2>Current Contract Checks</h2>
     <div class="ok">
       Current docs now reflect the conditional ReadyShell overlay contract:
-      release overlay size <code>$2440</code>, debug overlay size
-      <code>$2480</code>.
+      release overlay size <code>$3800</code>, debug overlay size
+      <code>$3B00</code>.
+    </div>
+    <div class="note">
+      <strong>Current ReadyShell loading model:</strong> overlays <code>1-2</code>
+      share REU cache bank <code>0x40</code>; command-only overlays are
+      disk-loaded by default; the command registry and value arena live in bank
+      <code>0x48</code>.
     </div>
     <ul>
       <li>launcher catalog is generated from the selected <code>cfg/profiles/*.ini</code> catalog to <code>apps.cfg</code> on drive <code>8</code></li>
@@ -233,8 +241,8 @@
 
   <footer>
     Current columns and current-only app rows were rechecked from the present
-    tree on April 8, 2026. Architecture notes and labels have been synced to
-    the current ReadyOS 0.1.8 / local 0.1.8G runtime reality.
+    tree on April 12, 2026. Architecture notes and labels have been synced to
+    the current ReadyOS 0.1.8 runtime reality.
   </footer>
 </main>
 </body>

@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.1.8
+
+### ReadyShell, Shim, REU, Documentation
+
+- Updated ReadyShell to the current shared-cache-bank architecture: overlays
+  `1` and `2` now share bank `$40` as full-window cache slots, while
+  command-only overlays remain disk-loaded on demand and restore `rsvm` from
+  REU after each external command call.
+- Added the REU-backed external-command registry in bank `$48` metadata space,
+  so external command growth no longer requires one resident wrapper per
+  command and the resident heap/BSS contract stays explicit.
+- Corrected current ReadyShell memory reporting to the live overlay build:
+  resident `BSS` is `$877B-$8971` (`503` bytes), resident heap below the
+  overlay load address is `1164` bytes, and the active overlay window is
+  `$8E00-$C5FF` (`0x3800` release, `0x3B00` debug).
+- Refreshed the ReadyShell overlay inventory and end-to-end architecture docs
+  under `docs/`, including the current REU registry layout, command-overlay
+  loading model, and per-overlay headroom figures.
+- Reconciled the ReadyOS shim architecture report and supporting private docs
+  with the current verifier/map reality: app headroom tables, ReadyShell
+  resident/overlay numbers, and the shared ReadyShell REU-bank model now match
+  the live build instead of earlier fixed-bank assumptions.
+- Marked archived ReadyShell and shim investigation reports as historical where
+  they preserve superseded measurements, so the live docs remain the current
+  source of truth without losing the older forensic snapshots.
+
 ## 0.1.7
 
 ### System, Architecture, Shim, REU, Micromodules
