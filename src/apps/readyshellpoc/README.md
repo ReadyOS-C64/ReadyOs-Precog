@@ -30,6 +30,12 @@ Implemented in this POC:
   - `LST`
   - `LDV`
   - `STV`
+  - `CAT`
+  - `PUT`
+  - `ADD`
+  - `DEL`
+  - `REN`
+  - `COPY`
 - REPL built-ins:
   - `HELP`
   - `VER`
@@ -43,7 +49,7 @@ Still intentionally out of scope in this POC:
 
 Prompt:
 
-- `RS> `
+- `> `
 
 Line editing behavior:
 
@@ -86,8 +92,8 @@ Current release build memory layout:
 - Resident app window: `$1000-$C5FF` (`46592` bytes)
 - Overlay load-address bytes: `$8DFE-$8DFF`
 - Overlay execution window: `$8E00-$C5FF` (`14336` bytes)
-- Resident BSS: `$877B-$8971` (`503` bytes)
-- Resident heap: `$8972-$8DFD` (`1164` bytes)
+- Resident BSS: `$8878-$8A6E` (`503` bytes)
+- Resident heap: `$8A70-$8DFD` (`910` bytes)
 - High RAM runtime outside the app snapshot: `$CA00-$CFFF`
 
 Overlay policy:
@@ -95,7 +101,7 @@ Overlay policy:
 - Overlays `1` and `2` are still separate files on disk
 - They now share one REU cache bank, `0x40`
 - Each shared cache slot stores the full overlay window size, not just file bytes
-- Overlays `3-5` remain disk-loaded command overlays
+- Overlays `3-7` remain disk-loaded command overlays
 - Shared REU metadata, command registry, pause state, command scratch, and the value arena live in bank `0x48`
 
 Shared REU cache layout:
@@ -116,10 +122,12 @@ bank 0x40
 Current overlay set:
 
 - `OVERLAY1` `rsparser.prg`: parser / lexer, `13005` live bytes, cached in bank `0x40` parse slot
-- `OVERLAY2` `rsvm.prg`: execution core for `PRT`, `MORE`, `TOP`, `SEL`, `GEN`, `TAP`, `14048` live bytes, cached in bank `0x40` exec slot
+- `OVERLAY2` `rsvm.prg`: execution core for `PRT`, `MORE`, `TOP`, `SEL`, `GEN`, `TAP`, `14033` live bytes, cached in bank `0x40` exec slot
 - `OVERLAY3` `rsdrvilst.prg`: `DRVI` + `LST`, disk-loaded
 - `OVERLAY4` `rsldv.prg`: `LDV`, disk-loaded
 - `OVERLAY5` `rsstv.prg`: `STV`, disk-loaded
+- `OVERLAY6` `rsfops.prg`: `DEL` + `REN` + `PUT` + `ADD`, disk-loaded
+- `OVERLAY7` `rscat.prg`: `CAT` + `COPY`, disk-loaded
 
 ## 3. Statement Forms
 
@@ -293,7 +301,7 @@ General form:
 
 Stage kinds:
 
-- Command stage: `PRT ...`, `GEN ...`, `TAP ...`
+- Command stage: `PRT ...`, `GEN ...`, `MORE ...`, `TOP ...`, `SEL ...`, `CAT ...`, ...
 - Expression stage: any expression
 - Filter stage: `?[ <script> ]`
 - Foreach stage: `%[ <script> ]`
@@ -509,6 +517,296 @@ Errors:
 
 - Zero, non-numeric, or multiple arguments -> `MORE expects count`
 
+### 8.5 `TOP`
+
+Purpose:
+
+- Keep the first `count` items from a stream
+- Optionally skip some items first
+
+Syntax:
+
+```text
+TOP <count>
+TOP <count>, <skip>
+```
+
+Examples:
+
+```text
+GEN 10 | TOP 4
+LST | TOP 3
+LST | TOP 2,1 | SEL "NAME"
+```
+
+Notes:
+
+- `TOP 3,1` skips the first item, then emits the next three
+- `TOP` is a pass-through filter stage; it does not reformat items
+
+### 8.6 `SEL`
+
+Purpose:
+
+- Project one or more object properties out of each pipeline item
+
+Syntax:
+
+```text
+SEL <name>
+SEL <name>, <name>, ...
+```
+
+Examples:
+
+```text
+LST | SEL "NAME"
+LST | SEL "NAME","BLOCKS"
+DRVI | SEL "DRIVE","DISKNAME"
+```
+
+Notes:
+
+- Selecting one property emits that property value directly
+- Selecting several properties emits a new object containing just those fields
+
+### 8.7 `DRVI`
+
+Purpose:
+
+- Return drive information as an object
+
+Syntax:
+
+```text
+DRVI
+DRVI <drive>
+```
+
+Examples:
+
+```text
+DRVI
+DRVI 9
+DRVI | SEL "DRIVE","DISKNAME"
+```
+
+Notes:
+
+- Defaults to the current/default drive when no argument is supplied
+
+### 8.8 `LST`
+
+Purpose:
+
+- Return a streamed directory listing as objects
+
+Syntax:
+
+```text
+LST
+LST <drive>
+```
+
+Examples:
+
+```text
+LST
+LST 9
+LST | SEL "NAME","TYPE"
+```
+
+Notes:
+
+- Each emitted item is an object with fields such as `NAME`, `TYPE`, and `BLOCKS`
+- `LST` is useful as a data source for `SEL`, `TOP`, filters, and saved snapshots
+
+### 8.9 `LDV`
+
+Purpose:
+
+- Load a previously saved ReadyShell value from disk
+
+Syntax:
+
+```text
+LDV <filename>
+```
+
+Examples:
+
+```text
+$SNAP = LDV "bigfiles"
+PRT $SNAP(0).NAME
+```
+
+### 8.10 `STV`
+
+Purpose:
+
+- Save a ReadyShell value to disk
+
+Syntax:
+
+```text
+STV <expr>, <filename>
+```
+
+Examples:
+
+```text
+$DIR = LST | ?[ @.TYPE == "PRG" ] | TOP 10
+STV $DIR, "prgdir"
+```
+
+### 8.11 `CAT`
+
+Purpose:
+
+- Read a PETASCII text file and emit one string per line
+
+Syntax:
+
+```text
+CAT <filename>
+```
+
+Examples:
+
+```text
+CAT "notes"
+CAT "9:readme"
+CAT "todo" | MORE | PRT @
+```
+
+Notes:
+
+- If the filename does not embed a drive, ReadyShell uses the current/default drive
+- `CAT` closes the file after the final line and emits no extra success value
+
+### 8.12 `PUT`
+
+Purpose:
+
+- Consume streamed strings and write a new PETASCII text file
+
+Syntax:
+
+```text
+PUT <filename>
+```
+
+Examples:
+
+```text
+"HELLO" | PUT "notes"
+LST | SEL "NAME" | PUT "dirnames"
+```
+
+Notes:
+
+- `PUT` creates or replaces the target file
+- `PUT` produces no output on success
+
+### 8.13 `ADD`
+
+Purpose:
+
+- Consume streamed strings and append them to a PETASCII text file
+
+Syntax:
+
+```text
+ADD <filename>
+```
+
+Examples:
+
+```text
+"NEXT LINE" | ADD "notes"
+LST | SEL "NAME" | ADD "dirnames"
+```
+
+Notes:
+
+- `ADD` appends line-terminated PETASCII text
+- `ADD` produces no output on success
+
+### 8.14 `DEL`
+
+Purpose:
+
+- Delete a file and return a boolean result
+
+Syntax:
+
+```text
+DEL <filename>
+```
+
+Examples:
+
+```text
+DEL "notes"
+DEL "9:notes"
+```
+
+Notes:
+
+- Returns `TRUE` on success and `FALSE` on failure
+- Uses the current/default drive when the filename does not embed one
+
+### 8.15 `REN`
+
+Purpose:
+
+- Rename a file on one drive and return a boolean result
+
+Syntax:
+
+```text
+REN <original>, <destination>
+REN <original>, <destination>, <drive>
+```
+
+Examples:
+
+```text
+REN "notes", "notes.old"
+REN "notes", "notes.old", 9
+```
+
+Notes:
+
+- For `REN`, names do not embed the drive
+- The optional drive applies to both names
+
+### 8.16 `COPY`
+
+Purpose:
+
+- Copy a file and return a boolean result
+
+Syntax:
+
+```text
+COPY <source>, <destination>
+COPY <source>, <drive>
+```
+
+Examples:
+
+```text
+COPY "notes", "notes.bak"
+COPY "8:notes", "9:notes"
+COPY "notes", 9
+```
+
+Notes:
+
+- Strings may embed drive numbers, such as `8:notes`
+- Same-drive copies must use a different destination name
+
 ## 9. Script Blocks
 
 Script blocks use `[ ... ]`.
@@ -620,5 +918,5 @@ Typical messages:
 ## 13. More Examples
 
 For a larger, example-heavy guide covering pipelines, filtering, foreach,
-printing, disk commands, serialization, arrays, comparisons, `TOP`, and
-`SEL`, see [ReadyShelltutorial.md](./ReadyShelltutorial.md).
+printing, disk commands, file commands, serialization, arrays, comparisons,
+`TOP`, and `SEL`, see [ReadyShelltutorial.md](./ReadyShelltutorial.md).

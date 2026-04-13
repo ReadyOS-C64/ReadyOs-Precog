@@ -93,6 +93,30 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         "Loaded from disk on demand for each command call. No dedicated REU cache.",
         "Uses the shared handoff region plus the REU-backed value arena in bank 0x48 when serializing pointer-backed values.",
     ),
+    6: OverlaySpec(
+        6,
+        "File Delete / Rename / Write",
+        "Shared command overlay for DEL, REN, PUT, and ADD.",
+        "rsfops.prg",
+        "obj/rsfops.prg",
+        "rsfops",
+        "DEL, REN, PUT, ADD",
+        ("DEL", "REN", "PUT", "ADD"),
+        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Keeps file-operation staging and transient command state in overlay-local code plus the shared REU scratch region.",
+    ),
+    7: OverlaySpec(
+        7,
+        "File Read / Copy",
+        "Shared command overlay for CAT and COPY.",
+        "rscat.prg",
+        "obj/rscat.prg",
+        "rscat",
+        "CAT, COPY",
+        ("CAT", "COPY"),
+        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Uses overlay-local file I/O logic plus shared REU scratch when line staging or copy state is needed.",
+    ),
 }
 
 RESIDENT_COMMANDS = "Resident app shell loop plus vm/overlay runtime. Command tokens resolved here, then dispatched to overlay 2 or command overlays."

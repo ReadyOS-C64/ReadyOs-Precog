@@ -1,17 +1,17 @@
-## ReadyOS PRECOG 0.1.8
+## ReadyOS PRECOG 0.2
 
 The goal is **fast app switching** for Commodore 64 Ultimate use,
 tuned to stay usable at both 1MHz and 48MHz while remaining
 C64-class practical.
 
 Current snapshot:
-- Base release: **0.1.8**
+- Base release: **0.2**
 - Runtime target: clean behavior from stock-speed C64 use up through
   Ultimate turbo workflows
 - Media layout: profile-based release media under `releases/<version>/<profile>/` with external `helpme.md`
   instructions for the selected build
 - Local artifact filenames may include an internal trailing build letter
-  such as `0.1.8k`; the public release line is still **0.1.8**
+  such as `0.2c`; the public release line is still **0.2**
 - New since 0.1.5: **quicknotes**, **simple files**, **simple cells**,
   and **deminer**
 
@@ -180,12 +180,16 @@ It is split into a resident program plus overlay files:
 - `rsdrvilst`
 - `rsldv`
 - `rsstv`
+- `rsfops`
+- `rscat`
 
 Key shell commands:
-- `PRT`, `GEN`, `TAP`
+- `PRT`, `GEN`, `TAP`, `MORE`
 - `TOP`, `SEL`
 - `DRVI`, `LST`
 - `LDV`, `STV`
+- `CAT`, `PUT`, `ADD`
+- `DEL`, `REN`, `COPY`
 
 For a larger walkthrough with worked examples, see the ReadyShell
 tutorial markdown in `src/apps/readyshellpoc/ReadyShelltutorial.md`.

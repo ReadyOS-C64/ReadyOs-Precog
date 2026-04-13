@@ -4,7 +4,7 @@ ReadyOS PRECOG is an experimental REU-first environment for a modern
 Commodore 64 setup. It is aimed first at Commodore 64 Ultimate-family
 hardware, but it is also designed to run well in VICE with REU enabled, which
 makes it a practical fit for THEC64 Mini / Maxi style workflows too. PRECOG
-`0.1.8` is the current public release line.
+`0.2` is the current public release line.
 
 What if a Commodore 64 could feel ready, not just nostalgic? ReadyOS treats
 waiting as the enemy. It is a keyboard-first, full-screen terminal-style
@@ -20,7 +20,7 @@ At a glance:
 - tuned to stay usable from `1MHz` up through `48MHz`
 - ships as profile-based media builds with REU-backed app switching
 - local artifact filenames may include an extra trailing letter such as
-  `0.1.8k`; that suffix is an internal build/debug stamp, not a separate public release
+  `0.2c`; that suffix is an internal build/debug stamp, not a separate public release
 
 Project overview: https://readyos.notion.site/
 
@@ -64,7 +64,7 @@ Boot sequence:
 
 ## Current Status
 
-- Base release: `0.1.8`
+- Base release: `0.2`
 - Local builds use the existing rolling suffix flow for artifact filenames only
 - Builds release media per profile
 - Launcher catalog currently contains `15` apps
@@ -181,7 +181,7 @@ How it works:
 | 8 | `cal26` | calendar 26 | 2026 calendar with month, week, day, upcoming, and REL-backed appointments; task reading is currently broken |
 | 8 | `dizzy` | dizzy kanban | Kanban board with REL-backed persistence, search, and reorder |
 | 9 | `readme` | read.me | In-system ReadyOS guide viewer |
-| 8 | `readyshell` | ready shell | Overlay-based shell with pipelines, disk commands, and serialization |
+| 8 | `readyshell` | ready shell | Overlay-based shell with pipelines, value save/load, directory queries, and text/file commands including `cat`, `put`, `add`, `del`, `ren`, and `copy` |
 | 8 | `deminer` | deminer | Minesweeper-style puzzle with suspend/resume |
 
 Notes:
@@ -189,6 +189,8 @@ Notes:
 - ReadyShell guide: [src/apps/readyshellpoc/README.md](src/apps/readyshellpoc/README.md)
 - ReadyShell architecture: [docs/ReadyShellArchitecture.md](docs/ReadyShellArchitecture.md)
 - ReadyShell overlay inventory: [docs/readyshell_overlay_inventory.md](docs/readyshell_overlay_inventory.md)
+- ReadyShell now ships seven overlays: `rsparser`, `rsvm`, `rsdrvilst`,
+  `rsldv`, `rsstv`, `rsfops`, and `rscat`.
 - `cal26` currently has a known regression: task reading is broken.
 - `showcfg.prg` is a BASIC inspector for the generated `apps.cfg` payload on
   drive `8`.
@@ -325,7 +327,7 @@ Public supporting docs in `docs/` currently include:
 
 Rendered documentation exports in `docs/` currently include:
 
-- [ReadyOS SHIM Architecture Report (HTML)](docs/ReadyOS%20SHIM%20Architecture%20Report%20%280.1.8%29.html)
+- [ReadyOS SHIM Architecture Report (HTML)](docs/ReadyOS%20SHIM%20Architecture%20Report%20%280.2%29.html)
 - [ReadyShell Overlay Inventory (HTML)](docs/readyshell_overlay_inventory.html)
 - [ReadyShell Architecture (HTML)](docs/ReadyShellArchitecture.html)
 

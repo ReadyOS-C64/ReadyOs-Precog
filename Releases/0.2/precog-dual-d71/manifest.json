@@ -1,0 +1,141 @@
+{
+  "id": "precog-dual-d71",
+  "display_name": "precog (dual d71)",
+  "kind": "dual-d71",
+  "variant_boot_name": "precog dual d71",
+  "version_text": "0.2",
+  "catalog_source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/cfg/profiles/precog-dual-d71.ini",
+  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71/readyos-v0.2-dual-d71-preboot.prg",
+  "autostart_disk_prg": "preboot.prg",
+  "preboot_mode": "setd71",
+  "disks": [
+    {
+      "index": 1,
+      "drive": 8,
+      "image_type": "d71",
+      "vice_drive_type": "1571",
+      "true_drive": true,
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71/readyos-v0.2-dual-d71_1.d71"
+    },
+    {
+      "index": 2,
+      "drive": 9,
+      "image_type": "d71",
+      "vice_drive_type": "1571",
+      "true_drive": true,
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71/readyos-v0.2-dual-d71_2.d71"
+    }
+  ],
+  "boot_prgs": [
+    {
+      "stem": "preboot",
+      "disk_name": "preboot",
+      "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/preboot.prg",
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71/readyos-v0.2-dual-d71-preboot.prg"
+    },
+    {
+      "stem": "boot",
+      "disk_name": "boot",
+      "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/boot.prg",
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71/readyos-v0.2-dual-d71-boot.prg"
+    },
+    {
+      "stem": "setd71",
+      "disk_name": "setd71",
+      "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/setd71.prg",
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71/readyos-v0.2-dual-d71-setd71.prg"
+    }
+  ],
+  "apps": [
+    {
+      "drive": 9,
+      "prg": "editor",
+      "label": "editor",
+      "desc": "text editor with clipboard"
+    },
+    {
+      "drive": 8,
+      "prg": "quicknotes",
+      "label": "quicknotes",
+      "desc": "reu-backed note editor"
+    },
+    {
+      "drive": 9,
+      "prg": "calcplus",
+      "label": "calc plus",
+      "desc": "keyboard-first expression calculator"
+    },
+    {
+      "drive": 9,
+      "prg": "hexview",
+      "label": "hex viewer",
+      "desc": "browse memory in hex format"
+    },
+    {
+      "drive": 9,
+      "prg": "clipmgr",
+      "label": "clipboard",
+      "desc": "manage clipboard items"
+    },
+    {
+      "drive": 9,
+      "prg": "reuviewer",
+      "label": "reu viewer",
+      "desc": "view reu memory usage"
+    },
+    {
+      "drive": 9,
+      "prg": "tasklist",
+      "label": "task list",
+      "desc": "outliner with notes and search"
+    },
+    {
+      "drive": 9,
+      "prg": "simplefiles",
+      "label": "simple files",
+      "desc": "dual pane file manager and seq viewer"
+    },
+    {
+      "drive": 9,
+      "prg": "simplecells",
+      "label": "simple cells (alpha)",
+      "desc": "spreadsheet with formulas and colors"
+    },
+    {
+      "drive": 9,
+      "prg": "game2048",
+      "label": "2048 game",
+      "desc": "2048 tile puzzle"
+    },
+    {
+      "drive": 8,
+      "prg": "deminer",
+      "label": "deminer",
+      "desc": "minesweeper-style puzzle"
+    },
+    {
+      "drive": 8,
+      "prg": "cal26",
+      "label": "calendar 26",
+      "desc": "calendar for 2026 with appointments"
+    },
+    {
+      "drive": 8,
+      "prg": "dizzy",
+      "label": "dizzy kanban",
+      "desc": "fizzy inspired kanban app"
+    },
+    {
+      "drive": 9,
+      "prg": "readme",
+      "label": "read.me",
+      "desc": "readyos, ultimate buddy, precog poc os"
+    },
+    {
+      "drive": 8,
+      "prg": "readyshell",
+      "label": "readyshell (beta)",
+      "desc": "command shell poc scaffold"
+    }
+  ]
+}

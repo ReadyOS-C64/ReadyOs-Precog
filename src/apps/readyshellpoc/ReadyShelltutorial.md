@@ -349,6 +349,64 @@ $MISSING = LDV "doesnotexist"
 PRT $MISSING
 ```
 
+## Text File Commands
+
+### `CAT`
+
+`CAT` reads a PETASCII text file and emits one string per line:
+
+```ruby
+CAT "notes"
+CAT "9:readme"
+CAT "notes" | MORE | PRT @
+```
+
+### `PUT`
+
+`PUT` consumes streamed strings and writes a new file:
+
+```ruby
+"HELLO" | PUT "notes"
+LST | SEL "NAME" | PUT "dirnames"
+```
+
+### `ADD`
+
+`ADD` appends streamed strings to an existing text file:
+
+```ruby
+"NEXT LINE" | ADD "notes"
+LST | SEL "NAME" | ADD "dirnames"
+```
+
+### `DEL`
+
+`DEL` scratches a file and returns a boolean:
+
+```ruby
+DEL "notes"
+DEL "9:notes"
+```
+
+### `REN`
+
+`REN` renames a file on one drive:
+
+```ruby
+REN "notes", "notes.old"
+REN "notes", "notes.old", 9
+```
+
+### `COPY`
+
+`COPY` duplicates a file, either to a new name or a new drive:
+
+```ruby
+COPY "notes", "notes.bak"
+COPY "8:notes", "9:notes"
+COPY "notes", 9
+```
+
 ## Useful Recipes
 
 Keep only the first few large files:
@@ -390,6 +448,13 @@ Use multiple statements on one line:
 
 ```ruby
 $A = 3; $B = 5; 1..8 | ?[ @ <> $A ] | ?[ @ <= $B ]
+```
+
+Build a text snapshot from the directory:
+
+```ruby
+LST | SEL "NAME" | PUT "dirnames"
+CAT "dirnames" | MORE | PRT @
 ```
 
 ## A Small Session

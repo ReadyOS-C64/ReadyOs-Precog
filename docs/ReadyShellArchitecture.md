@@ -46,8 +46,8 @@ Current release build layout:
 | Resident app window | `$1000-$C5FF` | ReadyShell-owned app RAM |
 | Overlay load bytes | `$8DFE-$8DFF` | PRG load-address bytes for overlay sidecars |
 | Overlay execution window | `$8E00-$C5FF` | Shared live window for whichever overlay is active |
-| Resident BSS | `$877B-$8971` | Resident writable state below overlays |
-| Resident heap | `$8972-$8DFD` | cc65 heap below overlay load address |
+| Resident BSS | `$8878-$8A6E` | Resident writable state below overlays |
+| Resident heap | `$8A70-$8DFD` | cc65 heap below overlay load address |
 | High runtime area | `$CA00-$CFFF` | ReadyShell runtime state outside app snapshot |
 
 This produces one important constraint:
@@ -66,6 +66,8 @@ Current overlays:
 | 3 | `rsdrvilst.prg` | `DRVI`, `LST` | disk-loaded on demand |
 | 4 | `rsldv.prg` | `LDV` | disk-loaded on demand |
 | 5 | `rsstv.prg` | `STV` | disk-loaded on demand |
+| 6 | `rsfops.prg` | `DEL`, `REN`, `PUT`, `ADD` | disk-loaded on demand |
+| 7 | `rscat.prg` | `CAT`, `COPY` | disk-loaded on demand |
 
 Overlay 1 and overlay 2 are the primary system overlays. They are separate files on disk, but they share one REU cache bank.
 
@@ -96,6 +98,12 @@ These live outside `OVERLAY2`:
 - `LST`
 - `LDV`
 - `STV`
+- `DEL`
+- `REN`
+- `PUT`
+- `ADD`
+- `CAT`
+- `COPY`
 
 These are now driven through the REU-backed external-command registry plus one generic resident execution path.
 
@@ -122,7 +130,7 @@ OVERLAY2: execute pipeline stage-by-stage
    `--> external command
 ```
 
-Execution is command-protocol driven, not just command-name driven. The shared external-command protocol vocabulary is:
+Execution is command-protocol driven, not just command-name driven. The overlay command ABI defines:
 
 - `BEGIN`
 - `ITEM`
@@ -130,11 +138,12 @@ Execution is command-protocol driven, not just command-name driven. The shared e
 - `PROCESS`
 - `END`
 
-The generic external runner in resident code uses command capability bits to decide whether a command runs as:
+The current shipped commands use:
 
-- direct `RUN`
-- `BEGIN` + repeated `ITEM`
-- other protocol combinations such as sink/process style flows
+- direct `RUN` for most external commands
+- `BEGIN` + repeated `ITEM` for `CAT`
+
+The generic external runner in resident code uses command capability bits to choose the active path.
 
 ## 6. External Command Registry
 
@@ -146,7 +155,7 @@ Current registry regions:
 | --- | --- | --- |
 | Command registry header | `$488010-$488017` | magic, version, counts |
 | Command descriptor table | `$488020-$48807F` | fixed-capacity external command descriptors |
-| Overlay state table | `$488080-$4880C7` | fixed-capacity state records for external overlays |
+| Overlay state table | `$488080-$4880D9` | fixed-capacity state records for external overlays |
 
 Each descriptor identifies:
 
@@ -209,6 +218,15 @@ LST again
 ```
 
 So the registry stores metadata about command overlays, but it does not make them REU-cached automatically.
+
+A file-command example follows the same pattern:
+
+```text
+COPY "8:notes","9:notes"
+  load rscat from disk
+  run COPY
+  restore rsvm from REU
+```
 
 ## 8. REU Usage
 
@@ -292,7 +310,7 @@ These are the real limits today.
 
 ### 10.1 Resident heap pressure
 
-Resident heap is only `1164` bytes below the overlay load address. Resident code growth reduces that directly.
+Resident heap is only `910` bytes below the overlay load address. Resident code growth reduces that directly.
 
 ### 10.2 Overlay 2 pressure
 

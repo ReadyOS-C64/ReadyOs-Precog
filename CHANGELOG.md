@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.2
+
+### ReadyShell, Documentation, Release Sync
+
+- Promoted the public release line to `0.2` and rebuilt the full profile
+  matrix, including regenerated `help.md`, `helpme.md`, manifests, boot-chain
+  artifacts, and release media under `releases/0.2/`.
+- Expanded ReadyShell’s documented command set to include the new file
+  commands `CAT`, `PUT`, `ADD`, `DEL`, `REN`, and `COPY`, alongside the
+  already-shipping `MORE`, `TOP`, and `SEL` pipeline helpers.
+- Updated the ReadyShell user guide and tutorial to the current prompt and
+  runtime reality: prompt `>`, seven-overlay layout, current BSS/heap figures,
+  and example-driven coverage for file commands, value commands, and pipeline
+  usage.
+- Refreshed the ReadyShell architecture docs and generated overlay inventory so
+  overlays `6` and `7` are documented as `rsfops` (`DEL`, `REN`, `PUT`,
+  `ADD`) and `rscat` (`CAT`, `COPY`) instead of the earlier split-command
+  model.
+- Renamed and refreshed the private shim architecture report to the `0.2`
+  versioned artifact, then synced the public report copy and root README links
+  to that updated filename.
+- Regenerated the Read.me app content from its markdown-lite source so the
+  in-system documentation now shows the `0.2` release line and the expanded
+  ReadyShell overlay/command set.
+- Fixed stale verification expectations that still referenced the older
+  `rsdrvi` / `rslst` split overlays, so the current merged ReadyShell overlay
+  layout verifies cleanly again.
+
 ## 0.1.8
 
 ### ReadyShell, Shim, REU, Documentation

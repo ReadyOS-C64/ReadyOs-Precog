@@ -48,10 +48,11 @@ APP_PRGS = [
 READYSHELL_OVERLAY_PRGS = [
     ("readyshell.parser", "rsparser.prg"),
     ("readyshell.vm", "rsvm.prg"),
-    ("readyshell.drvi", "rsdrvi.prg"),
-    ("readyshell.lst", "rslst.prg"),
+    ("readyshell.drvilst", "rsdrvilst.prg"),
     ("readyshell.ldv", "rsldv.prg"),
     ("readyshell.stv", "rsstv.prg"),
+    ("readyshell.fops", "rsfops.prg"),
+    ("readyshell.catcopy", "rscat.prg"),
 ]
 
 APP_LOAD_START = 0x1000

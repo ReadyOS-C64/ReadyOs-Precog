@@ -166,6 +166,16 @@ def collect_fixed_addresses():
     return out
 
 
+def segment_nums(segs, pattern):
+    nums = []
+    regex = re.compile(pattern)
+    for name in segs:
+        match = regex.fullmatch(name)
+        if match:
+            nums.append(int(match.group(1)))
+    return sorted(nums)
+
+
 def main():
     if not SPEC_PATH.exists():
         print(f"[FAIL] missing spec: {SPEC_PATH}")
@@ -353,8 +363,8 @@ def main():
                     bss_end < rs_heap_addr,
                     f"BSS ends ${bss_end:04X}; heap starts ${rs_heap_addr:04X}",
                 )
-            for ovl_addr_name in ("OVL1ADDR", "OVL2ADDR", "OVL3ADDR",
-                                  "OVL4ADDR", "OVL5ADDR"):
+            for num in segment_nums(segs, r"OVL([0-9]+)ADDR"):
+                ovl_addr_name = f"OVL{num}ADDR"
                 if ovl_addr_name not in segs:
                     ok &= check(f"readyshell:{ovl_addr_name} exists", False)
                     continue
@@ -369,8 +379,8 @@ def main():
                     start == overlay_loadaddr and end == overlay_start - 1,
                     f"{fmt_range(start, end)} expected {fmt_range(overlay_loadaddr, overlay_start - 1)}",
                 )
-            for ovl_name in ("OVERLAY1", "OVERLAY2", "OVERLAY3",
-                             "OVERLAY4", "OVERLAY5"):
+            for num in segment_nums(segs, r"OVERLAY([0-9]+)"):
+                ovl_name = f"OVERLAY{num}"
                 if ovl_name not in segs:
                     ok &= check(f"readyshell:{ovl_name} exists", False)
                     continue

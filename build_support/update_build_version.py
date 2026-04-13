@@ -18,7 +18,7 @@ GEN_DIR = ROOT / "src" / "generated"
 HEADER_PATH = GEN_DIR / "build_version.h"
 ASM_PATH = GEN_DIR / "msg_version.inc"
 STATE_PATH = Path("/tmp/readyos_run_version_suffix.txt")
-BASE_VERSION = "0.1.8"
+BASE_VERSION = "0.2"
 
 
 def read_current_version() -> str:

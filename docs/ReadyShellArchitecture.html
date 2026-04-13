@@ -158,8 +158,8 @@ resident shell loop
           <tr><td>Resident app window</td><td><code>$1000-$C5FF</code></td><td>ReadyShell-owned app RAM</td></tr>
           <tr><td>Overlay load bytes</td><td><code>$8DFE-$8DFF</code></td><td>Overlay PRG load-address bytes</td></tr>
           <tr><td>Overlay execution window</td><td><code>$8E00-$C5FF</code></td><td>Shared live overlay window</td></tr>
-          <tr><td>Resident BSS</td><td><code>$877B-$8971</code></td><td>Resident writable state</td></tr>
-          <tr><td>Resident heap</td><td><code>$8972-$8DFD</code></td><td>cc65 heap below overlay load</td></tr>
+          <tr><td>Resident BSS</td><td><code>$8878-$8A6E</code></td><td>Resident writable state</td></tr>
+          <tr><td>Resident heap</td><td><code>$8A70-$8DFD</code></td><td>cc65 heap below overlay load</td></tr>
           <tr><td>High runtime area</td><td><code>$CA00-$CFFF</code></td><td>Resident runtime state outside app snapshot</td></tr>
         </tbody>
       </table>
@@ -177,6 +177,8 @@ resident shell loop
           <tr><td>3</td><td><code>rsdrvilst.prg</code></td><td><code>DRVI</code>, <code>LST</code></td><td>disk-loaded on demand</td></tr>
           <tr><td>4</td><td><code>rsldv.prg</code></td><td><code>LDV</code></td><td>disk-loaded on demand</td></tr>
           <tr><td>5</td><td><code>rsstv.prg</code></td><td><code>STV</code></td><td>disk-loaded on demand</td></tr>
+          <tr><td>6</td><td><code>rsfops.prg</code></td><td><code>DEL</code>, <code>REN</code>, <code>PUT</code>, <code>ADD</code></td><td>disk-loaded on demand</td></tr>
+          <tr><td>7</td><td><code>rscat.prg</code></td><td><code>CAT</code>, <code>COPY</code></td><td>disk-loaded on demand</td></tr>
         </tbody>
       </table>
     </div>
@@ -187,7 +189,7 @@ resident shell loop
     <p>ReadyShell commands split into exec-core commands and external commands.</p>
     <ul>
       <li>Exec-core commands in <code>OVERLAY2</code>: <code>PRT</code>, <code>MORE</code>, <code>TOP</code>, <code>SEL</code>, <code>GEN</code>, <code>TAP</code></li>
-      <li>External commands in command overlays: <code>DRVI</code>, <code>LST</code>, <code>LDV</code>, <code>STV</code></li>
+      <li>External commands in command overlays: <code>DRVI</code>, <code>LST</code>, <code>LDV</code>, <code>STV</code>, <code>DEL</code>, <code>REN</code>, <code>PUT</code>, <code>ADD</code>, <code>CAT</code>, <code>COPY</code></li>
     </ul>
     <p>External commands are driven through one generic resident execution path plus the REU-backed command registry.</p>
   </section>
@@ -211,7 +213,7 @@ OVERLAY2: execute pipeline stage-by-stage
    +--&gt; foreach stage
    +--&gt; exec-core command
    `--&gt; external command</pre>
-      <p>The shared external-command protocol vocabulary is <code>BEGIN</code>, <code>ITEM</code>, <code>RUN</code>, <code>PROCESS</code>, and <code>END</code>.</p>
+      <p>The overlay command ABI defines <code>BEGIN</code>, <code>ITEM</code>, <code>RUN</code>, <code>PROCESS</code>, and <code>END</code>. The current shipped commands use <code>RUN</code> for most command overlays and <code>BEGIN</code> + <code>ITEM</code> for <code>CAT</code>.</p>
     </div>
     <div>
       <h2>External Command Registry</h2>
@@ -222,7 +224,7 @@ OVERLAY2: execute pipeline stage-by-stage
         <tbody>
           <tr><td>Registry header</td><td><code>$488010-$488017</code></td><td>magic, version, counts</td></tr>
           <tr><td>Command descriptors</td><td><code>$488020-$48807F</code></td><td>external command metadata</td></tr>
-          <tr><td>Overlay state table</td><td><code>$488080-$4880C7</code></td><td>overlay load/cache state</td></tr>
+          <tr><td>Overlay state table</td><td><code>$488080-$4880D9</code></td><td>overlay load/cache state</td></tr>
         </tbody>
       </table>
       <p class="note">The registry is stored in REU metadata rather than resident heap/BSS, so new external commands do not require resident per-command wrapper growth.</p>
@@ -253,7 +255,7 @@ command overlay runs command body
     |
     v
 resident restores OVERLAY2 from REU</pre>
-    <p>Repeating <code>LST</code> repeats the disk load. The registry stores metadata about external overlays; it does not make them REU-cached automatically.</p>
+    <p>Repeating <code>LST</code> repeats the disk load. A file command such as <code>COPY "8:notes","9:notes"</code> follows the same pattern: load <code>rscat</code>, run the handler, then restore <code>rsvm</code> from REU. The registry stores metadata about external overlays; it does not make them REU-cached automatically.</p>
   </section>
 
   <section class="grid">
@@ -301,7 +303,7 @@ bank 0x48
   <section>
     <h2>Current Constraints</h2>
     <ul>
-      <li>Resident heap below the overlay load address is only <code>1164</code> bytes.</li>
+      <li>Resident heap below the overlay load address is only <code>910</code> bytes.</li>
       <li><code>OVERLAY2</code> is the tightest overlay and remains the next likely growth bottleneck.</li>
       <li>External command overlays still disk-load on every call unless a later change adds REU caching for them.</li>
       <li>The registry removes resident per-command glue, but command-name and capability growth in <code>OVERLAY2</code> still matters.</li>
