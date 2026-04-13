@@ -1076,6 +1076,10 @@ static int vm_cmd_external(RSVM* vm,
     vm_err(err, rc == -2 ? "command args" : "command fail");
     return -1;
   }
+  if ((id == RS_CMD_PUT || id == RS_CMD_ADD) && result.tag == RS_VAL_TRUE) {
+    rs_value_free(&result);
+    return 0;
+  }
   rc = vm_emit_result(vm,
                       pipeline,
                       (unsigned short)(stage_index + 1u),

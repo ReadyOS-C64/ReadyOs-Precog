@@ -11,6 +11,8 @@
 #pragma bss-name(push, "OVERLAY7")
 #endif
 
+int rs_vmovl_overlay7_copy(unsigned char handler, RSCommandFrame* frame);
+
 #define CAT_REC_OFF   RS_CMD_SCRATCH_OFF
 #define CAT_REC_LEN   4u
 #define CAT_REC_CAP   (0x0800u / CAT_REC_LEN)
@@ -167,16 +169,19 @@ static int cat_item(RSCommandFrame* frame) {
 }
 
 int rs_vmovl_overlay7(unsigned char handler, RSCommandFrame* frame) {
-  if (!frame || handler != RS_CMD_HANDLER_OVL7_CAT) {
+  if (!frame) {
     return -1;
   }
-  if (frame->op == RS_CMD_OVL_OP_BEGIN) {
-    return cat_begin(frame);
+  if (handler == RS_CMD_HANDLER_OVL7_CAT) {
+    if (frame->op == RS_CMD_OVL_OP_BEGIN) {
+      return cat_begin(frame);
+    }
+    if (frame->op == RS_CMD_OVL_OP_ITEM) {
+      return cat_item(frame);
+    }
+    return -1;
   }
-  if (frame->op == RS_CMD_OVL_OP_ITEM) {
-    return cat_item(frame);
-  }
-  return -1;
+  return rs_vmovl_overlay7_copy(handler, frame);
 }
 
 #if defined(__CC65__)

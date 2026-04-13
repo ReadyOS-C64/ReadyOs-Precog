@@ -7,7 +7,7 @@
 #define RS_CMD_REG_MAGIC1 'R'
 #define RS_CMD_REG_MAGIC2 'G'
 #define RS_CMD_REG_MAGIC3 '1'
-#define RS_CMD_REG_VERSION 1u
+#define RS_CMD_REG_VERSION 2u
 
 #define RS_CMD_REG_CAP_BEGIN   0x01u
 #define RS_CMD_REG_CAP_ITEM    0x02u
@@ -27,7 +27,10 @@
 #define RS_CMD_HANDLER_OVL5_STV  1u
 #define RS_CMD_HANDLER_OVL6_DEL  1u
 #define RS_CMD_HANDLER_OVL6_REN  2u
+#define RS_CMD_HANDLER_OVL6_PUT  3u
+#define RS_CMD_HANDLER_OVL6_ADD  4u
 #define RS_CMD_HANDLER_OVL7_CAT  1u
+#define RS_CMD_HANDLER_OVL7_COPY 2u
 
 typedef struct RSExternalCmdDescriptor {
   RSCommandId id;

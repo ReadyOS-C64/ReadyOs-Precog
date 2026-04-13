@@ -33,6 +33,8 @@
         { "artifact": "obj/rsdrvilst.prg", "name": "rsdrvilst", "type": "prg" },
         { "artifact": "obj/rsldv.prg", "name": "rsldv", "type": "prg" },
         { "artifact": "obj/rsstv.prg", "name": "rsstv", "type": "prg" },
+        { "artifact": "obj/rsfops.prg", "name": "rsfops", "type": "prg" },
+        { "artifact": "obj/rscat.prg", "name": "rscat", "type": "prg" },
         { "artifact": "obj/apps_cfg_petscii.seq", "name": "apps.cfg", "type": "seq" }
       ],
       "post_build": [

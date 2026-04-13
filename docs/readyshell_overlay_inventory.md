@@ -1,13 +1,13 @@
-# ReadyShell Overlay Inventory Report (v0.1.8M)
+# ReadyShell Overlay Inventory Report (v0.1.8C)
 
 Artifact-backed report generated from the current local ReadyShell build, linker map, and D71 disk image.
 
 ## Executive Summary
 
-- Profile / disk source: `precog-dual-d71` using `releases/0.1.8/precog-dual-d71/readyos-v0.1.8m-dual-d71_1.d71` (disk label `readyos`, `216` blocks free).
-- Resident ReadyShell PRG: `readyshell.prg` on disk as `readyshell`, `30589` bytes and `121` D71 blocks.
+- Profile / disk source: `precog-dual-d71` using `releases/0.1.8/precog-dual-d71/readyos-v0.1.8c-dual-d71_1.d71` (disk label `readyos`, `119` blocks free).
+- Resident ReadyShell PRG: `readyshell.prg` on disk as `readyshell`, `30842` bytes and `122` D71 blocks.
 - Overlay execution window: `$8E00-$C5FF` for `14336` bytes, with PRG load-address bytes at `$8DFE-$8DFF`.
-- Resident BSS / heap below overlays: BSS `$877B-$8971` (`503` bytes), heap `$8972-$8DFD` (`1164` bytes).
+- Resident BSS / heap below overlays: BSS `$8878-$8A6E` (`503` bytes), heap `$8A70-$8DFD` (`910` bytes).
 - High RAM runtime region outside the app window: `$CA00-$CFFF`.
 - REU policy split:
   - overlays 1-2 are boot-loaded from disk and cached into one shared REU bank using fixed full-window slots
@@ -21,8 +21,8 @@ Artifact-backed report generated from the current local ReadyShell build, linker
 | Resident app window | `$1000-$C5FF` | `46592` | ReadyOS app-owned RAM window for ReadyShell. |
 | Overlay load address bytes | `$8DFE-$8DFF` | `2` | PRG load address emitted ahead of each overlay sidecar file. |
 | Overlay execution window | `$8E00-$C5FF` | `14336` | Shared live area for whichever overlay is active. |
-| Resident BSS | `$877B-$8971` | `503` | Resident writable data below the overlay load address. |
-| Resident heap | `$8972-$8DFD` | `1164` | cc65 heap carved below the overlay load address. |
+| Resident BSS | `$8878-$8A6E` | `503` | Resident writable data below the overlay load address. |
+| Resident heap | `$8A70-$8DFD` | `910` | cc65 heap carved below the overlay load address. |
 | High-RAM runtime | `$CA00-$CFFF` | `1536` | Fixed ReadyShell runtime state outside the app snapshot window. |
 
 ## REU Layout And Loading Model
@@ -37,7 +37,7 @@ Artifact-backed report generated from the current local ReadyShell build, linker
 | Command scratch | `$480000-$487FFF` | `32768` | Inter-overlay handoff area for command frames and streaming state. |
 | Command registry header | `$488010-$488017` | `8` | REU-backed external-command registry header. |
 | Command descriptor table | `$488020-$48807F` | `96` | Fixed-capacity external-command descriptor table in REU metadata. |
-| Overlay state table | `$488080-$4880C7` | `72` | Fixed-capacity overlay load/cache state table for external command overlays. |
+| Overlay state table | `$488080-$4880D9` | `90` | Fixed-capacity overlay load/cache state table for external command overlays. |
 | Shared ReadyShell metadata | `$4880E0-$4880EB` | `12` | Shared core-overlay cache metadata record. |
 | Pause flag | `$4880F0` | `1` | Shared output-pause bit used by resident output and `MORE`. |
 | REU heap metadata | `$488000-$4880FF` | `256` | ReadyShell REU heap header region, including shared metadata bytes. |
@@ -67,7 +67,7 @@ REU bank 0x40
 | Ovl | Role | Build PRG | Disk name | PRG bytes | Disk blocks | Live bytes | Window use | REU cache | Commands |
 | ---: | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
 | 1 | Parser / Lexer | `rsparser.prg` | `rsparser` | `13007` | `52` | `13005` | `90.7%` | bank `0x40` slot `$400000-$4037FF` | None directly; parse phase support. |
-| 2 | Execution Core | `rsvm.prg` | `rsvm` | `14050` | `56` | `14048` | `98.0%` | bank `0x40` slot `$403800-$406FFF` | PRT, MORE, TOP, SEL, GEN, TAP and the shared execution paths that command overlays return to. |
+| 2 | Execution Core | `rsvm.prg` | `rsvm` | `14035` | `56` | `14033` | `97.9%` | bank `0x40` slot `$403800-$406FFF` | PRT, MORE, TOP, SEL, GEN, TAP and the shared execution paths that command overlays return to. |
 | 3 | Drive Info + Directory Listing | `rsdrvilst.prg` | `rsdrvilst` | `7745` | `31` | `7743` | `54.0%` | disk-only | DRVI, LST |
 | 4 | Load Value | `rsldv.prg` | `rsldv` | `11156` | `44` | `11154` | `77.8%` | disk-only | LDV |
 | 5 | Store Value | `rsstv.prg` | `rsstv` | `8972` | `36` | `8970` | `62.6%` | disk-only | STV |
@@ -104,8 +104,8 @@ Resident ReadyShell dispatcher
 - Resident asm/runtime support: `rs_runtime_c64.s`
 - Command role: Resident app shell loop plus vm/overlay runtime. Command tokens resolved here, then dispatched to overlay 2 or command overlays.
 - Current linker-visible resident footprint:
-  - `CODE` `0x7296`
-  - `RODATA` `0x040D`
+  - `CODE` `0x734B`
+  - `RODATA` `0x0455`
   - `DATA` `0x0051`
   - `INIT` `0x001C`
   - `ONCE` `0x0038`
@@ -135,9 +135,9 @@ Resident ReadyShell dispatcher
 - Disk filename: `rsvm`
 - Source files: `rs_vars.c, rs_value.c, rs_format.c, rs_cmd.c, rs_pipe.c`
 - Commands: PRT, MORE, TOP, SEL, GEN, TAP and the shared execution paths that command overlays return to.
-- Runtime bytes in overlay window: `14048` at `$8E00-$C4DF`
-- Window share: `98.0%` used, `288` bytes free
-- Disk footprint: `14050` bytes, `56` D71 blocks
+- Runtime bytes in overlay window: `14033` at `$8E00-$C4D0`
+- Window share: `97.9%` used, `303` bytes free
+- Disk footprint: `14035` bytes, `56` D71 blocks
 - REU policy: Cached in shared bank `0x40`, slot `$403800-$406FFF`, as a full `0x3800`-byte overlay-window snapshot.
 - RAM notes: Includes rs_vm_fmt_buf[128] and rs_vm_line_buf[384] inside the overlay image.
 
@@ -185,9 +185,9 @@ Resident ReadyShell dispatcher
 
 ## Observations
 
-- Overlay 2 is effectively full: `14048` of `14336` bytes (`98.0%`).
+- Overlay 2 is effectively full: `14033` of `14336` bytes (`97.9%`).
 - Overlay 1 is also large at `13005` bytes (`90.7%`).
-- The resident heap below the overlay load address is only `1164` bytes, so large transient work must lean on overlays and REU-backed storage.
+- The resident heap below the overlay load address is only `910` bytes, so large transient work must lean on overlays and REU-backed storage.
 - Overlays 1-2 no longer consume separate REU banks; they share bank `0x40` and leave `36864` bytes free at the tail of that bank.
 - Command overlays 3-5 stay smaller on disk and in RAM, but they pay the disk-load cost per command because they are not REU-cached today.
 - Overlay 2 carries the shared formatting buffers, so its footprint reflects both command support code and the text-rendering scratch it owns.

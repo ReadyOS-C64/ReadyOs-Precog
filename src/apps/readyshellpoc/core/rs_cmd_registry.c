@@ -4,7 +4,7 @@
 #include "../platform/rs_overlay.h"
 #include "../platform/rs_platform.h"
 
-#define RS_CMD_REG_DESC_COUNT  7u
+#define RS_CMD_REG_DESC_COUNT  10u
 #define RS_CMD_REG_STATE_COUNT 5u
 
 #define RS_CMD_REG_DESC_ID_OFF        0u
@@ -27,7 +27,10 @@ static const unsigned char g_cmd_seed[RS_CMD_REG_DESC_COUNT][RS_REU_CMD_REG_DESC
   { (unsigned char)RS_CMD_STV,  2u, (unsigned char)(RS_CMD_REG_CAP_BEGIN | RS_CMD_REG_CAP_PROCESS | RS_CMD_REG_CAP_END | RS_CMD_REG_CAP_RUN), RS_CMD_HANDLER_OVL5_STV, 0u, 0u },
   { (unsigned char)RS_CMD_DEL,  3u, RS_CMD_REG_CAP_RUN, RS_CMD_HANDLER_OVL6_DEL, 0u, 0u },
   { (unsigned char)RS_CMD_REN,  3u, RS_CMD_REG_CAP_RUN, RS_CMD_HANDLER_OVL6_REN, 0u, 0u },
-  { (unsigned char)RS_CMD_CAT,  4u, (unsigned char)(RS_CMD_REG_CAP_BEGIN | RS_CMD_REG_CAP_ITEM), RS_CMD_HANDLER_OVL7_CAT, 0u, 0u }
+  { (unsigned char)RS_CMD_CAT,  4u, (unsigned char)(RS_CMD_REG_CAP_BEGIN | RS_CMD_REG_CAP_ITEM), RS_CMD_HANDLER_OVL7_CAT, 0u, 0u },
+  { (unsigned char)RS_CMD_PUT,  3u, RS_CMD_REG_CAP_RUN, RS_CMD_HANDLER_OVL6_PUT, 0u, 0u },
+  { (unsigned char)RS_CMD_ADD,  3u, RS_CMD_REG_CAP_RUN, RS_CMD_HANDLER_OVL6_ADD, 0u, 0u },
+  { (unsigned char)RS_CMD_COPY, 4u, RS_CMD_REG_CAP_RUN, RS_CMD_HANDLER_OVL7_COPY, 0u, 0u }
 };
 
 static const unsigned char g_state_seed[RS_CMD_REG_STATE_COUNT][RS_REU_CMD_REG_STATE_LEN] = {
@@ -49,7 +52,7 @@ static unsigned long rs_cmd_reg_state_abs(unsigned char index) {
 }
 
 static int rs_cmd_registry_ready(void) {
-  unsigned char hdr[5];
+  unsigned char hdr[RS_REU_CMD_REG_HDR_LEN];
   if (rs_reu_read(RS_REU_CMD_REG_HDR_OFF, hdr, sizeof(hdr)) != 0) {
     return 0;
   }
@@ -57,7 +60,9 @@ static int rs_cmd_registry_ready(void) {
          hdr[1] == (unsigned char)RS_CMD_REG_MAGIC1 &&
          hdr[2] == (unsigned char)RS_CMD_REG_MAGIC2 &&
          hdr[3] == (unsigned char)RS_CMD_REG_MAGIC3 &&
-         hdr[4] == RS_CMD_REG_VERSION;
+         hdr[4] == RS_CMD_REG_VERSION &&
+         hdr[5] == RS_CMD_REG_DESC_COUNT &&
+         hdr[6] == RS_CMD_REG_STATE_COUNT;
 }
 
 static int rs_cmd_registry_ensure_seeded(void) {

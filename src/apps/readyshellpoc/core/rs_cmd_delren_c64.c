@@ -9,6 +9,8 @@
 #pragma bss-name(push, "OVERLAY6")
 #endif
 
+int rs_vmovl_overlay6_putadd(unsigned char handler, RSCommandFrame* frame);
+
 static char* delren_append(char* dst, const char* src) {
   while (*dst != '\0') {
     ++dst;
@@ -81,7 +83,7 @@ int rs_vmovl_overlay6(unsigned char handler, RSCommandFrame* frame) {
   if (handler == RS_CMD_HANDLER_OVL6_REN) {
     return ren_run(frame);
   }
-  return -1;
+  return rs_vmovl_overlay6_putadd(handler, frame);
 }
 
 #if defined(__CC65__)

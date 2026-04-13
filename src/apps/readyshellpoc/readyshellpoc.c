@@ -90,6 +90,7 @@ typedef struct {
 #define RS_RUNTIME_ADDR 0xCA00u
 #define RS_RUNTIME_LIMIT_ADDR 0xD000u
 #define RS_REU_HEAP_SESSION_FLAG (*(unsigned char*)0xCFF0)
+#define RS_CMD_SESSION_EPOCH (*(unsigned char*)0xCFF1)
 
 #define RS_RUNTIME ((ReadyShellRuntimeState*)RS_RUNTIME_ADDR)
 #define g_vm (RS_RUNTIME->vm)
@@ -126,6 +127,7 @@ static void shell_init_runtime_regions(void) {
     /* High RAM at $CA00 is scratch and is not part of the app REU snapshot. */
     memset(RS_RUNTIME, 0, sizeof(*RS_RUNTIME));
     RS_REU_HEAP_SESSION_FLAG = 0u;
+    RS_CMD_SESSION_EPOCH = 0u;
     rs_set_c_stack_top();
     heap_start = (unsigned int)rs_heap_bss_run + (unsigned int)rs_heap_bss_size;
     if (heap_start & 1u) {
@@ -875,6 +877,10 @@ int main(void) {
         }
 
         rs_error_init(&g_err);
+        ++RS_CMD_SESSION_EPOCH;
+        if (RS_CMD_SESSION_EPOCH == 0u) {
+            RS_CMD_SESSION_EPOCH = 1u;
+        }
         rs_overlay_debug_mark('V');
         if (((exec_rc = rs_vm_exec_source(&g_vm, g_line, &g_err)) != 0) ||
             g_err.code != RS_ERR_NONE) {
