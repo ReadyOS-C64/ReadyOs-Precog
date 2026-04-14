@@ -343,7 +343,7 @@
             <tbody>
               <tr><td class="mono">$C820</td><td><span class="mono">target_bank</span></td><td>preload / switch / fetch target bank</td></tr>
               <tr><td class="mono">$C821</td><td><span class="mono">filename_len</span></td><td>launcher-written filename metadata</td></tr>
-              <tr><td class="mono">$C822-$C823</td><td><span class="mono">app_size</span> scratch</td><td>written by launcher, not consumed by resident shim path today</td></tr>
+              <tr><td class="mono">$C822-$C823</td><td><span class="mono">app_size</span> scratch</td><td>launcher scratch / optional convenience field; resident shim does not read it</td></tr>
               <tr><td class="mono">$C824-$C82F</td><td><span class="mono">filename[12]</span></td><td>12-byte app token buffer for disk load paths</td></tr>
               <tr><td class="mono">$C830-$C831</td><td><span class="mono">load_end</span></td><td>actual KERNAL <span class="mono">LOAD</span> end address captured by preload</td></tr>
               <tr><td class="mono">$C832-$C833</td><td>unused</td><td>reserved padding</td></tr>
@@ -360,11 +360,10 @@
         </div>
       </div>
       <div class="notice">
-        <strong>ABI nuance that matters:</strong> launcher code still exposes
-        <span class="mono">$C822-$C823</span> as a shim-side size field, but
-        the resident shim path itself does not consume it today. The real
-        preload result comes from <span class="mono">$C830-$C831</span>, where
-        preload saves the KERNAL end address.
+        <strong>Current preload result:</strong> launcher scratch may still use
+        <span class="mono">$C822-$C823</span>, but the real preload result is
+        the KERNAL <span class="mono">LOAD</span> end address saved at
+        <span class="mono">$C830-$C831</span>.
       </div>
     </section>
 
@@ -393,7 +392,7 @@ $C818: JMP $C9E0   ; log_byte helper
 ; ------------------------------------------------------------
 $C820: target_bank
 $C821: filename_len
-$C822-$C823: launcher scratch / app_size convenience (not consumed by resident shim)
+$C822-$C823: launcher scratch / optional app_size convenience (ignored by resident shim)
 $C824-$C82F: filename[12]
 $C830-$C831: load_end (captured from KERNAL LOAD X/Y)
 $C834: current_bank
@@ -632,7 +631,9 @@ tail end              = $10000</pre>
         backed this report. The second table is the current
         <span class="mono">0.2</span> addendum rechecked from
         <span class="mono">obj/*.map</span> after the ReadyShell overlay
-        normalization.
+        normalization. These rows now report exact linked runtime ends,
+        exact raw headroom to <span class="mono">$C5FF</span>, and the
+        even-aligned writable slack left after <span class="mono">BSS</span>.
       </p>
       <div class="grid-2">
         <div>
@@ -652,33 +653,56 @@ tail end              = $10000</pre>
             historical comparison; the current rows below should be used for
             acceptance and headroom decisions.
           </p>
-          <h3>Current app images (0.2 addendum)</h3>
+          <h3>Current normal app images (0.2 addendum)</h3>
           <table>
-            <thead><tr><th>App</th><th>Runtime end</th><th>RODATA</th><th>DATA</th><th>BSS</th><th>Heap left</th><th>Raw headroom</th></tr></thead>
+            <thead><tr><th>App</th><th>Runtime end</th><th>RODATA</th><th>DATA</th><th>BSS</th><th>Aligned writable slack</th><th>Raw headroom</th></tr></thead>
             <tbody>
-              <tr><td class="mono">dizzy</td><td class="mono">$BEAE</td><td class="mono">1225</td><td class="mono">132</td><td class="mono">6327</td><td class="mono">1872</td><td class="mono">1874</td></tr>
-              <tr><td class="mono">tasklist</td><td class="mono">$AD10</td><td class="mono">821</td><td class="mono">151</td><td class="mono">8927</td><td class="mono">6382</td><td class="mono">6384</td></tr>
-              <tr><td class="mono">calcplus</td><td class="mono">$A9AD</td><td class="mono">1173</td><td class="mono">158</td><td class="mono">1321</td><td class="mono">7250</td><td class="mono">7251</td></tr>
-              <tr><td class="mono">cal26</td><td class="mono">$A291</td><td class="mono">1869</td><td class="mono">324</td><td class="mono">4803</td><td class="mono">9070</td><td class="mono">9071</td></tr>
-              <tr><td class="mono">simplecells</td><td class="mono">$A14F</td><td class="mono">1722</td><td class="mono">238</td><td class="mono">2142</td><td class="mono">9392</td><td class="mono">9393</td></tr>
-              <tr><td class="mono">quicknotes</td><td class="mono">$9F97</td><td class="mono">944</td><td class="mono">222</td><td class="mono">6031</td><td class="mono">9832</td><td class="mono">9833</td></tr>
-              <tr><td class="mono">simplefiles</td><td class="mono">$948C</td><td class="mono">1229</td><td class="mono">62</td><td class="mono">4397</td><td class="mono">12658</td><td class="mono">12660</td></tr>
-              <tr><td class="mono">launcher</td><td class="mono">$9F52</td><td class="mono">762</td><td class="mono">49</td><td class="mono">4717</td><td class="mono">9900</td><td class="mono">9902</td></tr>
+              <tr><td class="mono">dizzy</td><td class="mono">$BEAE</td><td class="mono">1225</td><td class="mono">132</td><td class="mono">6327</td><td class="mono">1872</td><td class="mono">1873</td></tr>
+              <tr><td class="mono">tasklist</td><td class="mono">$AD10</td><td class="mono">821</td><td class="mono">151</td><td class="mono">8927</td><td class="mono">6382</td><td class="mono">6383</td></tr>
+              <tr><td class="mono">calcplus</td><td class="mono">$A9AD</td><td class="mono">1173</td><td class="mono">158</td><td class="mono">1321</td><td class="mono">7250</td><td class="mono">7250</td></tr>
+              <tr><td class="mono">cal26</td><td class="mono">$A291</td><td class="mono">1869</td><td class="mono">324</td><td class="mono">4803</td><td class="mono">9070</td><td class="mono">9070</td></tr>
+              <tr><td class="mono">simplecells</td><td class="mono">$A14F</td><td class="mono">1722</td><td class="mono">238</td><td class="mono">2142</td><td class="mono">9392</td><td class="mono">9392</td></tr>
+              <tr><td class="mono">quicknotes</td><td class="mono">$9F97</td><td class="mono">944</td><td class="mono">222</td><td class="mono">6031</td><td class="mono">9832</td><td class="mono">9832</td></tr>
+              <tr><td class="mono">launcher</td><td class="mono">$9F51</td><td class="mono">761</td><td class="mono">49</td><td class="mono">4717</td><td class="mono">9902</td><td class="mono">9902</td></tr>
+              <tr><td class="mono">editor</td><td class="mono">$96E7</td><td class="mono">830</td><td class="mono">134</td><td class="mono">9880</td><td class="mono">12056</td><td class="mono">12056</td></tr>
+              <tr><td class="mono">simplefiles</td><td class="mono">$948C</td><td class="mono">1229</td><td class="mono">62</td><td class="mono">4397</td><td class="mono">12658</td><td class="mono">12659</td></tr>
+              <tr><td class="mono">clipmgr</td><td class="mono">$8EEF</td><td class="mono">842</td><td class="mono">46</td><td class="mono">1062</td><td class="mono">14096</td><td class="mono">14096</td></tr>
+              <tr><td class="mono">deminer</td><td class="mono">$6F41</td><td class="mono">747</td><td class="mono">46</td><td class="mono">4276</td><td class="mono">22206</td><td class="mono">22206</td></tr>
+              <tr><td class="mono">readme</td><td class="mono">$5D2B</td><td class="mono">9241</td><td class="mono">46</td><td class="mono">48</td><td class="mono">26836</td><td class="mono">26836</td></tr>
+              <tr><td class="mono">game2048</td><td class="mono">$52F0</td><td class="mono">197</td><td class="mono">46</td><td class="mono">1203</td><td class="mono">29454</td><td class="mono">29455</td></tr>
+              <tr><td class="mono">hexview</td><td class="mono">$4559</td><td class="mono">498</td><td class="mono">46</td><td class="mono">101</td><td class="mono">32934</td><td class="mono">32934</td></tr>
+              <tr><td class="mono">reuviewer</td><td class="mono">$44D9</td><td class="mono">283</td><td class="mono">46</td><td class="mono">51</td><td class="mono">33062</td><td class="mono">33062</td></tr>
             </tbody>
           </table>
           <p class="small muted">
-            <strong>Heap left</strong> is post-BSS free space to <span class="mono">$C5FF</span> after even alignment.
-            <strong>Raw headroom</strong> is the gap from the linked runtime end to <span class="mono">$C5FF</span>.
+            <strong>Aligned writable slack</strong> is the even-aligned free
+            space after <span class="mono">BSS</span> and below the ReadyOS
+            snapshot ceiling. <strong>Raw headroom</strong> is the exact gap
+            from the linked runtime end to <span class="mono">$C5FF</span>.
+            <span class="mono">readyshell</span> is intentionally omitted from
+            this normal-app table because it uses the overlay linker contract
+            and has a separate resident heap ceiling at
+            <span class="mono">$8DFD</span>.
           </p>
         </div>
         <div>
-          <h3>Linker-config nuance</h3>
+          <h3>Current memory contract</h3>
+          <ul>
+            <li><strong>Real app snapshot window:</strong> normal ReadyOS apps link and resume inside <span class="mono">$1000-$C5FF</span>, not <span class="mono">$1000-$BFFF</span>.</li>
+            <li><strong>Why this is trustworthy:</strong> <span class="mono">cfg/ready_app.cfg</span> defines <span class="mono">MAIN</span> as <span class="mono">$1000 + $B600</span>, and the shim copies exactly <span class="mono">$B600</span> bytes during REU stash/fetch.</li>
+            <li><strong>Suspend/resume split:</strong> REU bank offsets <span class="mono">$0000-$B5FF</span> hold the raw app snapshot, and offsets <span class="mono">$B600-$FFFF</span> hold the per-app resume payload.</li>
+            <li><strong>Report consequence:</strong> app headroom must be measured to <span class="mono">$C5FF</span>, while logical resume state belongs to the REU tail outside that snapshot.</li>
+            <li><strong>Code/docs alignment:</strong> the boot-loader memory-map comment, linker configs, shim implementation, and verifiers all use the same <span class="mono">$1000-$C5FF</span> app snapshot window.</li>
+          </ul>
+          <h3>Interpreting slack</h3>
           <ul>
             <li><strong>Normal apps:</strong> <span class="mono">cfg/ready_app.cfg</span> puts <span class="mono">BSS</span> directly inside the <span class="mono">$1000-$C5FF</span> app window.</li>
+            <li><strong>Aligned writable slack is not always heap:</strong> the table reports what is left after <span class="mono">BSS</span> and even alignment, but that should not be read as a proven malloc heap unless the app actually initializes and uses it that way.</li>
+            <li><strong>Simple Files / Simple Cells:</strong> those apps use dedicated linker configs with an explicit <span class="mono">__STACKSIZE__ = $0070</span> reserve below <span class="mono">$C600</span>, so their slack figures include a deliberate stack guardrail and are not unconstrained heap.</li>
             <li><strong>Overlay app:</strong> <span class="mono">readyshell</span> uses <span class="mono">cfg/ready_app_overlay.cfg</span>, not the normal app linker contract.</li>
             <li><strong>Historical resident ReadyShell image:</strong> the previous local snapshot ended at <span class="mono">$9B74</span>, with a much smaller resident image. Those values are retained only for historical comparison.</li>
             <li><strong>Current resident ReadyShell image:</strong> the current <span class="mono">0.2</span> map has <span class="mono">RODATA 1122</span>, <span class="mono">DATA 71</span>, resident <span class="mono">BSS $8769-$895F</span> (<span class="mono">503</span> bytes), resident heap <span class="mono">$8960-$8DFD</span> (<span class="mono">1182</span> bytes), and overlay load-address bytes at <span class="mono">$8DFE-$8DFF</span>.</li>
-            <li><strong>True current ReadyShell headroom:</strong> overlay payload fit is tighter than the resident writable gap. Current overlay1 is <span class="mono">$8E00-$C0CC</span> and leaves <span class="mono">1331</span> bytes; overlay2 leaves <span class="mono">303</span> bytes; overlay3 leaves <span class="mono">6593</span> bytes; overlay4 leaves <span class="mono">3182</span> bytes; overlay5 leaves <span class="mono">5366</span> bytes; overlay6 leaves <span class="mono">1103</span> bytes; overlay7 leaves <span class="mono">7881</span> bytes; overlay8 leaves <span class="mono">7737</span> bytes.</li>
+            <li><strong>True current ReadyShell limit:</strong> overlay payload fit is tighter than the resident heap gap. Current overlay1 is <span class="mono">$8E00-$C0CC</span> and leaves <span class="mono">1331</span> bytes; overlay2 leaves <span class="mono">303</span> bytes; overlay3 leaves <span class="mono">6593</span> bytes; overlay4 leaves <span class="mono">3182</span> bytes; overlay5 leaves <span class="mono">5366</span> bytes; overlay6 leaves <span class="mono">1103</span> bytes; overlay7 leaves <span class="mono">7881</span> bytes; overlay8 leaves <span class="mono">7737</span> bytes.</li>
             <li><strong>Overlay guardrail:</strong> release overlay size is <span class="mono">$3800</span> and debug overlay size is <span class="mono">$3B00</span>. The old explicit-C-stack-reserve wording is retained as historical shorthand, but current safety depends on ONCE/BSS ending below <span class="mono">__OVERLAY_LOADADDR__</span>, overlays loading at <span class="mono">$8E00</span>, and ReadyShell stack relocation being handled separately.</li>
           </ul>
         </div>

@@ -5,7 +5,7 @@
 ;   $0801-$08FF: Boot loader (this code, freed after boot)
 ;   $C800-$C9FF: Shim (512 bytes) - copied here, stays resident
 ;                (Using $C800 to avoid cc65 runtime overwriting $0800)
-;   $1000-$BFFF: App space (44KB)
+;   $1000-$C5FF: App snapshot window ($B600 / 46592 bytes)
 ;
 ; REU Banks:
 ;   Bank 0: Launcher
