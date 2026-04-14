@@ -191,6 +191,9 @@ Notes:
 - ReadyShell overlay inventory: [docs/readyshell_overlay_inventory.md](docs/readyshell_overlay_inventory.md)
 - ReadyShell now ships eight overlays: `rsparser`, `rsvm`, `rsdrvilst`,
   `rsldv`, `rsstv`, `rsfops`, `rscat`, and `rscopy`.
+- ReadyShell preloads and REU-caches all eight overlays at startup. Bank `$40`
+  holds overlays `1`, `2`, `3`, and `5`; bank `$41` holds overlays `4`, `6`,
+  `7`, and `8`.
 - `cal26` currently has a known regression: task reading is broken.
 - `showcfg.prg` is a BASIC inspector for the generated `apps.cfg` payload on
   drive `8`.
@@ -215,10 +218,12 @@ Runtime model:
 REU layout:
 
 - bank `0`: launcher/system state
-- bank `1`: shared clipboard
+- clipboard payload banks: dynamic allocation pool, with legacy bank `1`
+  wording retained only in parts of the older contract surface
 - banks `2-25`: app slots (`24` total)
 - higher banks: dynamic allocation pool
-- bank `$40`: shared ReadyShell core-overlay cache bank
+- bank `$40`: ReadyShell overlay cache bank for overlays `1`, `2`, `3`, and `5`
+- bank `$41`: ReadyShell overlay cache bank for overlays `4`, `6`, `7`, and `8`
 - bank `$43`: ReadyShell debug/probe ring
 - bank `$48`: ReadyShell scratch, metadata, command registry, and REU value arena
 

@@ -92,16 +92,16 @@ Current release build memory layout:
 - Resident app window: `$1000-$C5FF` (`46592` bytes)
 - Overlay load-address bytes: `$8DFE-$8DFF`
 - Overlay execution window: `$8E00-$C5FF` (`14336` bytes)
-- Resident BSS: `$8878-$8A6E` (`503` bytes)
-- Resident heap: `$8A70-$8DFD` (`910` bytes)
+- Resident BSS: `$8769-$895F` (`503` bytes)
+- Resident heap: `$8960-$8DFD` (`1182` bytes)
 - High RAM runtime outside the app snapshot: `$CA00-$CFFF`
 
 Overlay policy:
 
-- Overlays `1` and `2` are still separate files on disk
-- They now share one REU cache bank, `0x40`
-- Each shared cache slot stores the full overlay window size, not just file bytes
-- Overlays `3-7` remain disk-loaded command overlays
+- All eight overlays are boot-preloaded into fixed REU cache slots during shell startup
+- Bank `0x40` holds overlays `1`, `2`, `3`, and `5`
+- Bank `0x41` holds overlays `4`, `6`, `7`, and `8`
+- Each cache slot stores the full overlay window size, not just file bytes
 - Shared REU metadata, command registry, pause state, command scratch, and the value arena live in bank `0x48`
 
 Shared REU cache layout:
@@ -115,20 +115,37 @@ bank 0x40
 | overlay 2 exec slot           |
 | full window snapshot 0x3800   |
 +-------------------------------+ 0x407000
+| overlay 3 rsdrvilst slot      |
++-------------------------------+ 0x40A800
+| overlay 5 rsstv slot          |
++-------------------------------+ 0x40E000
 | free tail in bank 0x40        |
 +-------------------------------+ 0x40FFFF
+
+bank 0x41
++-------------------------------+ 0x410000
+| overlay 4 rsldv slot          |
++-------------------------------+ 0x413800
+| overlay 6 rsfops slot         |
++-------------------------------+ 0x417000
+| overlay 7 rscat slot          |
++-------------------------------+ 0x41A800
+| overlay 8 rscopy slot         |
++-------------------------------+ 0x41E000
+| free tail in bank 0x41        |
++-------------------------------+ 0x41FFFF
 ```
 
 Current overlay set:
 
 - `OVERLAY1` `rsparser.prg`: parser / lexer, `13005` live bytes, cached in bank `0x40` parse slot
 - `OVERLAY2` `rsvm.prg`: execution core for `PRT`, `MORE`, `TOP`, `SEL`, `GEN`, `TAP`, `14033` live bytes, cached in bank `0x40` exec slot
-- `OVERLAY3` `rsdrvilst.prg`: `DRVI` + `LST`, disk-loaded
-- `OVERLAY4` `rsldv.prg`: `LDV`, disk-loaded
-- `OVERLAY5` `rsstv.prg`: `STV`, disk-loaded
-- `OVERLAY6` `rsfops.prg`: `DEL` + `REN` + `PUT` + `ADD`, disk-loaded
-- `OVERLAY7` `rscat.prg`: `CAT`, disk-loaded
-- `OVERLAY8` `rscopy.prg`: `COPY`, disk-loaded
+- `OVERLAY3` `rsdrvilst.prg`: `DRVI` + `LST`, cached in bank `0x40`
+- `OVERLAY4` `rsldv.prg`: `LDV`, cached in bank `0x41`
+- `OVERLAY5` `rsstv.prg`: `STV`, cached in bank `0x40`
+- `OVERLAY6` `rsfops.prg`: `DEL` + `REN` + `PUT` + `ADD`, cached in bank `0x41`
+- `OVERLAY7` `rscat.prg`: `CAT`, cached in bank `0x41`
+- `OVERLAY8` `rscopy.prg`: `COPY`, cached in bank `0x41`
 
 ## 3. Statement Forms
 

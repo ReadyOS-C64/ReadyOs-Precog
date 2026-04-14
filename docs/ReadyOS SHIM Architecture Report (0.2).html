@@ -544,7 +544,8 @@ $C9F9: RTS</pre>
               <tr><td class="mono">0</td><td>launcher snapshot + launcher resume tail</td></tr>
               <tr><td class="mono">0-23</td><td>bitmap-tracked app-slot namespace</td></tr>
               <tr><td class="mono">24+</td><td>dynamic allocator pool</td></tr>
-              <tr><td class="mono">$40</td><td>ReadyShell shared core-overlay cache bank for overlays 1-2</td></tr>
+              <tr><td class="mono">$40</td><td>ReadyShell overlay cache bank for overlays 1, 2, 3, and 5</td></tr>
+              <tr><td class="mono">$41</td><td>ReadyShell overlay cache bank for overlays 4, 6, 7, and 8</td></tr>
               <tr><td class="mono">$43</td><td>ReadyShell REU debug ring</td></tr>
               <tr><td class="mono">$48</td><td>ReadyShell scratch, registry, metadata, and value arena</td></tr>
             </tbody>
@@ -653,18 +654,22 @@ tail end              = $10000</pre>
           </p>
           <h3>Current app images (0.2 addendum)</h3>
           <table>
-            <thead><tr><th>App</th><th>Runtime end</th><th>BSS bytes</th><th>Headroom to $C5FF</th></tr></thead>
+            <thead><tr><th>App</th><th>Runtime end</th><th>RODATA</th><th>DATA</th><th>BSS</th><th>Heap left</th><th>Raw headroom</th></tr></thead>
             <tbody>
-              <tr><td class="mono">dizzy</td><td class="mono">$BEAE</td><td class="mono">6327</td><td class="mono">1873</td></tr>
-              <tr><td class="mono">tasklist</td><td class="mono">$AD04</td><td class="mono">8927</td><td class="mono">6395</td></tr>
-              <tr><td class="mono">calcplus</td><td class="mono">$A98F</td><td class="mono">1321</td><td class="mono">7280</td></tr>
-              <tr><td class="mono">cal26</td><td class="mono">$A285</td><td class="mono">4803</td><td class="mono">9082</td></tr>
-              <tr><td class="mono">simplecells</td><td class="mono">$A143</td><td class="mono">2142</td><td class="mono">9404</td></tr>
-              <tr><td class="mono">quicknotes</td><td class="mono">$9F8B</td><td class="mono">6031</td><td class="mono">9844</td></tr>
-              <tr><td class="mono">simplefiles</td><td class="mono">$948C</td><td class="mono">4397</td><td class="mono">12659</td></tr>
-              <tr><td class="mono">launcher</td><td class="mono">$9F54</td><td class="mono">4717</td><td class="mono">9899</td></tr>
+              <tr><td class="mono">dizzy</td><td class="mono">$BEAE</td><td class="mono">1225</td><td class="mono">132</td><td class="mono">6327</td><td class="mono">1872</td><td class="mono">1874</td></tr>
+              <tr><td class="mono">tasklist</td><td class="mono">$AD10</td><td class="mono">821</td><td class="mono">151</td><td class="mono">8927</td><td class="mono">6382</td><td class="mono">6384</td></tr>
+              <tr><td class="mono">calcplus</td><td class="mono">$A9AD</td><td class="mono">1173</td><td class="mono">158</td><td class="mono">1321</td><td class="mono">7250</td><td class="mono">7251</td></tr>
+              <tr><td class="mono">cal26</td><td class="mono">$A291</td><td class="mono">1869</td><td class="mono">324</td><td class="mono">4803</td><td class="mono">9070</td><td class="mono">9071</td></tr>
+              <tr><td class="mono">simplecells</td><td class="mono">$A14F</td><td class="mono">1722</td><td class="mono">238</td><td class="mono">2142</td><td class="mono">9392</td><td class="mono">9393</td></tr>
+              <tr><td class="mono">quicknotes</td><td class="mono">$9F97</td><td class="mono">944</td><td class="mono">222</td><td class="mono">6031</td><td class="mono">9832</td><td class="mono">9833</td></tr>
+              <tr><td class="mono">simplefiles</td><td class="mono">$948C</td><td class="mono">1229</td><td class="mono">62</td><td class="mono">4397</td><td class="mono">12658</td><td class="mono">12660</td></tr>
+              <tr><td class="mono">launcher</td><td class="mono">$9F52</td><td class="mono">762</td><td class="mono">49</td><td class="mono">4717</td><td class="mono">9900</td><td class="mono">9902</td></tr>
             </tbody>
           </table>
+          <p class="small muted">
+            <strong>Heap left</strong> is post-BSS free space to <span class="mono">$C5FF</span> after even alignment.
+            <strong>Raw headroom</strong> is the gap from the linked runtime end to <span class="mono">$C5FF</span>.
+          </p>
         </div>
         <div>
           <h3>Linker-config nuance</h3>
@@ -672,8 +677,8 @@ tail end              = $10000</pre>
             <li><strong>Normal apps:</strong> <span class="mono">cfg/ready_app.cfg</span> puts <span class="mono">BSS</span> directly inside the <span class="mono">$1000-$C5FF</span> app window.</li>
             <li><strong>Overlay app:</strong> <span class="mono">readyshell</span> uses <span class="mono">cfg/ready_app_overlay.cfg</span>, not the normal app linker contract.</li>
             <li><strong>Historical resident ReadyShell image:</strong> the previous local snapshot ended at <span class="mono">$9B74</span>, with a much smaller resident image. Those values are retained only for historical comparison.</li>
-            <li><strong>Current resident ReadyShell image:</strong> the current <span class="mono">0.2</span> map has resident <span class="mono">BSS $8878-$8A6E</span> (<span class="mono">503</span> bytes), resident heap <span class="mono">$8A70-$8DFD</span> (<span class="mono">910</span> bytes), and overlay load-address bytes at <span class="mono">$8DFE-$8DFF</span>.</li>
-            <li><strong>True current ReadyShell headroom:</strong> overlay payload fit is tighter than the resident writable gap. Current overlay1 is <span class="mono">$8E00-$C0CC</span> and leaves <span class="mono">1331</span> bytes; overlay2 leaves <span class="mono">288</span> bytes; overlay3 leaves <span class="mono">6593</span> bytes; overlay4 leaves <span class="mono">3182</span> bytes; overlay5 leaves <span class="mono">5366</span> bytes.</li>
+            <li><strong>Current resident ReadyShell image:</strong> the current <span class="mono">0.2</span> map has <span class="mono">RODATA 1122</span>, <span class="mono">DATA 71</span>, resident <span class="mono">BSS $8769-$895F</span> (<span class="mono">503</span> bytes), resident heap <span class="mono">$8960-$8DFD</span> (<span class="mono">1182</span> bytes), and overlay load-address bytes at <span class="mono">$8DFE-$8DFF</span>.</li>
+            <li><strong>True current ReadyShell headroom:</strong> overlay payload fit is tighter than the resident writable gap. Current overlay1 is <span class="mono">$8E00-$C0CC</span> and leaves <span class="mono">1331</span> bytes; overlay2 leaves <span class="mono">303</span> bytes; overlay3 leaves <span class="mono">6593</span> bytes; overlay4 leaves <span class="mono">3182</span> bytes; overlay5 leaves <span class="mono">5366</span> bytes; overlay6 leaves <span class="mono">1103</span> bytes; overlay7 leaves <span class="mono">7881</span> bytes; overlay8 leaves <span class="mono">7737</span> bytes.</li>
             <li><strong>Overlay guardrail:</strong> release overlay size is <span class="mono">$3800</span> and debug overlay size is <span class="mono">$3B00</span>. The old explicit-C-stack-reserve wording is retained as historical shorthand, but current safety depends on ONCE/BSS ending below <span class="mono">__OVERLAY_LOADADDR__</span>, overlays loading at <span class="mono">$8E00</span>, and ReadyShell stack relocation being handled separately.</li>
           </ul>
         </div>

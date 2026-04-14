@@ -42,7 +42,7 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         "rsparser",
         "None directly; parse phase support.",
         (),
-        "Boot-loaded from disk, then cached in the shared core-overlay REU bank.",
+        "Boot-loaded from disk during shell startup, then restored from a fixed REU cache slot.",
         "Lives entirely inside the shared overlay window while active.",
     ),
     2: OverlaySpec(
@@ -54,7 +54,7 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         "rsvm",
         "PRT, MORE, TOP, SEL, GEN, TAP and the shared execution paths that command overlays return to.",
         ("PRT", "MORE", "TOP", "SEL", "GEN", "TAP"),
-        "Boot-loaded from disk, then cached in the shared core-overlay REU bank.",
+        "Boot-loaded from disk during shell startup, then restored from a fixed REU cache slot.",
         "Includes rs_vm_fmt_buf[128] and rs_vm_line_buf[384] inside the overlay image.",
     ),
     3: OverlaySpec(
@@ -66,7 +66,7 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         "rsdrvilst",
         "DRVI, LST",
         ("DRVI", "LST"),
-        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Boot-loaded from disk during shell startup, then restored from a fixed REU cache slot.",
         "Shares the inter-command REU handoff area at 0x480000-0x487FFF.",
     ),
     4: OverlaySpec(
@@ -78,7 +78,7 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         "rsldv",
         "LDV",
         ("LDV",),
-        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Boot-loaded from disk during shell startup, then restored from a fixed REU cache slot.",
         "Uses the shared handoff region plus the REU-backed value arena in bank 0x48 when hydrating pointer-backed values.",
     ),
     5: OverlaySpec(
@@ -90,7 +90,7 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         "rsstv",
         "STV",
         ("STV",),
-        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Boot-loaded from disk during shell startup, then restored from a fixed REU cache slot.",
         "Uses the shared handoff region plus the REU-backed value arena in bank 0x48 when serializing pointer-backed values.",
     ),
     6: OverlaySpec(
@@ -102,7 +102,7 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         "rsfops",
         "DEL, REN, PUT, ADD",
         ("DEL", "REN", "PUT", "ADD"),
-        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Boot-loaded from disk during shell startup, then restored from a fixed REU cache slot.",
         "Keeps file-operation staging and transient command state in overlay-local code plus the shared REU scratch region.",
     ),
     7: OverlaySpec(
@@ -114,7 +114,7 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         "rscat",
         "CAT",
         ("CAT",),
-        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Boot-loaded from disk during shell startup, then restored from a fixed REU cache slot.",
         "Uses overlay-local file I/O logic plus shared REU scratch when line staging is needed.",
     ),
     8: OverlaySpec(
@@ -126,7 +126,7 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
         "rscopy",
         "COPY",
         ("COPY",),
-        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Boot-loaded from disk during shell startup, then restored from a fixed REU cache slot.",
         "Uses an overlay-local 128-byte transfer buffer plus direct DOS copy or streamed file I/O. It does not use the shared REU scratch or value arena.",
     ),
 }
@@ -498,6 +498,12 @@ def static_audit_rows(ctx: dict[str, object]) -> list[str]:
             f"begins at `{fmt_hex24(ctx['heap_arena_abs'])}`."
         ),
         (
+            f"Cache-slot audit: ReadyShell caches overlays {fmt_overlay_nums(ctx['cached_overlays'])}. Bank "
+            f"`0x{ctx['ovl_cache_bank']:02X}` carries overlays `1`, `2`, `3`, and `5`; bank "
+            f"`0x{ctx['ovl_cache_bank2']:02X}` carries overlays `4`, `6`, `7`, and `8`. Every slot is a full "
+            f"`{ctx['ovl_slot_len']}`-byte overlay-window snapshot."
+        ),
+        (
             "Command-source audit: `DRVI` builds output only in overlay-local RAM; `LST` writes 28-byte directory records "
             "into shared scratch; `LDV` streams RSV1 payloads into scratch and materializes persistent values into the REU "
             "heap arena; `STV` serializes into scratch and dereferences pointer-backed values from the arena; `DEL` and "
@@ -510,8 +516,9 @@ def static_audit_rows(ctx: dict[str, object]) -> list[str]:
 def validate_overlay_layout(ctx: dict[str, object]) -> None:
     external_command_count = sum(
         len(row["spec"].command_list)
-        for row in ctx["demand_overlays"]
+        for row in ctx["external_overlays"]
     )
+    external_overlay_count = len(ctx["external_overlays"])
     checks = [
         (
             ctx["cmd_reg_desc_count"] <= ctx["cmd_reg_desc_cap"],
@@ -526,8 +533,8 @@ def validate_overlay_layout(ctx: dict[str, object]) -> None:
             "external command descriptor count no longer matches the command inventory",
         ),
         (
-            len(ctx["demand_overlays"]) == ctx["cmd_reg_state_count"],
-            "overlay state count no longer matches the number of disk-loaded command overlays",
+            external_overlay_count == ctx["cmd_reg_state_count"],
+            "overlay state count no longer matches the number of external command overlays",
         ),
         (
             ctx["scratch_end"] < ctx["heap_meta_abs"],
@@ -636,11 +643,19 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
     ovl_meta_off = shared_meta_off
     ovl_meta_len = parse_define(ui_state_h, "RS_REU_OVL_CACHE_META_LEN")
     ovl_cache_bank = parse_define(ui_state_h, "RS_REU_OVL_CACHE_BANK")
+    ovl_cache_bank2 = parse_define(ui_state_h, "RS_REU_OVL_CACHE_BANK2")
     ovl_parse_rel = parse_define(ui_state_h, "RS_REU_OVL_CACHE_PARSE_REL")
     ovl_exec_rel = parse_define(ui_state_h, "RS_REU_OVL_CACHE_EXEC_REL")
+    ovl_cmd3_rel = parse_define(ui_state_h, "RS_REU_OVL_CACHE_CMD3_REL")
+    ovl_cmd4_rel = parse_define(ui_state_h, "RS_REU_OVL_CACHE_CMD4_REL")
+    ovl_cmd5_rel = parse_define(ui_state_h, "RS_REU_OVL_CACHE_CMD5_REL")
+    ovl_cmd6_rel = parse_define(ui_state_h, "RS_REU_OVL_CACHE_CMD6_REL")
+    ovl_cmd7_rel = parse_define(ui_state_h, "RS_REU_OVL_CACHE_CMD7_REL")
+    ovl_cmd8_rel = parse_define(ui_state_h, "RS_REU_OVL_CACHE_CMD8_REL")
     ovl_slot_len = parse_define(ui_state_h, "RS_REU_OVL_CACHE_SLOT_LEN")
     ui_flags_off = parse_define(ui_state_h, "RS_REU_UI_FLAGS_OFF")
     ovl_cache_base = parse_define(overlay_c, "RS_REU_OVL_CACHE_BASE")
+    ovl_cache_base2 = parse_define(overlay_c, "RS_REU_OVL_CACHE_BASE2")
 
     code_start, code_end, code_size = segments["CODE"]
     ro_start, ro_end, ro_size = segments["RODATA"]
@@ -651,8 +666,25 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
     bank_size = 0x10000
     parse_abs = ovl_cache_base + ovl_parse_rel
     exec_abs = ovl_cache_base + ovl_exec_rel
-    cache_tail_start = exec_abs + ovl_slot_len
-    cache_tail_size = bank_size - (ovl_exec_rel + ovl_slot_len)
+    cache_slots = {
+        1: parse_abs,
+        2: exec_abs,
+        3: ovl_cache_base + ovl_cmd3_rel,
+        4: ovl_cache_base2 + ovl_cmd4_rel,
+        5: ovl_cache_base + ovl_cmd5_rel,
+        6: ovl_cache_base2 + ovl_cmd6_rel,
+        7: ovl_cache_base2 + ovl_cmd7_rel,
+        8: ovl_cache_base2 + ovl_cmd8_rel,
+    }
+    cache_layout_by_bank = {
+        ovl_cache_bank: [1, 2, 3, 5],
+        ovl_cache_bank2: [4, 6, 7, 8],
+    }
+    cache_tails: dict[int, tuple[int, int]] = {}
+    for bank, overlay_nums in cache_layout_by_bank.items():
+        bank_base = ovl_cache_base if bank == ovl_cache_bank else ovl_cache_base2
+        highest_end = max(cache_slots[num] + ovl_slot_len for num in overlay_nums)
+        cache_tails[bank] = (highest_end, (bank_base + bank_size) - highest_end)
 
     disk_label, disk_blocks, free_blocks = parse_disk_listing(args.disk)
 
@@ -664,14 +696,9 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
         file_size = prg_path.stat().st_size
         live_start, live_end, live_size = segments[f"OVERLAY{num}"]
         window_free = window_size - live_size
-        reu_off = None
-        reu_slot_end = None
-        if num == 1:
-            reu_off = parse_abs
-            reu_slot_end = parse_abs + ovl_slot_len - 1
-        elif num == 2:
-            reu_off = exec_abs
-            reu_slot_end = exec_abs + ovl_slot_len - 1
+        reu_off = cache_slots[num]
+        reu_slot_end = reu_off + ovl_slot_len - 1
+        reu_bank = reu_off >> 16
         overlays.append(
             {
                 "num": num,
@@ -686,11 +713,12 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
                 "window_pct": (live_size / window_size) * 100.0,
                 "reu_off": reu_off,
                 "reu_slot_end": reu_slot_end,
+                "reu_bank": reu_bank,
             }
         )
 
     cached_overlays = [row for row in overlays if row["reu_off"] is not None]
-    demand_overlays = [row for row in overlays if row["reu_off"] is None]
+    external_overlays = [row for row in overlays if row["num"] >= 3 and row["spec"].command_list]
 
     ctx = {
         "profile": args.profile,
@@ -749,14 +777,17 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
         "ovl_meta_len": ovl_meta_len,
         "ovl_meta_end": ovl_meta_off + ovl_meta_len - 1,
         "ovl_cache_bank": ovl_cache_bank,
+        "ovl_cache_bank2": ovl_cache_bank2,
         "ovl_parse_rel": ovl_parse_rel,
         "ovl_exec_rel": ovl_exec_rel,
         "ovl_slot_len": ovl_slot_len,
         "ovl_cache_base": ovl_cache_base,
+        "ovl_cache_base2": ovl_cache_base2,
         "ovl_parse_abs": parse_abs,
         "ovl_exec_abs": exec_abs,
-        "cache_tail_start": cache_tail_start,
-        "cache_tail_size": cache_tail_size,
+        "cache_slots": cache_slots,
+        "cache_layout_by_bank": cache_layout_by_bank,
+        "cache_tails": cache_tails,
         "ui_flags_off": ui_flags_off,
         "heap_meta_abs": heap_bank_base + heap_meta_rel,
         "heap_meta_end": heap_bank_base + heap_meta_rel + 0xFF,
@@ -765,7 +796,7 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
         "heap_arena_size": heap_arena_end_rel - heap_arena_rel,
         "overlays": overlays,
         "cached_overlays": cached_overlays,
-        "demand_overlays": demand_overlays,
+        "external_overlays": external_overlays,
     }
     validate_overlay_layout(ctx)
     return ctx
@@ -780,9 +811,7 @@ def render_markdown(ctx: dict[str, object]) -> str:
     for row in ctx["overlays"]:
         spec = row["spec"]
         reu_loc = (
-            f"bank `0x{ctx['ovl_cache_bank']:02X}` slot `{fmt_hex24(row['reu_off'])}-{fmt_hex24(row['reu_slot_end'])}`"
-            if row["reu_off"] is not None
-            else "disk-only"
+            f"bank `0x{row['reu_bank']:02X}` slot `{fmt_hex24(row['reu_off'])}-{fmt_hex24(row['reu_slot_end'])}`"
         )
         overlay_rows.append(
             f"| {row['num']} | {spec.title} | `{spec.build_prg}` | `{spec.disk_name}` | "
@@ -794,9 +823,9 @@ def render_markdown(ctx: dict[str, object]) -> str:
     for row in ctx["overlays"]:
         spec = row["spec"]
         reu_line = (
-            f"Cached in shared bank `0x{ctx['ovl_cache_bank']:02X}`, slot `{fmt_hex24(row['reu_off'])}-{fmt_hex24(row['reu_slot_end'])}`, as a full `{ctx['ovl_slot_len']:#06x}`-byte overlay-window snapshot."
-            if row["reu_off"] is not None
-            else "Not cached in a dedicated REU overlay bank; loaded from disk on demand."
+            f"Boot-loaded from disk during shell startup, then restored from bank `0x{row['reu_bank']:02X}` "
+            f"slot `{fmt_hex24(row['reu_off'])}-{fmt_hex24(row['reu_slot_end'])}` as a full "
+            f"`{ctx['ovl_slot_len']:#06x}`-byte overlay-window snapshot."
         )
         details.append(
             "\n".join(
@@ -821,10 +850,18 @@ def render_markdown(ctx: dict[str, object]) -> str:
     reu_rows = []
     reu_rows.extend(
         [
-            f"| Shared cache bank | `{fmt_hex24(ctx['ovl_cache_base'])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}` | `65536` | One bank reserved for both core overlays and their free tail. |",
+            f"| Shared cache bank 1 | `{fmt_hex24(ctx['ovl_cache_base'])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}` | `65536` | Fixed ReadyShell cache bank holding overlays 1, 2, 3, and 5. |",
             f"| Overlay 1 parse slot | `{fmt_hex24(ctx['ovl_parse_abs'])}-{fmt_hex24(ctx['ovl_parse_abs'] + ctx['ovl_slot_len'] - 1)}` | `{ctx['ovl_slot_len']}` | Full overlay-window snapshot for overlay 1. |",
             f"| Overlay 2 exec slot | `{fmt_hex24(ctx['ovl_exec_abs'])}-{fmt_hex24(ctx['ovl_exec_abs'] + ctx['ovl_slot_len'] - 1)}` | `{ctx['ovl_slot_len']}` | Full overlay-window snapshot for overlay 2. |",
-            f"| Shared bank free tail | `{fmt_hex24(ctx['cache_tail_start'])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}` | `{ctx['cache_tail_size']}` | Currently unused tail after the two core overlay slots. |",
+            f"| Overlay 3 command slot | `{fmt_hex24(ctx['cache_slots'][3])}-{fmt_hex24(ctx['cache_slots'][3] + ctx['ovl_slot_len'] - 1)}` | `{ctx['ovl_slot_len']}` | Full overlay-window snapshot for overlay 3. |",
+            f"| Overlay 5 command slot | `{fmt_hex24(ctx['cache_slots'][5])}-{fmt_hex24(ctx['cache_slots'][5] + ctx['ovl_slot_len'] - 1)}` | `{ctx['ovl_slot_len']}` | Full overlay-window snapshot for overlay 5. |",
+            f"| Cache bank 1 free tail | `{fmt_hex24(ctx['cache_tails'][ctx['ovl_cache_bank']][0])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}` | `{ctx['cache_tails'][ctx['ovl_cache_bank']][1]}` | Unused tail after the four fixed slots in bank 0x40. |",
+            f"| Shared cache bank 2 | `{fmt_hex24(ctx['ovl_cache_base2'])}-{fmt_hex24(ctx['ovl_cache_base2'] + 0xFFFF)}` | `65536` | Fixed ReadyShell cache bank holding overlays 4, 6, 7, and 8. |",
+            f"| Overlay 4 command slot | `{fmt_hex24(ctx['cache_slots'][4])}-{fmt_hex24(ctx['cache_slots'][4] + ctx['ovl_slot_len'] - 1)}` | `{ctx['ovl_slot_len']}` | Full overlay-window snapshot for overlay 4. |",
+            f"| Overlay 6 command slot | `{fmt_hex24(ctx['cache_slots'][6])}-{fmt_hex24(ctx['cache_slots'][6] + ctx['ovl_slot_len'] - 1)}` | `{ctx['ovl_slot_len']}` | Full overlay-window snapshot for overlay 6. |",
+            f"| Overlay 7 command slot | `{fmt_hex24(ctx['cache_slots'][7])}-{fmt_hex24(ctx['cache_slots'][7] + ctx['ovl_slot_len'] - 1)}` | `{ctx['ovl_slot_len']}` | Full overlay-window snapshot for overlay 7. |",
+            f"| Overlay 8 command slot | `{fmt_hex24(ctx['cache_slots'][8])}-{fmt_hex24(ctx['cache_slots'][8] + ctx['ovl_slot_len'] - 1)}` | `{ctx['ovl_slot_len']}` | Full overlay-window snapshot for overlay 8. |",
+            f"| Cache bank 2 free tail | `{fmt_hex24(ctx['cache_tails'][ctx['ovl_cache_bank2']][0])}-{fmt_hex24(ctx['ovl_cache_base2'] + 0xFFFF)}` | `{ctx['cache_tails'][ctx['ovl_cache_bank2']][1]}` | Unused tail after the four fixed slots in bank 0x41. |",
             f"| Debug trace ring | `{fmt_hex24(ctx['dbg_head_off'])}-{fmt_hex24(ctx['dbg_end_off'])}` | `{ctx['dbg_span_len']}` | Overlay debug markers and verification state. |",
             f"| Command scratch | `{fmt_hex24(ctx['scratch_off'])}-{fmt_hex24(ctx['scratch_off'] + ctx['scratch_len'] - 1)}` | `{ctx['scratch_len']}` | Inter-overlay handoff area for command frames and streaming state. |",
             f"| Command registry header | `{fmt_hex24(ctx['cmd_reg_hdr_off'])}-{fmt_hex24(ctx['cmd_reg_hdr_off'] + ctx['cmd_reg_hdr_len'] - 1)}` | `{ctx['cmd_reg_hdr_len']}` | REU-backed external-command registry header. |",
@@ -851,8 +888,8 @@ def render_markdown(ctx: dict[str, object]) -> str:
             f"- Resident BSS / heap below overlays: BSS `{fmt_range(ctx['bss_start'], ctx['bss_end'])}` (`{ctx['bss_size']}` bytes), heap `{fmt_range(ctx['heap_start'], ctx['heap_end'])}` (`{ctx['heap_size']}` bytes).",
             f"- High RAM runtime region outside the app window: `{fmt_range(ctx['runtime_addr'], ctx['runtime_limit'] - 1)}`.",
             "- REU policy split:",
-            f"  - overlays {fmt_overlay_nums(ctx['cached_overlays'])} are boot-loaded from disk and cached into one shared REU bank using fixed full-window slots",
-            f"  - overlays {fmt_overlay_nums(ctx['demand_overlays'])} are loaded from disk on demand for each command call",
+            f"  - overlays {fmt_overlay_nums(ctx['cached_overlays'])} are boot-loaded during shell startup and cached into fixed full-window REU slots",
+            f"  - bank `0x{ctx['ovl_cache_bank']:02X}` holds overlays `1`, `2`, `3`, and `5`; bank `0x{ctx['ovl_cache_bank2']:02X}` holds overlays `4`, `6`, `7`, and `8`",
             "  - bank 0x48 is shared for the external-command registry, overlay metadata, pause state, command handoff scratch, and the REU-backed ReadyShell value arena",
             "",
             "## Runtime Memory Map",
@@ -872,7 +909,7 @@ def render_markdown(ctx: dict[str, object]) -> str:
             "| --- | --- | ---: | --- |",
             *reu_rows,
             "",
-            "## Shared Core Overlay Cache Visual",
+            "## Shared Overlay Cache Visual",
             "",
             "```text",
             f"REU bank 0x{ctx['ovl_cache_bank']:02X}",
@@ -885,10 +922,41 @@ def render_markdown(ctx: dict[str, object]) -> str:
             "| overlay 2 exec slot                    |",
             f"| full overlay-window image: {ctx['ovl_slot_len']:#06x}      |",
             "| active file: rsvm.prg                  |",
-            f"+----------------------------------------+ {fmt_hex24(ctx['cache_tail_start'])}",
+            f"+----------------------------------------+ {fmt_hex24(ctx['cache_slots'][3])}",
+            "| overlay 3 command slot                 |",
+            f"| full overlay-window image: {ctx['ovl_slot_len']:#06x}      |",
+            "| active file: rsdrvilst.prg             |",
+            f"+----------------------------------------+ {fmt_hex24(ctx['cache_slots'][5])}",
+            "| overlay 5 command slot                 |",
+            f"| full overlay-window image: {ctx['ovl_slot_len']:#06x}      |",
+            "| active file: rsstv.prg                 |",
+            f"+----------------------------------------+ {fmt_hex24(ctx['cache_tails'][ctx['ovl_cache_bank']][0])}",
             "| free tail                              |",
-            f"| {ctx['cache_tail_size']:#06x} bytes                           |",
+            f"| {ctx['cache_tails'][ctx['ovl_cache_bank']][1]:#06x} bytes                           |",
             f"+----------------------------------------+ {fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}",
+            "",
+            f"REU bank 0x{ctx['ovl_cache_bank2']:02X}",
+            "",
+            f"+----------------------------------------+ {fmt_hex24(ctx['cache_slots'][4])}",
+            "| overlay 4 command slot                 |",
+            f"| full overlay-window image: {ctx['ovl_slot_len']:#06x}      |",
+            "| active file: rsldv.prg                 |",
+            f"+----------------------------------------+ {fmt_hex24(ctx['cache_slots'][6])}",
+            "| overlay 6 command slot                 |",
+            f"| full overlay-window image: {ctx['ovl_slot_len']:#06x}      |",
+            "| active file: rsfops.prg                |",
+            f"+----------------------------------------+ {fmt_hex24(ctx['cache_slots'][7])}",
+            "| overlay 7 command slot                 |",
+            f"| full overlay-window image: {ctx['ovl_slot_len']:#06x}      |",
+            "| active file: rscat.prg                 |",
+            f"+----------------------------------------+ {fmt_hex24(ctx['cache_slots'][8])}",
+            "| overlay 8 command slot                 |",
+            f"| full overlay-window image: {ctx['ovl_slot_len']:#06x}      |",
+            "| active file: rscopy.prg                |",
+            f"+----------------------------------------+ {fmt_hex24(ctx['cache_tails'][ctx['ovl_cache_bank2']][0])}",
+            "| free tail                              |",
+            f"| {ctx['cache_tails'][ctx['ovl_cache_bank2']][1]:#06x} bytes                           |",
+            f"+----------------------------------------+ {fmt_hex24(ctx['ovl_cache_base2'] + 0xFFFF)}",
             "```",
             "",
             "## Command Scratch And Value Arena Usage",
@@ -897,7 +965,7 @@ def render_markdown(ctx: dict[str, object]) -> str:
             "| --- | --- | --- | --- | --- |",
             *cmd_reu_rows,
             "",
-            "- The command scratch window is shared, not partitioned per overlay. Only one command overlay owns it at a time because command overlays are disk-loaded serially.",
+            "- The command scratch window is shared, not partitioned per overlay. Only one command overlay owns it at a time even though all external overlays are preloaded into REU, because they still run serially through the shared overlay window.",
             "- The value arena is persistent session state in bank `0x48`. `LDV` populates it explicitly, while `STV` can serialize values already living there.",
             "",
             "## Static Audit Checks",
@@ -916,8 +984,8 @@ def render_markdown(ctx: dict[str, object]) -> str:
             *command_topology_block(ctx),
             "```",
             "",
-            "- `DRVI` and `LST` now co-reside in `rsdrvilst`, so both commands load the same disk sidecar and the same overlay image.",
-            f"- Overlays {fmt_overlay_nums(ctx['demand_overlays'])} remain disk-loaded command overlays; only overlays {fmt_overlay_nums(ctx['cached_overlays'])} are REU-cached.",
+            "- `DRVI` and `LST` co-reside in `rsdrvilst`, so both commands restore the same cached overlay image.",
+            f"- All overlays {fmt_overlay_nums(ctx['cached_overlays'])} are REU-cached today; overlays `3-8` are no longer reloaded from disk on repeat command calls inside the same session.",
             "",
             "## Resident Program",
             "",
@@ -944,8 +1012,9 @@ def render_markdown(ctx: dict[str, object]) -> str:
             f"- Overlay 2 is effectively full: `{ctx['overlays'][1]['live_size']}` of `{ctx['window_size']}` bytes (`{fmt_pct(ctx['overlays'][1]['window_pct'])}`).",
             f"- Overlay 1 is also large at `{ctx['overlays'][0]['live_size']}` bytes (`{fmt_pct(ctx['overlays'][0]['window_pct'])}`).",
             f"- The resident heap below the overlay load address is only `{ctx['heap_size']}` bytes, so large transient work must lean on overlays and REU-backed storage.",
-            f"- Overlays {fmt_overlay_nums(ctx['cached_overlays'])} no longer consume separate REU banks; they share bank `0x{ctx['ovl_cache_bank']:02X}` and leave `{ctx['cache_tail_size']}` bytes free at the tail of that bank.",
-            f"- Command overlays {fmt_overlay_nums(ctx['demand_overlays'])} stay smaller on disk and in RAM, but they pay the disk-load cost per command because they are not REU-cached today.",
+            f"- ReadyShell now uses two fixed REU cache banks: `0x{ctx['ovl_cache_bank']:02X}` for overlays `1`, `2`, `3`, and `5`, and `0x{ctx['ovl_cache_bank2']:02X}` for overlays `4`, `6`, `7`, and `8`.",
+            f"- Bank `0x{ctx['ovl_cache_bank']:02X}` leaves `{ctx['cache_tails'][ctx['ovl_cache_bank']][1]}` bytes free at the tail; bank `0x{ctx['ovl_cache_bank2']:02X}` leaves `{ctx['cache_tails'][ctx['ovl_cache_bank2']][1]}` bytes free.",
+            "- External commands now pay a one-time boot preload cost instead of a repeated disk-load cost during each command call.",
             "- Overlay 2 carries the shared formatting buffers, so its footprint reflects both command support code and the text-rendering scratch it owns.",
         ]
     )
@@ -968,9 +1037,7 @@ def render_html(ctx: dict[str, object]) -> str:
     for row in ctx["overlays"]:
         spec = row["spec"]
         reu_html = (
-            f'bank <code>0x{ctx["ovl_cache_bank"]:02X}</code> slot <code>{fmt_hex24(row["reu_off"])}-{fmt_hex24(row["reu_slot_end"])}</code>'
-            if row["reu_off"] is not None
-            else "disk only"
+            f'bank <code>0x{row["reu_bank"]:02X}</code> slot <code>{fmt_hex24(row["reu_off"])}-{fmt_hex24(row["reu_slot_end"])}</code>'
         )
         overlay_rows.append(
             "<tr>"
@@ -1006,10 +1073,18 @@ def render_html(ctx: dict[str, object]) -> str:
         )
 
     reu_items = [
-        f"<li><strong>Shared cache bank:</strong> <code>{fmt_hex24(ctx['ovl_cache_base'])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}</code> (65536 bytes)</li>",
+        f"<li><strong>Shared cache bank 1:</strong> <code>{fmt_hex24(ctx['ovl_cache_base'])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}</code> (65536 bytes)</li>",
         f"<li><strong>Overlay 1 parse slot:</strong> <code>{fmt_hex24(ctx['ovl_parse_abs'])}-{fmt_hex24(ctx['ovl_parse_abs'] + ctx['ovl_slot_len'] - 1)}</code> ({ctx['ovl_slot_len']} bytes)</li>",
         f"<li><strong>Overlay 2 exec slot:</strong> <code>{fmt_hex24(ctx['ovl_exec_abs'])}-{fmt_hex24(ctx['ovl_exec_abs'] + ctx['ovl_slot_len'] - 1)}</code> ({ctx['ovl_slot_len']} bytes)</li>",
-        f"<li><strong>Shared bank free tail:</strong> <code>{fmt_hex24(ctx['cache_tail_start'])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}</code> ({ctx['cache_tail_size']} bytes)</li>",
+        f"<li><strong>Overlay 3 command slot:</strong> <code>{fmt_hex24(ctx['cache_slots'][3])}-{fmt_hex24(ctx['cache_slots'][3] + ctx['ovl_slot_len'] - 1)}</code> ({ctx['ovl_slot_len']} bytes)</li>",
+        f"<li><strong>Overlay 5 command slot:</strong> <code>{fmt_hex24(ctx['cache_slots'][5])}-{fmt_hex24(ctx['cache_slots'][5] + ctx['ovl_slot_len'] - 1)}</code> ({ctx['ovl_slot_len']} bytes)</li>",
+        f"<li><strong>Cache bank 1 free tail:</strong> <code>{fmt_hex24(ctx['cache_tails'][ctx['ovl_cache_bank']][0])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}</code> ({ctx['cache_tails'][ctx['ovl_cache_bank']][1]} bytes)</li>",
+        f"<li><strong>Shared cache bank 2:</strong> <code>{fmt_hex24(ctx['ovl_cache_base2'])}-{fmt_hex24(ctx['ovl_cache_base2'] + 0xFFFF)}</code> (65536 bytes)</li>",
+        f"<li><strong>Overlay 4 command slot:</strong> <code>{fmt_hex24(ctx['cache_slots'][4])}-{fmt_hex24(ctx['cache_slots'][4] + ctx['ovl_slot_len'] - 1)}</code> ({ctx['ovl_slot_len']} bytes)</li>",
+        f"<li><strong>Overlay 6 command slot:</strong> <code>{fmt_hex24(ctx['cache_slots'][6])}-{fmt_hex24(ctx['cache_slots'][6] + ctx['ovl_slot_len'] - 1)}</code> ({ctx['ovl_slot_len']} bytes)</li>",
+        f"<li><strong>Overlay 7 command slot:</strong> <code>{fmt_hex24(ctx['cache_slots'][7])}-{fmt_hex24(ctx['cache_slots'][7] + ctx['ovl_slot_len'] - 1)}</code> ({ctx['ovl_slot_len']} bytes)</li>",
+        f"<li><strong>Overlay 8 command slot:</strong> <code>{fmt_hex24(ctx['cache_slots'][8])}-{fmt_hex24(ctx['cache_slots'][8] + ctx['ovl_slot_len'] - 1)}</code> ({ctx['ovl_slot_len']} bytes)</li>",
+        f"<li><strong>Cache bank 2 free tail:</strong> <code>{fmt_hex24(ctx['cache_tails'][ctx['ovl_cache_bank2']][0])}-{fmt_hex24(ctx['ovl_cache_base2'] + 0xFFFF)}</code> ({ctx['cache_tails'][ctx['ovl_cache_bank2']][1]} bytes)</li>",
     ]
     reu_items.extend(
         [
@@ -1276,9 +1351,9 @@ def render_html(ctx: dict[str, object]) -> str:
       <div class="card"><div class="k">Resident Heap</div><div class="v">{ctx['heap_size']} bytes</div></div>
     </div>
       <div class="note">
-      Overlays {html.escape(fmt_overlay_nums(ctx['cached_overlays']))} are boot-loaded once and cached in one shared REU bank using
-      two full-window slots.
-      Overlays {html.escape(fmt_overlay_nums(ctx['demand_overlays']))} are loaded from disk on demand. Bank
+      Overlays {html.escape(fmt_overlay_nums(ctx['cached_overlays']))} are boot-loaded once and cached in fixed full-window REU slots.
+      Bank <code>0x{ctx['ovl_cache_bank']:02X}</code> holds overlays <code>1</code>, <code>2</code>, <code>3</code>, and <code>5</code>;
+      bank <code>0x{ctx['ovl_cache_bank2']:02X}</code> holds overlays <code>4</code>, <code>6</code>, <code>7</code>, and <code>8</code>. Bank
       <code>0x48</code> is shared for the external-command registry, overlay metadata, pause state, command handoff scratch,
       and the REU-backed ReadyShell value arena.
     </div>
@@ -1308,11 +1383,23 @@ def render_html(ctx: dict[str, object]) -> str:
     <h2>Shared REU Bank Visual</h2>
     <div class="bank-visual">
       <div class="bank">
-        <div class="bank-title">Bank <code>0x{ctx['ovl_cache_bank']:02X}</code>: Core Overlay Cache</div>
+        <div class="bank-title">Bank <code>0x{ctx['ovl_cache_bank']:02X}</code>: Overlay Cache</div>
         <div class="stack">
           <div class="slot parse"><strong>Overlay 1 parse slot</strong> <code>{fmt_hex24(ctx['ovl_parse_abs'])}-{fmt_hex24(ctx['ovl_parse_abs'] + ctx['ovl_slot_len'] - 1)}</code><small>Full <code>0x{ctx['ovl_slot_len']:04X}</code>-byte window image for <code>rsparser.prg</code>. Live payload is <code>{ctx['overlays'][0]['live_size']}</code> bytes, but the cache stores the whole overlay window so writable overlay data survives phase switching.</small></div>
           <div class="slot exec"><strong>Overlay 2 exec slot</strong> <code>{fmt_hex24(ctx['ovl_exec_abs'])}-{fmt_hex24(ctx['ovl_exec_abs'] + ctx['ovl_slot_len'] - 1)}</code><small>Full <code>0x{ctx['ovl_slot_len']:04X}</code>-byte window image for <code>rsvm.prg</code>. Live payload is <code>{ctx['overlays'][1]['live_size']}</code> bytes.</small></div>
-          <div class="slot free"><strong>Free tail</strong> <code>{fmt_hex24(ctx['cache_tail_start'])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}</code><small><code>{ctx['cache_tail_size']}</code> bytes currently left free because overlays 1 and 2 now share one bank instead of consuming separate banks.</small></div>
+          <div class="slot parse"><strong>Overlay 3 command slot</strong> <code>{fmt_hex24(ctx['cache_slots'][3])}-{fmt_hex24(ctx['cache_slots'][3] + ctx['ovl_slot_len'] - 1)}</code><small>Full window snapshot for <code>rsdrvilst.prg</code>, serving both <code>DRVI</code> and <code>LST</code>.</small></div>
+          <div class="slot exec"><strong>Overlay 5 command slot</strong> <code>{fmt_hex24(ctx['cache_slots'][5])}-{fmt_hex24(ctx['cache_slots'][5] + ctx['ovl_slot_len'] - 1)}</code><small>Full window snapshot for <code>rsstv.prg</code>.</small></div>
+          <div class="slot free"><strong>Free tail</strong> <code>{fmt_hex24(ctx['cache_tails'][ctx['ovl_cache_bank']][0])}-{fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}</code><small><code>{ctx['cache_tails'][ctx['ovl_cache_bank']][1]}</code> bytes left free after the four fixed slots in bank <code>0x{ctx['ovl_cache_bank']:02X}</code>.</small></div>
+        </div>
+      </div>
+      <div class="bank">
+        <div class="bank-title">Bank <code>0x{ctx['ovl_cache_bank2']:02X}</code>: Overlay Cache</div>
+        <div class="stack">
+          <div class="slot parse"><strong>Overlay 4 command slot</strong> <code>{fmt_hex24(ctx['cache_slots'][4])}-{fmt_hex24(ctx['cache_slots'][4] + ctx['ovl_slot_len'] - 1)}</code><small>Full window snapshot for <code>rsldv.prg</code>.</small></div>
+          <div class="slot exec"><strong>Overlay 6 command slot</strong> <code>{fmt_hex24(ctx['cache_slots'][6])}-{fmt_hex24(ctx['cache_slots'][6] + ctx['ovl_slot_len'] - 1)}</code><small>Full window snapshot for <code>rsfops.prg</code>.</small></div>
+          <div class="slot parse"><strong>Overlay 7 command slot</strong> <code>{fmt_hex24(ctx['cache_slots'][7])}-{fmt_hex24(ctx['cache_slots'][7] + ctx['ovl_slot_len'] - 1)}</code><small>Full window snapshot for <code>rscat.prg</code>.</small></div>
+          <div class="slot exec"><strong>Overlay 8 command slot</strong> <code>{fmt_hex24(ctx['cache_slots'][8])}-{fmt_hex24(ctx['cache_slots'][8] + ctx['ovl_slot_len'] - 1)}</code><small>Full window snapshot for <code>rscopy.prg</code>.</small></div>
+          <div class="slot free"><strong>Free tail</strong> <code>{fmt_hex24(ctx['cache_tails'][ctx['ovl_cache_bank2']][0])}-{fmt_hex24(ctx['ovl_cache_base2'] + 0xFFFF)}</code><small><code>{ctx['cache_tails'][ctx['ovl_cache_bank2']][1]}</code> bytes left free after the four fixed slots in bank <code>0x{ctx['ovl_cache_bank2']:02X}</code>.</small></div>
         </div>
       </div>
       <div class="bank">
@@ -1329,7 +1416,7 @@ def render_html(ctx: dict[str, object]) -> str:
   <section>
     <h2>Command Scratch And Value Arena Usage</h2>
     <div class="note">
-      The command-scratch window is a single shared REU work area, so only the active disk-loaded command overlay owns it at any moment.
+      The command-scratch window is a single shared REU work area, so only the active command overlay owns it at any moment even though all command overlays are now preloaded into REU.
       The value arena is persistent session state in bank <code>0x48</code>: <code>LDV</code> populates it directly, while <code>STV</code>
       can serialize values that already live there.
     </div>
@@ -1417,7 +1504,7 @@ def render_html(ctx: dict[str, object]) -> str:
               "<div class='command-pills'>"
               + "".join(f"<span class='pill'>{html.escape(cmd)}</span>" for cmd in row['spec'].command_list)
               + "</div></div>"
-              for row in ctx['demand_overlays']
+              for row in ctx['external_overlays']
           )
       )}
     </div>
@@ -1449,8 +1536,9 @@ def render_html(ctx: dict[str, object]) -> str:
       <li>Overlay 2 is effectively full at {ctx['overlays'][1]['live_size']} bytes of {ctx['window_size']} ({fmt_pct(ctx['overlays'][1]['window_pct'])}).</li>
       <li>Overlay 1 is also large at {ctx['overlays'][0]['live_size']} bytes ({fmt_pct(ctx['overlays'][0]['window_pct'])}).</li>
       <li>The resident heap below the overlay load address is only {ctx['heap_size']} bytes, so large working sets depend on overlays and REU-backed storage.</li>
-      <li>Overlays {html.escape(fmt_overlay_nums(ctx['cached_overlays']))} now share bank <code>0x{ctx['ovl_cache_bank']:02X}</code> and leave a free tail of {ctx['cache_tail_size']} bytes in that bank instead of consuming separate banks.</li>
-      <li>Command overlays {html.escape(fmt_overlay_nums(ctx['demand_overlays']))} are smaller, but they pay a disk-load cost on every command invocation because they are not cached in fixed REU banks today.</li>
+      <li>ReadyShell now uses two fixed REU cache banks: <code>0x{ctx['ovl_cache_bank']:02X}</code> for overlays <code>1</code>, <code>2</code>, <code>3</code>, and <code>5</code>, and <code>0x{ctx['ovl_cache_bank2']:02X}</code> for overlays <code>4</code>, <code>6</code>, <code>7</code>, and <code>8</code>.</li>
+      <li>Bank <code>0x{ctx['ovl_cache_bank']:02X}</code> leaves {ctx['cache_tails'][ctx['ovl_cache_bank']][1]} bytes free; bank <code>0x{ctx['ovl_cache_bank2']:02X}</code> leaves {ctx['cache_tails'][ctx['ovl_cache_bank2']][1]} bytes free.</li>
+      <li>External commands now pay a one-time boot preload cost instead of a repeated disk-load cost during each command call.</li>
       <li>Overlay 2 owns the shared formatting buffers, which is why it consumes almost the entire overlay window.</li>
     </ul>
   </section>
