@@ -34,12 +34,12 @@ static const unsigned char g_cmd_seed[RS_CMD_REG_DESC_COUNT][RS_REU_CMD_REG_DESC
 };
 
 static const unsigned char g_state_seed[RS_CMD_REG_STATE_COUNT][RS_REU_CMD_REG_STATE_LEN] = {
-  { RS_OVERLAY_PHASE_CMD3, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'd', 'r', 'v', 'i', 'l', 's', 't', 0u, 0u, 0u },
-  { RS_OVERLAY_PHASE_CMD4, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'l', 'd', 'v', 0u, 0u, 0u, 0u, 0u, 0u, 0u },
-  { RS_OVERLAY_PHASE_CMD5, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 's', 't', 'v', 0u, 0u, 0u, 0u, 0u, 0u, 0u },
-  { RS_OVERLAY_PHASE_CMD3, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'f', 'o', 'p', 's', 0u, 0u, 0u, 0u, 0u, 0u },
-  { RS_OVERLAY_PHASE_CMD3, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'c', 'a', 't', 0u, 0u, 0u, 0u, 0u, 0u, 0u },
-  { RS_OVERLAY_PHASE_CMD3, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'c', 'o', 'p', 'y', 0u, 0u, 0u, 0u, 0u, 0u }
+  { RS_OVERLAY_PHASE_CMD3, (unsigned char)(RS_CMD_OVL_LOAD_F_DISK | RS_CMD_OVL_LOAD_F_REU_CACHE), 0u, RS_REU_OVL_CACHE_BANK,  (unsigned char)(RS_REU_OVL_CACHE_CMD3_REL & 0xFFu), (unsigned char)((RS_REU_OVL_CACHE_CMD3_REL >> 8u) & 0xFFu), 'r', 's', 'd', 'r', 'v', 'i', 'l', 's', 't', 0u, 0u, 0u },
+  { RS_OVERLAY_PHASE_CMD4, (unsigned char)(RS_CMD_OVL_LOAD_F_DISK | RS_CMD_OVL_LOAD_F_REU_CACHE), 0u, RS_REU_OVL_CACHE_BANK2, (unsigned char)(RS_REU_OVL_CACHE_CMD4_REL & 0xFFu), (unsigned char)((RS_REU_OVL_CACHE_CMD4_REL >> 8u) & 0xFFu), 'r', 's', 'l', 'd', 'v', 0u, 0u, 0u, 0u, 0u, 0u, 0u },
+  { RS_OVERLAY_PHASE_CMD5, (unsigned char)(RS_CMD_OVL_LOAD_F_DISK | RS_CMD_OVL_LOAD_F_REU_CACHE), 0u, RS_REU_OVL_CACHE_BANK,  (unsigned char)(RS_REU_OVL_CACHE_CMD5_REL & 0xFFu), (unsigned char)((RS_REU_OVL_CACHE_CMD5_REL >> 8u) & 0xFFu), 'r', 's', 's', 't', 'v', 0u, 0u, 0u, 0u, 0u, 0u, 0u },
+  { RS_OVERLAY_PHASE_CMD6, (unsigned char)(RS_CMD_OVL_LOAD_F_DISK | RS_CMD_OVL_LOAD_F_REU_CACHE), 0u, RS_REU_OVL_CACHE_BANK2, (unsigned char)(RS_REU_OVL_CACHE_CMD6_REL & 0xFFu), (unsigned char)((RS_REU_OVL_CACHE_CMD6_REL >> 8u) & 0xFFu), 'r', 's', 'f', 'o', 'p', 's', 0u, 0u, 0u, 0u, 0u, 0u },
+  { RS_OVERLAY_PHASE_CMD7, (unsigned char)(RS_CMD_OVL_LOAD_F_DISK | RS_CMD_OVL_LOAD_F_REU_CACHE), 0u, RS_REU_OVL_CACHE_BANK2, (unsigned char)(RS_REU_OVL_CACHE_CMD7_REL & 0xFFu), (unsigned char)((RS_REU_OVL_CACHE_CMD7_REL >> 8u) & 0xFFu), 'r', 's', 'c', 'a', 't', 0u, 0u, 0u, 0u, 0u, 0u, 0u },
+  { RS_OVERLAY_PHASE_CMD8, (unsigned char)(RS_CMD_OVL_LOAD_F_DISK | RS_CMD_OVL_LOAD_F_REU_CACHE), 0u, RS_REU_OVL_CACHE_BANK2, (unsigned char)(RS_REU_OVL_CACHE_CMD8_REL & 0xFFu), (unsigned char)((RS_REU_OVL_CACHE_CMD8_REL >> 8u) & 0xFFu), 'r', 's', 'c', 'o', 'p', 'y', 0u, 0u, 0u, 0u, 0u, 0u }
 };
 
 static unsigned long rs_cmd_reg_desc_abs(unsigned char index) {

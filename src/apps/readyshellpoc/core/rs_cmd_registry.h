@@ -7,7 +7,7 @@
 #define RS_CMD_REG_MAGIC1 'R'
 #define RS_CMD_REG_MAGIC2 'G'
 #define RS_CMD_REG_MAGIC3 '1'
-#define RS_CMD_REG_VERSION 3u
+#define RS_CMD_REG_VERSION 4u
 
 #define RS_CMD_REG_CAP_BEGIN   0x01u
 #define RS_CMD_REG_CAP_ITEM    0x02u

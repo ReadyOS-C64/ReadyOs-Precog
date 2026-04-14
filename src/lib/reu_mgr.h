@@ -27,6 +27,7 @@
 
 /* ReadyShell fixed REU ownership (absolute offsets in 0x40xxxx-0x43xxxx range) */
 #define REU_BANK_RS_CACHE 0x40
+#define REU_BANK_RS_CACHE2 0x41
 #define REU_BANK_RS_DEBUG 0x43
 #define REU_BANK_RS_SCRATCH 0x48
 
