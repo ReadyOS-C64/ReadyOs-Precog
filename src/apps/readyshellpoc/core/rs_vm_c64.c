@@ -156,26 +156,23 @@ RSVMOutputKind rs_vm_current_output_kind(void) {
   return g_rs_vm_output_kind;
 }
 
-static int vm_write_line(RSVM* vm, const char* line) {
+static int vm_write_with_kind(RSVM* vm, const char* line, RSVMOutputKind kind) {
   if (!vm || !vm->write_line) {
     return 0;
   }
-  g_rs_vm_output_kind = RS_VM_OUTPUT_RENDER;
+  g_rs_vm_output_kind = kind;
   if (line) {
     return vm->write_line(vm->write_user, line);
   }
   return vm->write_line(vm->write_user, "");
 }
 
+static int vm_write_line(RSVM* vm, const char* line) {
+  return vm_write_with_kind(vm, line, RS_VM_OUTPUT_RENDER);
+}
+
 static int vm_write_prt_line(RSVM* vm, const char* line) {
-  if (!vm || !vm->write_line) {
-    return 0;
-  }
-  g_rs_vm_output_kind = RS_VM_OUTPUT_PRT;
-  if (line) {
-    return vm->write_line(vm->write_user, line);
-  }
-  return vm->write_line(vm->write_user, "");
+  return vm_write_with_kind(vm, line, RS_VM_OUTPUT_PRT);
 }
 
 static const char* vm_value_cstr(const RSValue* v) {
@@ -992,26 +989,16 @@ static void vm_cmd_frame_init(RSCommandFrame* frame,
                               int has_current,
                               RSValue* out,
                               RSError* err) {
-  memset(frame, 0, sizeof(*frame));
   frame->args = args;
   frame->arg_count = arg_count;
   frame->item = has_current ? current : 0;
   frame->out = out;
+  frame->index = 0u;
+  frame->count = 0u;
+  frame->used = 0u;
+  frame->drive = 0u;
+  frame->flags = 0u;
   frame->err = err;
-}
-
-static int vm_cmd_external_prt_line(RSVM* vm,
-                                    const RSCommandFrame* frame,
-                                    RSError* err) {
-  if (!vm || !frame || (frame->flags & RS_CMD_FRAME_F_PRT_LINE) == 0u ||
-      frame->line[0] == '\0') {
-    return 0;
-  }
-  if (vm_write_prt_line(vm, frame->line) != 0) {
-    vm_err(err, "write failed");
-    return -1;
-  }
-  return 0;
 }
 
 static int vm_cmd_external(RSVM* vm,
@@ -1090,8 +1077,10 @@ static int vm_cmd_external(RSVM* vm,
     vm_err(err, rc == -2 ? "command args" : "command fail");
     return -1;
   }
-  if (vm_cmd_external_prt_line(vm, &frame, err) != 0) {
+  if ((frame.flags & RS_CMD_FRAME_F_PRT_LINE) != 0u &&
+      vm_write_prt_line(vm, rs_vm_line_buf) != 0) {
     rs_value_free(&result);
+    vm_err(err, "write failed");
     return -1;
   }
   if ((id == RS_CMD_PUT || id == RS_CMD_ADD) && result.tag == RS_VAL_TRUE) {

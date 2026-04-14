@@ -13,7 +13,6 @@
 
 #define RS_CMD_FRAME_F_ARRAY          0x01u
 #define RS_CMD_FRAME_F_PRT_LINE       0x02u
-#define RS_CMD_FRAME_LINE_CAP         32u
 
 /* REU-backed inter-overlay handoff area for streaming command state. */
 #define RS_CMD_SCRATCH_OFF 0x480000ul
@@ -31,7 +30,6 @@ typedef struct RSCommandFrame {
   unsigned short used;
   unsigned char drive;
   unsigned char flags;
-  char line[RS_CMD_FRAME_LINE_CAP];
   RSError* err;
 } RSCommandFrame;
 
