@@ -20,7 +20,6 @@ static const char g_copy_unsupported[] = "UNSUPPORTED";
 static const char g_copy_ok[] = "File Copied Succesfully.";
 
 static unsigned char g_copy_buf[128];
-extern char rs_vm_line_buf[384];
 
 static char* copy_append(char* dst, const char* src) {
   while (*dst != '\0') {
@@ -141,7 +140,8 @@ static void copy_note_success(RSCommandFrame* frame) {
   if (!frame) {
     return;
   }
-  memcpy(rs_vm_line_buf, g_copy_ok, sizeof(g_copy_ok));
+  strncpy(frame->line, g_copy_ok, RS_CMD_FRAME_LINE_CAP - 1u);
+  frame->line[RS_CMD_FRAME_LINE_CAP - 1u] = '\0';
   frame->flags |= RS_CMD_FRAME_F_PRT_LINE;
 }
 
