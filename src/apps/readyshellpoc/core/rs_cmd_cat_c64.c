@@ -11,8 +11,6 @@
 #pragma bss-name(push, "OVERLAY7")
 #endif
 
-int rs_vmovl_overlay7_copy(unsigned char handler, RSCommandFrame* frame);
-
 #define CAT_REC_OFF   RS_CMD_SCRATCH_OFF
 #define CAT_REC_LEN   4u
 #define CAT_REC_CAP   (0x0800u / CAT_REC_LEN)
@@ -181,7 +179,7 @@ int rs_vmovl_overlay7(unsigned char handler, RSCommandFrame* frame) {
     }
     return -1;
   }
-  return rs_vmovl_overlay7_copy(handler, frame);
+  return -1;
 }
 
 #if defined(__CC65__)

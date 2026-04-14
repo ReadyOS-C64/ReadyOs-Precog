@@ -107,15 +107,27 @@ OVERLAY_SPECS: dict[int, OverlaySpec] = {
     ),
     7: OverlaySpec(
         7,
-        "File Read / Copy",
-        "Shared command overlay for CAT and COPY.",
+        "File Read",
+        "Single-command overlay for CAT.",
         "rscat.prg",
         "obj/rscat.prg",
         "rscat",
-        "CAT, COPY",
-        ("CAT", "COPY"),
+        "CAT",
+        ("CAT",),
         "Loaded from disk on demand for each command call. No dedicated REU cache.",
-        "Uses overlay-local file I/O logic plus shared REU scratch when line staging or copy state is needed.",
+        "Uses overlay-local file I/O logic plus shared REU scratch when line staging is needed.",
+    ),
+    8: OverlaySpec(
+        8,
+        "File Copy",
+        "Single-command overlay for COPY.",
+        "rscopy.prg",
+        "obj/rscopy.prg",
+        "rscopy",
+        "COPY",
+        ("COPY",),
+        "Loaded from disk on demand for each command call. No dedicated REU cache.",
+        "Uses an overlay-local 128-byte transfer buffer plus direct DOS copy or streamed file I/O. It does not use the shared REU scratch or value arena.",
     ),
 }
 
@@ -360,10 +372,206 @@ def command_topology_block(ctx: dict[str, object]) -> list[str]:
     return rows
 
 
+def command_reu_usage_rows(ctx: dict[str, object]) -> list[dict[str, str]]:
+    scratch_off = ctx["scratch_off"]
+    scratch_end = ctx["scratch_off"] + ctx["scratch_len"] - 1
+    cat_rec_end = scratch_off + 0x07FF
+    stv_meta_end = scratch_off + 0x00FF
+    putadd_meta_end = scratch_off + 0x001F
+    return [
+        {
+            "commands": "PRT, MORE, TOP, SEL, GEN, TAP",
+            "overlay": "2 / rsvm",
+            "scratch": "No direct use",
+            "arena": "Indirect only",
+            "detail": (
+                "Run inside the shared execution core. They do not stage command-local data in "
+                f"`{fmt_hex24(scratch_off)}-{fmt_hex24(scratch_end)}`; any REU-backed values are "
+                "handled through the normal overlay-2 value/runtime paths."
+            ),
+        },
+        {
+            "commands": "DRVI",
+            "overlay": "3 / rsdrvilst",
+            "scratch": "No",
+            "arena": "No",
+            "detail": "Reads drive header/status data and builds its output object in transient overlay-local RAM.",
+        },
+        {
+            "commands": "LST",
+            "overlay": "3 / rsdrvilst",
+            "scratch": "Yes",
+            "arena": "No",
+            "detail": (
+                f"Spools 28-byte directory records through `{fmt_hex24(scratch_off)}-{fmt_hex24(scratch_end)}` "
+                "so `BEGIN`/`ITEM` can walk the listing without keeping the directory channel open."
+            ),
+        },
+        {
+            "commands": "LDV",
+            "overlay": "4 / rsldv",
+            "scratch": "Yes",
+            "arena": "Yes, writes persistent values",
+            "detail": (
+                f"Reads the RSV1 file into `{fmt_hex24(scratch_off)}-{fmt_hex24(scratch_end)}`, validates its header, "
+                f"then materializes strings, arrays, and objects into the REU heap arena "
+                f"`{fmt_hex24(ctx['heap_arena_abs'])}-{fmt_hex24(ctx['heap_arena_end_abs'])}`."
+            ),
+        },
+        {
+            "commands": "STV",
+            "overlay": "5 / rsstv",
+            "scratch": "Yes",
+            "arena": "Yes, reads existing pointer values",
+            "detail": (
+                f"Uses `{fmt_hex24(scratch_off)}-{fmt_hex24(stv_meta_end)}` for session metadata and "
+                f"`{fmt_hex24(stv_meta_end + 1)}-{fmt_hex24(scratch_end)}` for the outgoing RSV1 payload. "
+                "When serializing pointer-backed values, it dereferences them from the persistent REU heap arena "
+                "before flattening them into scratch."
+            ),
+        },
+        {
+            "commands": "DEL, REN",
+            "overlay": "6 / rsfops",
+            "scratch": "No",
+            "arena": "No",
+            "detail": "Issue DOS scratch/rename commands directly through command-channel I/O with no REU staging.",
+        },
+        {
+            "commands": "PUT, ADD",
+            "overlay": "6 / rsfops",
+            "scratch": "Yes",
+            "arena": "No",
+            "detail": (
+                f"Use `{fmt_hex24(scratch_off)}-{fmt_hex24(putadd_meta_end)}` for session metadata and "
+                f"`{fmt_hex24(putadd_meta_end + 1)}-{fmt_hex24(scratch_end)}` as a text spool for new/appended "
+                "SEQ content before writing it back to disk."
+            ),
+        },
+        {
+            "commands": "CAT",
+            "overlay": "7 / rscat",
+            "scratch": "Yes",
+            "arena": "No",
+            "detail": (
+                f"Uses `{fmt_hex24(scratch_off)}-{fmt_hex24(cat_rec_end)}` as a line-record table and "
+                f"`{fmt_hex24(cat_rec_end + 1)}-{fmt_hex24(scratch_end)}` as the line-data spool so `ITEM` can "
+                "replay file lines after the initial read pass."
+            ),
+        },
+        {
+            "commands": "COPY",
+            "overlay": "8 / rscopy",
+            "scratch": "No",
+            "arena": "No",
+            "detail": (
+                "Uses its overlay-local 128-byte transfer buffer plus direct DOS copy/streamed file I/O. "
+                "It does not use the shared command scratch or the persistent value arena."
+            ),
+        },
+    ]
+
+
+def static_audit_rows(ctx: dict[str, object]) -> list[str]:
+    return [
+        (
+            f"Registry capacity check: `rs_cmd_registry.c` seeds `{ctx['cmd_reg_desc_count']}` external command descriptors "
+            f"into `{ctx['cmd_reg_desc_cap']}` reserved descriptor slots and `{ctx['cmd_reg_state_count']}` overlay-state "
+            f"rows into `{ctx['cmd_reg_state_cap']}` reserved state slots."
+        ),
+        (
+            f"Metadata-page packing check: the full ReadyShell metadata block fits inside "
+            f"`{fmt_hex24(ctx['heap_meta_abs'])}-{fmt_hex24(ctx['heap_meta_end'])}`. Header uses "
+            f"`{fmt_hex24(ctx['cmd_reg_hdr_off'])}-{fmt_hex24(ctx['cmd_reg_hdr_end'])}`, descriptor rows reserve "
+            f"`{fmt_hex24(ctx['cmd_reg_desc_off'])}-{fmt_hex24(ctx['cmd_reg_desc_cap_end'])}` with live rows ending at "
+            f"`{fmt_hex24(ctx['cmd_reg_desc_used_end'])}`, state rows reserve "
+            f"`{fmt_hex24(ctx['cmd_reg_state_off'])}-{fmt_hex24(ctx['cmd_reg_state_cap_end'])}` with live rows ending at "
+            f"`{fmt_hex24(ctx['cmd_reg_state_used_end'])}`, shared metadata uses "
+            f"`{fmt_hex24(ctx['ovl_meta_off'])}-{fmt_hex24(ctx['ovl_meta_end'])}`, and the pause flag sits at "
+            f"`{fmt_hex24(ctx['ui_flags_off'])}`."
+        ),
+        (
+            f"Non-overlap check: command scratch ends at `{fmt_hex24(ctx['scratch_end'])}` and REU heap metadata begins at "
+            f"`{fmt_hex24(ctx['heap_meta_abs'])}`; the state table ends at `{fmt_hex24(ctx['cmd_reg_state_cap_end'])}` "
+            f"and shared metadata begins at `{fmt_hex24(ctx['ovl_meta_off'])}`; shared metadata ends at "
+            f"`{fmt_hex24(ctx['ovl_meta_end'])}` and the pause flag is `{fmt_hex24(ctx['ui_flags_off'])}`; the value arena "
+            f"begins at `{fmt_hex24(ctx['heap_arena_abs'])}`."
+        ),
+        (
+            "Command-source audit: `DRVI` builds output only in overlay-local RAM; `LST` writes 28-byte directory records "
+            "into shared scratch; `LDV` streams RSV1 payloads into scratch and materializes persistent values into the REU "
+            "heap arena; `STV` serializes into scratch and dereferences pointer-backed values from the arena; `DEL` and "
+            "`REN` issue direct DOS commands without REU staging; `PUT` and `ADD` use scratch metadata plus a text spool; "
+            "`CAT` uses a scratch record table plus line-data spool; `COPY` stays overlay-local with `g_copy_buf[128]`."
+        ),
+    ]
+
+
+def validate_overlay_layout(ctx: dict[str, object]) -> None:
+    external_command_count = sum(
+        len(row["spec"].command_list)
+        for row in ctx["demand_overlays"]
+    )
+    checks = [
+        (
+            ctx["cmd_reg_desc_count"] <= ctx["cmd_reg_desc_cap"],
+            "external command descriptor count exceeds reserved descriptor capacity",
+        ),
+        (
+            ctx["cmd_reg_state_count"] <= ctx["cmd_reg_state_cap"],
+            "overlay state count exceeds reserved state capacity",
+        ),
+        (
+            external_command_count == ctx["cmd_reg_desc_count"],
+            "external command descriptor count no longer matches the command inventory",
+        ),
+        (
+            len(ctx["demand_overlays"]) == ctx["cmd_reg_state_count"],
+            "overlay state count no longer matches the number of disk-loaded command overlays",
+        ),
+        (
+            ctx["scratch_end"] < ctx["heap_meta_abs"],
+            "command scratch overlaps the REU heap metadata page",
+        ),
+        (
+            ctx["cmd_reg_hdr_end"] < ctx["cmd_reg_desc_off"],
+            "registry header overlaps descriptor storage",
+        ),
+        (
+            ctx["cmd_reg_desc_cap_end"] < ctx["cmd_reg_state_off"],
+            "descriptor storage overlaps the state table",
+        ),
+        (
+            ctx["cmd_reg_state_cap_end"] < ctx["ovl_meta_off"],
+            "state table overlaps shared overlay metadata",
+        ),
+        (
+            ctx["ovl_meta_end"] < ctx["ui_flags_off"],
+            "shared overlay metadata overlaps the pause flag",
+        ),
+        (
+            ctx["ui_flags_off"] < ctx["heap_arena_abs"],
+            "pause flag overlaps the REU heap arena",
+        ),
+        (
+            ctx["ui_flags_off"] <= ctx["heap_meta_end"],
+            "pause flag no longer fits in the REU heap metadata page",
+        ),
+        (
+            ctx["heap_arena_abs"] == ctx["heap_meta_end"] + 1,
+            "REU heap arena is no longer immediately after the metadata page",
+        ),
+    ]
+    for ok, message in checks:
+        if not ok:
+            raise ValueError(message)
+
+
 def build_report_context(args: argparse.Namespace) -> dict[str, object]:
     makefile_text = read_text(args.makefile)
     map_text = read_text(args.map)
     build_version_text = read_text(args.build_version)
+    registry_c = read_text(args.registry_c)
     scalar_map = {
         name: value
         for name in (
@@ -423,6 +631,8 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
     cmd_reg_state_off = parse_define(ui_state_h, "RS_REU_CMD_REG_STATE_OFF")
     cmd_reg_state_len = parse_define(ui_state_h, "RS_REU_CMD_REG_STATE_LEN")
     cmd_reg_state_cap = parse_define(ui_state_h, "RS_REU_CMD_REG_STATE_CAP")
+    cmd_reg_desc_count = parse_define(registry_c, "RS_CMD_REG_DESC_COUNT")
+    cmd_reg_state_count = parse_define(registry_c, "RS_CMD_REG_STATE_COUNT")
     ovl_meta_off = shared_meta_off
     ovl_meta_len = parse_define(ui_state_h, "RS_REU_OVL_CACHE_META_LEN")
     ovl_cache_bank = parse_define(ui_state_h, "RS_REU_OVL_CACHE_BANK")
@@ -482,7 +692,7 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
     cached_overlays = [row for row in overlays if row["reu_off"] is not None]
     demand_overlays = [row for row in overlays if row["reu_off"] is None]
 
-    return {
+    ctx = {
         "profile": args.profile,
         "version": parse_build_version(build_version_text),
         "disk_path": str(args.disk.relative_to(args.root)),
@@ -512,6 +722,7 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
         "once_size": once_size,
         "scratch_off": scratch_off,
         "scratch_len": scratch_len,
+        "scratch_end": scratch_off + scratch_len - 1,
         "dbg_head_off": dbg_head_off,
         "dbg_data_off": dbg_data_off,
         "dbg_data_len": dbg_data_len,
@@ -521,14 +732,22 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
         "shared_meta_off": shared_meta_off,
         "cmd_reg_hdr_off": cmd_reg_hdr_off,
         "cmd_reg_hdr_len": cmd_reg_hdr_len,
+        "cmd_reg_hdr_end": cmd_reg_hdr_off + cmd_reg_hdr_len - 1,
         "cmd_reg_desc_off": cmd_reg_desc_off,
         "cmd_reg_desc_len": cmd_reg_desc_len,
         "cmd_reg_desc_cap": cmd_reg_desc_cap,
+        "cmd_reg_desc_count": cmd_reg_desc_count,
+        "cmd_reg_desc_used_end": cmd_reg_desc_off + (cmd_reg_desc_len * cmd_reg_desc_count) - 1,
+        "cmd_reg_desc_cap_end": cmd_reg_desc_off + (cmd_reg_desc_len * cmd_reg_desc_cap) - 1,
         "cmd_reg_state_off": cmd_reg_state_off,
         "cmd_reg_state_len": cmd_reg_state_len,
         "cmd_reg_state_cap": cmd_reg_state_cap,
+        "cmd_reg_state_count": cmd_reg_state_count,
+        "cmd_reg_state_used_end": cmd_reg_state_off + (cmd_reg_state_len * cmd_reg_state_count) - 1,
+        "cmd_reg_state_cap_end": cmd_reg_state_off + (cmd_reg_state_len * cmd_reg_state_cap) - 1,
         "ovl_meta_off": ovl_meta_off,
         "ovl_meta_len": ovl_meta_len,
+        "ovl_meta_end": ovl_meta_off + ovl_meta_len - 1,
         "ovl_cache_bank": ovl_cache_bank,
         "ovl_parse_rel": ovl_parse_rel,
         "ovl_exec_rel": ovl_exec_rel,
@@ -540,6 +759,7 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
         "cache_tail_size": cache_tail_size,
         "ui_flags_off": ui_flags_off,
         "heap_meta_abs": heap_bank_base + heap_meta_rel,
+        "heap_meta_end": heap_bank_base + heap_meta_rel + 0xFF,
         "heap_arena_abs": heap_bank_base + heap_arena_rel,
         "heap_arena_end_abs": heap_bank_base + heap_arena_end_rel - 1,
         "heap_arena_size": heap_arena_end_rel - heap_arena_rel,
@@ -547,9 +767,15 @@ def build_report_context(args: argparse.Namespace) -> dict[str, object]:
         "cached_overlays": cached_overlays,
         "demand_overlays": demand_overlays,
     }
+    validate_overlay_layout(ctx)
+    return ctx
 
 
 def render_markdown(ctx: dict[str, object]) -> str:
+    cmd_reu_rows = [
+        f"| {row['commands']} | `{row['overlay']}` | {row['scratch']} | {row['arena']} | {row['detail']} |"
+        for row in command_reu_usage_rows(ctx)
+    ]
     overlay_rows = []
     for row in ctx["overlays"]:
         spec = row["spec"]
@@ -665,6 +891,19 @@ def render_markdown(ctx: dict[str, object]) -> str:
             f"+----------------------------------------+ {fmt_hex24(ctx['ovl_cache_base'] + 0xFFFF)}",
             "```",
             "",
+            "## Command Scratch And Value Arena Usage",
+            "",
+            "| Commands | Overlay | Command scratch | Value arena | How the REU region is used |",
+            "| --- | --- | --- | --- | --- |",
+            *cmd_reu_rows,
+            "",
+            "- The command scratch window is shared, not partitioned per overlay. Only one command overlay owns it at a time because command overlays are disk-loaded serially.",
+            "- The value arena is persistent session state in bank `0x48`. `LDV` populates it explicitly, while `STV` can serialize values already living there.",
+            "",
+            "## Static Audit Checks",
+            "",
+            *[f"- {row}" for row in static_audit_rows(ctx)],
+            "",
             "## Overlay Inventory",
             "",
             "| Ovl | Role | Build PRG | Disk name | PRG bytes | Disk blocks | Live bytes | Window use | REU cache | Commands |",
@@ -713,6 +952,17 @@ def render_markdown(ctx: dict[str, object]) -> str:
 
 
 def render_html(ctx: dict[str, object]) -> str:
+    cmd_reu_rows = []
+    for row in command_reu_usage_rows(ctx):
+        cmd_reu_rows.append(
+            "<tr>"
+            f"<td>{html.escape(row['commands'])}</td>"
+            f"<td><code>{html.escape(row['overlay'])}</code></td>"
+            f"<td>{html.escape(row['scratch'])}</td>"
+            f"<td>{html.escape(row['arena'])}</td>"
+            f"<td>{html.escape(row['detail'])}</td>"
+            "</tr>"
+        )
     overlay_rows = []
     detail_cards = []
     for row in ctx["overlays"]:
@@ -1077,6 +1327,42 @@ def render_html(ctx: dict[str, object]) -> str:
   </section>
 
   <section>
+    <h2>Command Scratch And Value Arena Usage</h2>
+    <div class="note">
+      The command-scratch window is a single shared REU work area, so only the active disk-loaded command overlay owns it at any moment.
+      The value arena is persistent session state in bank <code>0x48</code>: <code>LDV</code> populates it directly, while <code>STV</code>
+      can serialize values that already live there.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Commands</th>
+            <th>Overlay</th>
+            <th>Command Scratch</th>
+            <th>Value Arena</th>
+            <th>How The REU Region Is Used</th>
+          </tr>
+        </thead>
+        <tbody>
+          {''.join(cmd_reu_rows)}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Static Audit Checks</h2>
+    <div class="note">
+      These checks are derived from the current source layout, not hand-maintained prose. The report generator now fails if
+      the ReadyShell REU metadata packing or overlay registry capacities drift out of sync.
+    </div>
+    <ul>
+      {''.join(f"<li>{html.escape(row)}</li>" for row in static_audit_rows(ctx))}
+    </ul>
+  </section>
+
+  <section>
     <h2>Overlay Inventory</h2>
     <div class="table-wrap">
       <table>
@@ -1209,6 +1495,11 @@ def main() -> int:
         default=ROOT / "src" / "apps" / "readyshellpoc" / "core" / "rs_ui_state.h",
     )
     parser.add_argument(
+        "--registry-c",
+        type=Path,
+        default=ROOT / "src" / "apps" / "readyshellpoc" / "core" / "rs_cmd_registry.c",
+    )
+    parser.add_argument(
         "--markdown-out",
         type=Path,
         default=ROOT / "docs" / "readyshell_overlay_inventory.md",
@@ -1218,6 +1509,8 @@ def main() -> int:
         type=Path,
         default=ROOT / "docs" / "readyshell_overlay_inventory.html",
     )
+    parser.add_argument("--private-markdown-out", type=Path)
+    parser.add_argument("--private-html-out", type=Path)
     args = parser.parse_args()
     args.root = args.root.resolve()
     if args.disk is None:
@@ -1241,16 +1534,47 @@ def main() -> int:
     args.overlay_c = (args.root / args.overlay_c).resolve() if not args.overlay_c.is_absolute() else args.overlay_c.resolve()
     args.shell_c = (args.root / args.shell_c).resolve() if not args.shell_c.is_absolute() else args.shell_c.resolve()
     args.ui_state_h = (args.root / args.ui_state_h).resolve() if not args.ui_state_h.is_absolute() else args.ui_state_h.resolve()
+    args.registry_c = (args.root / args.registry_c).resolve() if not args.registry_c.is_absolute() else args.registry_c.resolve()
     args.markdown_out = (
         (args.root / args.markdown_out).resolve() if not args.markdown_out.is_absolute() else args.markdown_out.resolve()
     )
     args.html_out = (args.root / args.html_out).resolve() if not args.html_out.is_absolute() else args.html_out.resolve()
+    if args.private_markdown_out is not None:
+        args.private_markdown_out = (
+            (args.root / args.private_markdown_out).resolve()
+            if not args.private_markdown_out.is_absolute()
+            else args.private_markdown_out.resolve()
+        )
+    if args.private_html_out is not None:
+        args.private_html_out = (
+            (args.root / args.private_html_out).resolve()
+            if not args.private_html_out.is_absolute()
+            else args.private_html_out.resolve()
+        )
 
     ctx = build_report_context(args)
-    args.markdown_out.write_text(render_markdown(ctx) + "\n", encoding="utf-8")
-    args.html_out.write_text(render_html(ctx), encoding="utf-8")
+    private_markdown_out = args.private_markdown_out or (
+        args.root / "privatedocs" / "reports" / "readyshell_overlay_inventory.md"
+    )
+    private_html_out = args.private_html_out or (
+        args.root / "privatedocs" / "reports" / "readyshell_overlay_inventory.html"
+    )
+
+    markdown_text = render_markdown(ctx) + "\n"
+    html_text = render_html(ctx)
+    for out_path, text in (
+        (args.markdown_out, markdown_text),
+        (args.html_out, html_text),
+        (private_markdown_out, markdown_text),
+        (private_html_out, html_text),
+    ):
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text, encoding="utf-8")
+
     print(f"wrote {args.markdown_out}")
     print(f"wrote {args.html_out}")
+    print(f"wrote {private_markdown_out}")
+    print(f"wrote {private_html_out}")
     return 0
 
 

@@ -182,6 +182,7 @@ It is split into a resident program plus overlay files:
 - `rsstv`
 - `rsfops`
 - `rscat`
+- `rscopy`
 
 Key shell commands:
 - `PRT`, `GEN`, `TAP`, `MORE`

@@ -29,6 +29,7 @@
         { "artifact": "obj/rsstv.prg", "name": "rsstv", "type": "prg" },
         { "artifact": "obj/rsfops.prg", "name": "rsfops", "type": "prg" },
         { "artifact": "obj/rscat.prg", "name": "rscat", "type": "prg" },
+        { "artifact": "obj/rscopy.prg", "name": "rscopy", "type": "prg" },
         { "artifact": "obj/apps_cfg_petscii.seq", "name": "apps.cfg", "type": "seq" }
       ]
     }

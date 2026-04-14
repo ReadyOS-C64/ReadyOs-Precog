@@ -127,7 +127,8 @@ Current overlay set:
 - `OVERLAY4` `rsldv.prg`: `LDV`, disk-loaded
 - `OVERLAY5` `rsstv.prg`: `STV`, disk-loaded
 - `OVERLAY6` `rsfops.prg`: `DEL` + `REN` + `PUT` + `ADD`, disk-loaded
-- `OVERLAY7` `rscat.prg`: `CAT` + `COPY`, disk-loaded
+- `OVERLAY7` `rscat.prg`: `CAT`, disk-loaded
+- `OVERLAY8` `rscopy.prg`: `COPY`, disk-loaded
 
 ## 3. Statement Forms
 

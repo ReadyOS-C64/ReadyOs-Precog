@@ -5,7 +5,7 @@
 #include "../platform/rs_platform.h"
 
 #define RS_CMD_REG_DESC_COUNT  10u
-#define RS_CMD_REG_STATE_COUNT 5u
+#define RS_CMD_REG_STATE_COUNT 6u
 
 #define RS_CMD_REG_DESC_ID_OFF        0u
 #define RS_CMD_REG_DESC_OVL_INDEX_OFF 1u
@@ -30,7 +30,7 @@ static const unsigned char g_cmd_seed[RS_CMD_REG_DESC_COUNT][RS_REU_CMD_REG_DESC
   { (unsigned char)RS_CMD_CAT,  4u, (unsigned char)(RS_CMD_REG_CAP_BEGIN | RS_CMD_REG_CAP_ITEM), RS_CMD_HANDLER_OVL7_CAT, 0u, 0u },
   { (unsigned char)RS_CMD_PUT,  3u, RS_CMD_REG_CAP_RUN, RS_CMD_HANDLER_OVL6_PUT, 0u, 0u },
   { (unsigned char)RS_CMD_ADD,  3u, RS_CMD_REG_CAP_RUN, RS_CMD_HANDLER_OVL6_ADD, 0u, 0u },
-  { (unsigned char)RS_CMD_COPY, 4u, RS_CMD_REG_CAP_RUN, RS_CMD_HANDLER_OVL7_COPY, 0u, 0u }
+  { (unsigned char)RS_CMD_COPY, 5u, RS_CMD_REG_CAP_RUN, RS_CMD_HANDLER_OVL8_COPY, 0u, 0u }
 };
 
 static const unsigned char g_state_seed[RS_CMD_REG_STATE_COUNT][RS_REU_CMD_REG_STATE_LEN] = {
@@ -38,7 +38,8 @@ static const unsigned char g_state_seed[RS_CMD_REG_STATE_COUNT][RS_REU_CMD_REG_S
   { RS_OVERLAY_PHASE_CMD4, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'l', 'd', 'v', 0u, 0u, 0u, 0u, 0u, 0u, 0u },
   { RS_OVERLAY_PHASE_CMD5, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 's', 't', 'v', 0u, 0u, 0u, 0u, 0u, 0u, 0u },
   { RS_OVERLAY_PHASE_CMD3, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'f', 'o', 'p', 's', 0u, 0u, 0u, 0u, 0u, 0u },
-  { RS_OVERLAY_PHASE_CMD3, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'c', 'a', 't', 0u, 0u, 0u, 0u, 0u, 0u, 0u }
+  { RS_OVERLAY_PHASE_CMD3, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'c', 'a', 't', 0u, 0u, 0u, 0u, 0u, 0u, 0u },
+  { RS_OVERLAY_PHASE_CMD3, RS_CMD_OVL_LOAD_F_DISK, 0u, 0u, 0u, 0u, 'r', 's', 'c', 'o', 'p', 'y', 0u, 0u, 0u, 0u, 0u, 0u }
 };
 
 static unsigned long rs_cmd_reg_desc_abs(unsigned char index) {

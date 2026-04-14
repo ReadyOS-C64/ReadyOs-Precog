@@ -67,7 +67,8 @@ Current overlays:
 | 4 | `rsldv.prg` | `LDV` | disk-loaded on demand |
 | 5 | `rsstv.prg` | `STV` | disk-loaded on demand |
 | 6 | `rsfops.prg` | `DEL`, `REN`, `PUT`, `ADD` | disk-loaded on demand |
-| 7 | `rscat.prg` | `CAT`, `COPY` | disk-loaded on demand |
+| 7 | `rscat.prg` | `CAT` | disk-loaded on demand |
+| 8 | `rscopy.prg` | `COPY` | disk-loaded on demand |
 
 Overlay 1 and overlay 2 are the primary system overlays. They are separate files on disk, but they share one REU cache bank.
 
@@ -223,7 +224,7 @@ A file-command example follows the same pattern:
 
 ```text
 COPY "8:notes","9:notes"
-  load rscat from disk
+  load rscopy from disk
   run COPY
   restore rsvm from REU
 ```

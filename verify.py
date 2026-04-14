@@ -52,7 +52,8 @@ READYSHELL_OVERLAY_PRGS = [
     ("readyshell.ldv", "rsldv.prg"),
     ("readyshell.stv", "rsstv.prg"),
     ("readyshell.fops", "rsfops.prg"),
-    ("readyshell.catcopy", "rscat.prg"),
+    ("readyshell.cat", "rscat.prg"),
+    ("readyshell.copy", "rscopy.prg"),
 ]
 
 APP_LOAD_START = 0x1000

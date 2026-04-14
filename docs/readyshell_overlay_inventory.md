@@ -1,17 +1,17 @@
-# ReadyShell Overlay Inventory Report (v0.2)
+# ReadyShell Overlay Inventory Report (v0.2Y)
 
 Artifact-backed report generated from the current local ReadyShell build, linker map, and D71 disk image.
 
 ## Executive Summary
 
-- Profile / disk source: `precog-dual-d71` using `releases/0.2/precog-dual-d71/readyos-v0.2-dual-d71_1.d71` (disk label `readyos`, `122` blocks free).
-- Resident ReadyShell PRG: `readyshell.prg` on disk as `readyshell`, `30842` bytes and `122` D71 blocks.
+- Profile / disk source: `precog-dual-d71` using `releases/0.2/precog-dual-d71/readyos-v0.2y-dual-d71_1.d71` (disk label `readyos`, `119` blocks free).
+- Resident ReadyShell PRG: `readyshell.prg` on disk as `readyshell`, `30884` bytes and `122` D71 blocks.
 - Overlay execution window: `$8E00-$C5FF` for `14336` bytes, with PRG load-address bytes at `$8DFE-$8DFF`.
-- Resident BSS / heap below overlays: BSS `$8878-$8A6E` (`503` bytes), heap `$8A70-$8DFD` (`910` bytes).
+- Resident BSS / heap below overlays: BSS `$88A2-$8A98` (`503` bytes), heap `$8A9A-$8DFD` (`868` bytes).
 - High RAM runtime region outside the app window: `$CA00-$CFFF`.
 - REU policy split:
   - overlays 1-2 are boot-loaded from disk and cached into one shared REU bank using fixed full-window slots
-  - overlays 3-7 are loaded from disk on demand for each command call
+  - overlays 3-8 are loaded from disk on demand for each command call
   - bank 0x48 is shared for the external-command registry, overlay metadata, pause state, command handoff scratch, and the REU-backed ReadyShell value arena
 
 ## Runtime Memory Map
@@ -21,8 +21,8 @@ Artifact-backed report generated from the current local ReadyShell build, linker
 | Resident app window | `$1000-$C5FF` | `46592` | ReadyOS app-owned RAM window for ReadyShell. |
 | Overlay load address bytes | `$8DFE-$8DFF` | `2` | PRG load address emitted ahead of each overlay sidecar file. |
 | Overlay execution window | `$8E00-$C5FF` | `14336` | Shared live area for whichever overlay is active. |
-| Resident BSS | `$8878-$8A6E` | `503` | Resident writable data below the overlay load address. |
-| Resident heap | `$8A70-$8DFD` | `910` | cc65 heap carved below the overlay load address. |
+| Resident BSS | `$88A2-$8A98` | `503` | Resident writable data below the overlay load address. |
+| Resident heap | `$8A9A-$8DFD` | `868` | cc65 heap carved below the overlay load address. |
 | High-RAM runtime | `$CA00-$CFFF` | `1536` | Fixed ReadyShell runtime state outside the app snapshot window. |
 
 ## REU Layout And Loading Model
@@ -37,9 +37,9 @@ Artifact-backed report generated from the current local ReadyShell build, linker
 | Command scratch | `$480000-$487FFF` | `32768` | Inter-overlay handoff area for command frames and streaming state. |
 | Command registry header | `$488010-$488017` | `8` | REU-backed external-command registry header. |
 | Command descriptor table | `$488020-$48807F` | `96` | Fixed-capacity external-command descriptor table in REU metadata. |
-| Overlay state table | `$488080-$4880D9` | `90` | Fixed-capacity overlay load/cache state table for external command overlays. |
-| Shared ReadyShell metadata | `$4880E0-$4880EB` | `12` | Shared core-overlay cache metadata record. |
-| Pause flag | `$4880F0` | `1` | Shared output-pause bit used by resident output and `MORE`. |
+| Overlay state table | `$488080-$4880EB` | `108` | Fixed-capacity overlay load/cache state table for external command overlays. |
+| Shared ReadyShell metadata | `$4880F0-$4880FB` | `12` | Shared core-overlay cache metadata record. |
+| Pause flag | `$4880FC` | `1` | Shared output-pause bit used by resident output and `MORE`. |
 | REU heap metadata | `$488000-$4880FF` | `256` | ReadyShell REU heap header region, including shared metadata bytes. |
 | REU heap arena | `$488100-$48FEFF` | `32256` | Persistent value payload arena for REU-backed strings/arrays/objects. |
 
@@ -62,6 +62,23 @@ REU bank 0x40
 +----------------------------------------+ $40FFFF
 ```
 
+## Command Scratch And Value Arena Usage
+
+| Commands | Overlay | Command scratch | Value arena | How the REU region is used |
+| --- | --- | --- | --- | --- |
+| PRT, MORE, TOP, SEL, GEN, TAP | `2 / rsvm` | No direct use | Indirect only | Run inside the shared execution core. They do not stage command-local data in `$480000-$487FFF`; any REU-backed values are handled through the normal overlay-2 value/runtime paths. |
+| DRVI | `3 / rsdrvilst` | No | No | Reads drive header/status data and builds its output object in transient overlay-local RAM. |
+| LST | `3 / rsdrvilst` | Yes | No | Spools 28-byte directory records through `$480000-$487FFF` so `BEGIN`/`ITEM` can walk the listing without keeping the directory channel open. |
+| LDV | `4 / rsldv` | Yes | Yes, writes persistent values | Reads the RSV1 file into `$480000-$487FFF`, validates its header, then materializes strings, arrays, and objects into the REU heap arena `$488100-$48FEFF`. |
+| STV | `5 / rsstv` | Yes | Yes, reads existing pointer values | Uses `$480000-$4800FF` for session metadata and `$480100-$487FFF` for the outgoing RSV1 payload. When serializing pointer-backed values, it dereferences them from the persistent REU heap arena before flattening them into scratch. |
+| DEL, REN | `6 / rsfops` | No | No | Issue DOS scratch/rename commands directly through command-channel I/O with no REU staging. |
+| PUT, ADD | `6 / rsfops` | Yes | No | Use `$480000-$48001F` for session metadata and `$480020-$487FFF` as a text spool for new/appended SEQ content before writing it back to disk. |
+| CAT | `7 / rscat` | Yes | No | Uses `$480000-$4807FF` as a line-record table and `$480800-$487FFF` as the line-data spool so `ITEM` can replay file lines after the initial read pass. |
+| COPY | `8 / rscopy` | No | No | Uses its overlay-local 128-byte transfer buffer plus direct DOS copy/streamed file I/O. It does not use the shared command scratch or the persistent value arena. |
+
+- The command scratch window is shared, not partitioned per overlay. Only one command overlay owns it at a time because command overlays are disk-loaded serially.
+- The value arena is persistent session state in bank `0x48`. `LDV` populates it explicitly, while `STV` can serialize values already living there.
+
 ## Overlay Inventory
 
 | Ovl | Role | Build PRG | Disk name | PRG bytes | Disk blocks | Live bytes | Window use | REU cache | Commands |
@@ -72,7 +89,8 @@ REU bank 0x40
 | 4 | Load Value | `rsldv.prg` | `rsldv` | `11156` | `44` | `11154` | `77.8%` | disk-only | LDV |
 | 5 | Store Value | `rsstv.prg` | `rsstv` | `8972` | `36` | `8970` | `62.6%` | disk-only | STV |
 | 6 | File Delete / Rename / Write | `rsfops.prg` | `rsfops` | `13235` | `53` | `13233` | `92.3%` | disk-only | DEL, REN, PUT, ADD |
-| 7 | File Read / Copy | `rscat.prg` | `rscat` | `13042` | `52` | `13040` | `91.0%` | disk-only | CAT, COPY |
+| 7 | File Read | `rscat.prg` | `rscat` | `6457` | `26` | `6455` | `45.0%` | disk-only | CAT |
+| 8 | File Copy | `rscopy.prg` | `rscopy` | `6565` | `26` | `6563` | `45.8%` | disk-only | COPY |
 
 ## Command Topology
 
@@ -97,13 +115,15 @@ Resident ReadyShell dispatcher
   |      commands: DEL | REN | PUT | ADD
   |      note: multiple commands share one disk sidecar and one RAM image
   |
-  `-- Overlay 7  rscat      [shared command overlay]
-         commands: CAT | COPY
-         note: multiple commands share one disk sidecar and one RAM image
+  +-- Overlay 7  rscat      [single-command overlay]
+  |      commands: CAT
+  |
+  `-- Overlay 8  rscopy     [single-command overlay]
+         commands: COPY
 ```
 
 - `DRVI` and `LST` now co-reside in `rsdrvilst`, so both commands load the same disk sidecar and the same overlay image.
-- Overlays 3-7 remain disk-loaded command overlays; only overlays 1-2 are REU-cached.
+- Overlays 3-8 remain disk-loaded command overlays; only overlays 1-2 are REU-cached.
 
 ## Resident Program
 
@@ -114,8 +134,8 @@ Resident ReadyShell dispatcher
 - Resident asm/runtime support: `rs_runtime_c64.s`
 - Command role: Resident app shell loop plus vm/overlay runtime. Command tokens resolved here, then dispatched to overlay 2 or command overlays.
 - Current linker-visible resident footprint:
-  - `CODE` `0x734B`
-  - `RODATA` `0x0455`
+  - `CODE` `0x7363`
+  - `RODATA` `0x0467`
   - `DATA` `0x0051`
   - `INIT` `0x001C`
   - `ONCE` `0x0038`
@@ -207,17 +227,31 @@ Resident ReadyShell dispatcher
 - REU policy: Not cached in a dedicated REU overlay bank; loaded from disk on demand.
 - RAM notes: Keeps file-operation staging and transient command state in overlay-local code plus the shared REU scratch region.
 
-### Overlay 7: File Read / Copy
+### Overlay 7: File Read
 
-- Purpose: Shared command overlay for CAT and COPY.
+- Purpose: Single-command overlay for CAT.
 - Build PRG: `rscat.prg`
 - Disk staging PRG: `obj/rscat.prg`
 - Disk filename: `rscat`
-- Source files: `rs_cmd_cat_c64.c, rs_cmd_copy_c64.c`
-- Commands: CAT, COPY
-- Runtime bytes in overlay window: `13040` at `$8E00-$C0EF`
-- Window share: `91.0%` used, `1296` bytes free
-- Disk footprint: `13042` bytes, `52` D71 blocks
+- Source files: `rs_cmd_cat_c64.c`
+- Commands: CAT
+- Runtime bytes in overlay window: `6455` at `$8E00-$A736`
+- Window share: `45.0%` used, `7881` bytes free
+- Disk footprint: `6457` bytes, `26` D71 blocks
+- REU policy: Not cached in a dedicated REU overlay bank; loaded from disk on demand.
+- RAM notes: Uses overlay-local file I/O logic plus shared REU scratch when line staging is needed.
+
+### Overlay 8: File Copy
+
+- Purpose: Single-command overlay for COPY.
+- Build PRG: `rscopy.prg`
+- Disk staging PRG: `obj/rscopy.prg`
+- Disk filename: `rscopy`
+- Source files: `rs_cmd_copy_c64.c`
+- Commands: COPY
+- Runtime bytes in overlay window: `6563` at `$8E00-$A7A2`
+- Window share: `45.8%` used, `7773` bytes free
+- Disk footprint: `6565` bytes, `26` D71 blocks
 - REU policy: Not cached in a dedicated REU overlay bank; loaded from disk on demand.
 - RAM notes: Uses overlay-local file I/O logic plus shared REU scratch when line staging or copy state is needed.
 
@@ -225,7 +259,7 @@ Resident ReadyShell dispatcher
 
 - Overlay 2 is effectively full: `14033` of `14336` bytes (`97.9%`).
 - Overlay 1 is also large at `13005` bytes (`90.7%`).
-- The resident heap below the overlay load address is only `910` bytes, so large transient work must lean on overlays and REU-backed storage.
+- The resident heap below the overlay load address is only `868` bytes, so large transient work must lean on overlays and REU-backed storage.
 - Overlays 1-2 no longer consume separate REU banks; they share bank `0x40` and leave `36864` bytes free at the tail of that bank.
-- Command overlays 3-7 stay smaller on disk and in RAM, but they pay the disk-load cost per command because they are not REU-cached today.
+- Command overlays 3-8 stay smaller on disk and in RAM, but they pay the disk-load cost per command because they are not REU-cached today.
 - Overlay 2 carries the shared formatting buffers, so its footprint reflects both command support code and the text-rendering scratch it owns.

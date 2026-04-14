@@ -14,9 +14,9 @@
 #define RS_REU_CMD_REG_DESC_CAP        16u
 #define RS_REU_CMD_REG_STATE_OFF       0x488080ul
 #define RS_REU_CMD_REG_STATE_LEN       18u
-#define RS_REU_CMD_REG_STATE_CAP       5u
+#define RS_REU_CMD_REG_STATE_CAP       6u
 
-#define RS_REU_SHARED_META_OFF         0x4880E0ul
+#define RS_REU_SHARED_META_OFF         0x4880F0ul
 #define RS_REU_OVL_CACHE_META_OFF      RS_REU_SHARED_META_OFF
 #define RS_REU_OVL_CACHE_META_LEN      12u
 #define RS_REU_OVL_CACHE_BANK          0x40u
@@ -26,7 +26,7 @@
 #define RS_REU_OVL_CACHE_VALID_PARSE   0x01u
 #define RS_REU_OVL_CACHE_VALID_EXEC    0x02u
 
-#define RS_REU_UI_FLAGS_OFF 0x4880F0ul
+#define RS_REU_UI_FLAGS_OFF 0x4880FCul
 #define RS_UI_FLAG_PAUSED 0x01u
 
 #endif

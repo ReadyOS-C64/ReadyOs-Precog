@@ -8,9 +8,9 @@
 #include <string.h>
 
 #if defined(__CC65__)
-#pragma code-name(push, "OVERLAY7")
-#pragma rodata-name(push, "OVERLAY7")
-#pragma bss-name(push, "OVERLAY7")
+#pragma code-name(push, "OVERLAY8")
+#pragma rodata-name(push, "OVERLAY8")
+#pragma bss-name(push, "OVERLAY8")
 #endif
 
 static const char g_copy_need_name[] = "NEED NAME";
@@ -169,8 +169,8 @@ static int copy_run(RSCommandFrame* frame) {
   return 0;
 }
 
-int rs_vmovl_overlay7_copy(unsigned char handler, RSCommandFrame* frame) {
-  if (handler == RS_CMD_HANDLER_OVL7_COPY && frame && frame->op == RS_CMD_OVL_OP_RUN) {
+int rs_vmovl_overlay8(unsigned char handler, RSCommandFrame* frame) {
+  if (handler == RS_CMD_HANDLER_OVL8_COPY && frame && frame->op == RS_CMD_OVL_OP_RUN) {
     return copy_run(frame);
   }
   return -1;
