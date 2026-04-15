@@ -97,6 +97,8 @@ CATALOG_SRC = $(READYOS_CONFIG_SRC)
 CATALOG_SEQ = $(OBJ_DIR)/apps_cfg_petscii.seq
 EDITOR_HELP_SRC = cfg/editor_help.txt
 EDITOR_HELP_SEQ = $(OBJ_DIR)/editor_help.seq
+RSHELP_SRC = cfg/rshelp.txt
+RSHELP_SEQ = $(OBJ_DIR)/rshelp.seq
 TASKLIST_SAMPLE_SRC = cfg/tasklist_sample.txt
 TASKLIST_SAMPLE_SEQ = $(OBJ_DIR)/tasklist_sample.seq
 XFILECHK_SRC8_TXT = cfg/xfilechk_src8.txt
@@ -318,6 +320,9 @@ $(CATALOG_SEQ): FORCE $(CATALOG_SRC) $(BUILD_SUPPORT_DIR)/build_apps_catalog_pet
 # Build plain-text lowercase PETASCII SEQ payloads
 $(EDITOR_HELP_SEQ): $(EDITOR_HELP_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(EDITOR_HELP_SRC) --output $@
+
+$(RSHELP_SEQ): $(RSHELP_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(RSHELP_SRC) --output $@
 
 $(XFILECHK_SRC8_SEQ): $(XFILECHK_SRC8_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(XFILECHK_SRC8_TXT) --output $@
@@ -563,6 +568,7 @@ clean:
 	rm -f $(CATALOG_SEQ)
 	rm -f $(VARIANT_ASM_INC)
 	rm -f $(EDITOR_HELP_SEQ)
+	rm -f $(RSHELP_SEQ)
 	rm -f $(XFILECHK_SRC8_SEQ)
 	rm -f $(XFILECHK_TESTA_SEQ)
 	rm -f $(XSEQCHK_SEED_SEQ)

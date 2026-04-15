@@ -42,6 +42,15 @@ BUILD_OWNED_SUPPORT_FILES = (
         "generated_artifact": "obj/editor_help.seq",
     },
     {
+        "app": "readyshell",
+        "disk_name": "rshelp",
+        "repo_name": "rshelp.seq",
+        "type": "seq",
+        "bootstrap_drive": 8,
+        "target_drive": 8,
+        "generated_artifact": "obj/rshelp.seq",
+    },
+    {
         "app": "tasklist",
         "disk_name": "example tasks",
         "repo_name": "example_tasks.seq",
@@ -538,6 +547,12 @@ def ensure_generated_assets(profile: Dict[str, object],
     run([
         sys.executable,
         str(ROOT / "build_support" / "build_petscii_lower_seq.py"),
+        "--input", str(ROOT / "cfg" / "rshelp.txt"),
+        "--output", str(obj_dir / "rshelp.seq"),
+    ])
+    run([
+        sys.executable,
+        str(ROOT / "build_support" / "build_petscii_lower_seq.py"),
         "--input", str(ROOT / "cfg" / "tasklist_sample.txt"),
         "--output", str(obj_dir / "tasklist_sample.seq"),
     ])
@@ -707,17 +722,17 @@ def bootstrap_authoritative_support_files(apps_set: set[str]) -> None:
         if target_path.exists():
             continue
 
-        source_disk = bootstrap_disks.get(int(entry["bootstrap_drive"]))
-        if source_disk is not None:
-            extract_disk_file(source_disk, str(entry["disk_name"]), str(entry["type"]), target_path)
-            continue
-
         generated_artifact = entry.get("generated_artifact")
         if generated_artifact:
             generated_path = ROOT / str(generated_artifact)
             if generated_path.exists():
                 shutil.copyfile(generated_path, target_path)
                 continue
+
+        source_disk = bootstrap_disks.get(int(entry["bootstrap_drive"]))
+        if source_disk is not None:
+            extract_disk_file(source_disk, str(entry["disk_name"]), str(entry["type"]), target_path)
+            continue
 
         fail(f"unable to bootstrap authoritative support file: {target_path}")
 

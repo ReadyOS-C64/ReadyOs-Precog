@@ -107,6 +107,7 @@ typedef struct {
     char last_line[LOGICAL_MAX];
 } ReadyShellResumeV1;
 static ReadyShellResumeV1 resume_blob;
+static const char g_shell_help_hint[] = "run: cat \"rshelp\" | more";
 
 static void clear_line(unsigned char y, unsigned char color);
 static void draw_text(unsigned char x, unsigned char y, const char *s, unsigned char color);
@@ -782,7 +783,7 @@ static int shell_read_logical_line(char *out, unsigned short max) {
 }
 
 static void shell_show_help(void) {
-    shell_write_line("PRT MORE TOP SEL GEN TAP DRVI LST LDV STV");
+    shell_write_line(g_shell_help_hint);
 }
 
 static void shell_print_error(const RSError *err) {
@@ -845,7 +846,7 @@ int main(void) {
     } else if (rs_overlay_boot_with_progress(shell_overlay_progress, 0) == 0) {
         rs_overlay_debug_mark('K');
         shell_newline();
-        shell_write_line("see readme help or website");
+        shell_show_help();
     } else {
         rs_overlay_debug_mark('k');
         shell_write_line("overlay failed");

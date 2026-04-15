@@ -1,10 +1,10 @@
-# ReadyShell Overlay Inventory Report (v0.2C)
+# ReadyShell Overlay Inventory Report (v0.2B)
 
 Artifact-backed report generated from the current local ReadyShell build, linker map, and D71 disk image.
 
 ## Executive Summary
 
-- Profile / disk source: `precog-dual-d71` using `releases/0.2/precog-dual-d71/readyos-v0.2c-dual-d71_1.d71` (disk label `readyos`, `107` blocks free).
+- Profile / disk source: `precog-dual-d71` using `releases/0.2/precog-dual-d71/readyos-v0.2b-dual-d71_1.d71` (disk label `readyos`, `106` blocks free).
 - Resident ReadyShell PRG: `readyshell.prg` on disk as `readyshell`, `30571` bytes and `121` D71 blocks.
 - Overlay execution window: `$8E00-$C5FF` for `14336` bytes, with PRG load-address bytes at `$8DFE-$8DFF`.
 - Resident BSS / heap below overlays: BSS `$8769-$895F` (`503` bytes), heap `$8960-$8DFD` (`1182` bytes).
@@ -135,8 +135,8 @@ REU bank 0x41
 | 3 | Drive Info + Directory Listing | `rsdrvilst.prg` | `rsdrvilst` | `7745` | `31` | `7743` | `54.0%` | bank `0x40` slot `$407000-$40A7FF` | DRVI, LST |
 | 4 | Load Value | `rsldv.prg` | `rsldv` | `11156` | `44` | `11154` | `77.8%` | bank `0x41` slot `$410000-$4137FF` | LDV |
 | 5 | Store Value | `rsstv.prg` | `rsstv` | `8972` | `36` | `8970` | `62.6%` | bank `0x40` slot `$40A800-$40DFFF` | STV |
-| 6 | File Delete / Rename / Write | `rsfops.prg` | `rsfops` | `13235` | `53` | `13233` | `92.3%` | bank `0x41` slot `$413800-$416FFF` | DEL, REN, PUT, ADD |
-| 7 | File Read | `rscat.prg` | `rscat` | `6457` | `26` | `6455` | `45.0%` | bank `0x41` slot `$417000-$41A7FF` | CAT |
+| 6 | File Delete / Rename / Write | `rsfops.prg` | `rsfops` | `14335` | `57` | `14333` | `100.0%` | bank `0x41` slot `$413800-$416FFF` | DEL, REN, PUT, ADD |
+| 7 | File Read | `rscat.prg` | `rscat` | `7999` | `32` | `7997` | `55.8%` | bank `0x41` slot `$417000-$41A7FF` | CAT |
 | 8 | File Copy | `rscopy.prg` | `rscopy` | `6601` | `26` | `6599` | `46.0%` | bank `0x41` slot `$41A800-$41DFFF` | COPY |
 
 ## Command Topology
@@ -268,9 +268,9 @@ Resident ReadyShell dispatcher
 - Disk filename: `rsfops`
 - Source files: `rs_cmd_delren_c64.c, rs_cmd_putadd_c64.c`
 - Commands: DEL, REN, PUT, ADD
-- Runtime bytes in overlay window: `13233` at `$8E00-$C1B0`
-- Window share: `92.3%` used, `1103` bytes free
-- Disk footprint: `13235` bytes, `53` D71 blocks
+- Runtime bytes in overlay window: `14333` at `$8E00-$C5FC`
+- Window share: `100.0%` used, `3` bytes free
+- Disk footprint: `14335` bytes, `57` D71 blocks
 - REU policy: Boot-loaded from disk during shell startup, then restored from bank `0x41` slot `$413800-$416FFF` as a full `0x3800`-byte overlay-window snapshot.
 - RAM notes: Keeps file-operation staging and transient command state in overlay-local code plus the shared REU scratch region.
 
@@ -282,9 +282,9 @@ Resident ReadyShell dispatcher
 - Disk filename: `rscat`
 - Source files: `rs_cmd_cat_c64.c`
 - Commands: CAT
-- Runtime bytes in overlay window: `6455` at `$8E00-$A736`
-- Window share: `45.0%` used, `7881` bytes free
-- Disk footprint: `6457` bytes, `26` D71 blocks
+- Runtime bytes in overlay window: `7997` at `$8E00-$AD3C`
+- Window share: `55.8%` used, `6339` bytes free
+- Disk footprint: `7999` bytes, `32` D71 blocks
 - REU policy: Boot-loaded from disk during shell startup, then restored from bank `0x41` slot `$417000-$41A7FF` as a full `0x3800`-byte overlay-window snapshot.
 - RAM notes: Uses overlay-local file I/O logic plus shared REU scratch when line staging is needed.
 

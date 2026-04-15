@@ -1,0 +1,40 @@
+readyshell quick ref
+use: cat "rshelp"|more
+clear - redraw shell
+eg: clear
+lst - list files
+eg: lst | more
+drvi - drive info
+eg: drvi 9
+cat - read text
+eg: cat "notes"
+copy - copy file
+eg: copy "a","b"
+ren - rename file
+eg: ren "a","b"
+del - scratch file
+eg: del "notes"
+put - write seq file
+eg: put $a,"notes"
+add - append seq file
+eg: add $a,"notes"
+prt - print value
+eg: prt "hi",5
+more - page output
+eg: gen 40 | more
+sel - pick fields
+eg: lst|sel "name"
+top - first n items
+eg: lst | top 3
+gen - count 1..n
+eg: gen 5
+ldv - load value
+eg: $a=ldv "snap"
+stv - save value
+eg: stv $a,"snap"
+help - show hint
+eg: help
+ver - show version
+eg: ver
+tap - internal debug
+eg: gen 3 | tap

@@ -173,6 +173,9 @@ Kanban workflow board tuned for fast keyboard organization.
 ReadyShell is an overlay-based shell with expressions, pipelines,
 filters, foreach stages, disk commands, and value serialization.
 
+For shipped command help, run `help`, then follow the hint:
+`cat "rshelp" | more`.
+
 It is split into a resident program plus overlay files:
 - `readyshell`
 - `rsparser`

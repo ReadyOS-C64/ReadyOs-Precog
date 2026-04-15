@@ -930,9 +930,15 @@ Behavior:
 
 REPL built-ins (not pipeline commands):
 
-- `HELP` -> concise command summary
+- `HELP` -> prints `run: cat "rshelp" | more`
 - `VER` -> prints the shell core version string
 - `CLEAR` -> redraws ReadyOS TUI shell screen
+
+The shipped quick-reference file is `RSHELP` on disk. Use:
+
+```text
+CAT "RSHELP" | MORE
+```
 
 ## 12. Errors and Diagnostics
 

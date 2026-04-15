@@ -497,3 +497,10 @@ PRT $RESTORE(0).NAME
 
 That covers the core ReadyShell workflow: inspect data, filter it, project it,
 save it, reload it, and keep working with it as arrays and objects.
+
+For the compact on-disk quick reference, use:
+
+```ruby
+HELP
+CAT "RSHELP" | MORE
+```
