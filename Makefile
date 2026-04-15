@@ -74,10 +74,14 @@ XFILECHK = $(HARNESS_OUT_DIR)/xfilechk.prg
 XSEQCHK_OUT_DIR = artifacts/dev_harness/xseqchk
 XSEQCHK_BOOT = $(XSEQCHK_OUT_DIR)/xseqchk_boot.prg
 XSEQCHK = $(XSEQCHK_OUT_DIR)/xseqchk.prg
+XTEXTCHK_OUT_DIR = artifacts/dev_harness/xtextchk
+XTEXTCHK_BOOT = $(XTEXTCHK_OUT_DIR)/xtextchk_boot.prg
+XTEXTCHK = $(XTEXTCHK_OUT_DIR)/xtextchk.prg
 XRELCHK_CASE ?= 0
 XRELCHK_STOP_AFTER ?= 0
 XFILECHK_CASE ?= 0
 XSEQCHK_CASE ?= 0
+XTEXTCHK_CASE ?= 0
 XREL_DATA_SA ?= 2
 XREL_POS_SEND_MODE ?= 1
 XREL_POS_CMD_MODE ?= 1
@@ -90,6 +94,7 @@ XFILECHK_DISK1 = $(HARNESS_OUT_DIR)/xfilechk.d71
 XFILECHK_DISK2 = $(HARNESS_OUT_DIR)/xfilechk_2.d71
 XSEQCHK_DISK1 = $(XSEQCHK_OUT_DIR)/xseqchk.d71
 XSEQCHK_DISK2 = $(XSEQCHK_OUT_DIR)/xseqchk_2.d71
+XTEXTCHK_DISK1 = $(XTEXTCHK_OUT_DIR)/xtextchk.d71
 READYOS_CONFIG_SRC ?= $(PROFILE_CATALOG_SRC)
 READYOS_CONFIG_LOAD_ALL ?=
 READYOS_CONFIG_RUN_FIRST ?=
@@ -107,6 +112,9 @@ XFILECHK_TESTA_TXT = cfg/xfilechk_testa.txt
 XFILECHK_TESTA_SEQ = $(OBJ_DIR)/xfilechk_testa.seq
 XSEQCHK_SEED_TXT = cfg/xseqchk_seed.txt
 XSEQCHK_SEED_SEQ = $(OBJ_DIR)/xseqchk_seed.seq
+XTEXTCHK_BANG_SEQ = $(OBJ_DIR)/xtextchk_bang.seq
+XTEXTCHK_PIPE_SEQ = $(OBJ_DIR)/xtextchk_pipe.seq
+XTEXTCHK_VLINE_SEQ = $(OBJ_DIR)/xtextchk_vline.seq
 REL_SEED_D71 ?=
 REL_SEED_D71_CANDIDATES := readyos0-1-5.d71 ../readyos0-1-5.d71 ../../readyos0-1-5.d71
 ifeq ($(strip $(REL_SEED_D71)),)
@@ -306,6 +314,11 @@ $(XSEQCHK_BOOT): $(BOOT_DIR)/xseqchk_boot.bas
 	@mkdir -p "$(dir $@)"
 	$(PETCAT) -w2 -o $@ $<
 
+# C64 BASIC harness boot for standalone text-render checks
+$(XTEXTCHK_BOOT): $(BOOT_DIR)/xtextchk_boot.bas
+	@mkdir -p "$(dir $@)"
+	$(PETCAT) -w2 -o $@ $<
+
 # C64 BASIC apps.cfg inspector (read-only diagnostics)
 $(SHOWCFG): $(BOOT_DIR)/showcfg.bas
 	$(PETCAT) -w2 -o $@ $<
@@ -332,6 +345,12 @@ $(XFILECHK_TESTA_SEQ): $(XFILECHK_TESTA_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_
 
 $(XSEQCHK_SEED_SEQ): $(XSEQCHK_SEED_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(XSEQCHK_SEED_TXT) --output $@
+
+$(XTEXTCHK_BANG_SEQ) $(XTEXTCHK_PIPE_SEQ) $(XTEXTCHK_VLINE_SEQ): $(BUILD_SUPPORT_DIR)/build_xtextchk_samples.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_xtextchk_samples.py \
+		--bang-output $(XTEXTCHK_BANG_SEQ) \
+		--pipe-output $(XTEXTCHK_PIPE_SEQ) \
+		--vline-output $(XTEXTCHK_VLINE_SEQ)
 
 $(TASKLIST_SAMPLE_SEQ): $(TASKLIST_SAMPLE_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(TASKLIST_SAMPLE_SRC) --output $@
@@ -496,6 +515,13 @@ $(XSEQCHK): $(APPS_DIR)/xseqchk/xseqchk.c
 		-D XSEQCHK_CASE=$(XSEQCHK_CASE) \
 		-m $(OBJ_DIR)/xseqchk.map -o $@ $<
 
+# Standalone text render harness ($0801)
+$(XTEXTCHK): $(APPS_DIR)/xtextchk/xtextchk.c $(TUI_CORE_SRC)
+	@mkdir -p "$(dir $@)"
+	$(CC) $(CFLAGS) \
+		-D XTEXTCHK_CASE=$(XTEXTCHK_CASE) \
+		-m $(OBJ_DIR)/xtextchk.map -o $@ $< $(TUI_CORE_SRC)
+
 $(XFILECHK_DISK1): FORCE $(XFILECHK_BOOT) $(XFILECHK) $(XFILECHK_SRC8_SEQ)
 	@mkdir -p "$(dir $@)"
 	$(C1541) -format "xfilechk8,ro" d71 $@ \
@@ -523,6 +549,15 @@ $(XSEQCHK_DISK2): FORCE $(XSEQCHK_SEED_SEQ)
 		-write $(XSEQCHK_SEED_SEQ) "olda,s" \
 		-write $(XSEQCHK_SEED_SEQ) "oldb,s" \
 		-write $(XSEQCHK_SEED_SEQ) "oldc,s"
+
+$(XTEXTCHK_DISK1): FORCE $(XTEXTCHK_BOOT) $(XTEXTCHK) $(XTEXTCHK_BANG_SEQ) $(XTEXTCHK_PIPE_SEQ) $(XTEXTCHK_VLINE_SEQ)
+	@mkdir -p "$(dir $@)"
+	$(C1541) -format "xtextchk8,ro" d71 $@ \
+		-write $(XTEXTCHK_BOOT) xtextchkboot \
+		-write $(XTEXTCHK) xtextchk \
+		-write $(XTEXTCHK_BANG_SEQ) "bang,s" \
+		-write $(XTEXTCHK_PIPE_SEQ) "apipe,s" \
+		-write $(XTEXTCHK_VLINE_SEQ) "vline,s"
 
 # Version preparation shared by direct make and run scripts.
 prepare-version:
@@ -572,6 +607,7 @@ clean:
 	rm -f $(XFILECHK_SRC8_SEQ)
 	rm -f $(XFILECHK_TESTA_SEQ)
 	rm -f $(XSEQCHK_SEED_SEQ)
+	rm -f $(XTEXTCHK_BANG_SEQ) $(XTEXTCHK_PIPE_SEQ) $(XTEXTCHK_VLINE_SEQ)
 	rm -f $(TASKLIST_SAMPLE_SEQ)
 	rm -f *.prg
 	rm -f $(READYSHELL_OVL1_PRG) $(READYSHELL_OVL2_PRG) $(READYSHELL_OVL3_PRG) \
@@ -587,6 +623,7 @@ clean:
 	rm -f *.d81
 	rm -rf artifacts/dev_harness/xfilechk
 	rm -rf artifacts/dev_harness/xseqchk
+	rm -rf artifacts/dev_harness/xtextchk
 	rm -rf release
 
 # Verify all generated binaries and memory layout constraints

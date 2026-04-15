@@ -6,6 +6,7 @@
  */
 
 #include "../../lib/tui.h"
+#include "../../lib/textfile_screen.h"
 #include <c64.h>
 #include <cbm.h>
 #include <conio.h>
@@ -518,7 +519,7 @@ static void draw_line(unsigned char line_idx) {
         }
         text_offset = (unsigned int)screen_y * 40 + TEXT_X;
         for (col = 0; col < len; ++col) {
-            ch = tui_ascii_to_screen((unsigned char)text_buffer[line_idx][col]);
+            ch = textfile_byte_to_screen((unsigned char)text_buffer[line_idx][col]);
             if (has_highlight && col >= highlight_start && col < highlight_end) {
                 ch |= 0x80;
             }

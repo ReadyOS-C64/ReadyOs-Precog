@@ -5,6 +5,7 @@
  */
 
 #include "../../lib/tui.h"
+#include "../../lib/textfile_screen.h"
 #include "../../lib/resume_state.h"
 #include "../../generated/readme_pages.h"
 #include <c64.h>
@@ -109,7 +110,7 @@ static void draw_page(void) {
 
             tui_putc((unsigned char)(CONTENT_X + x),
                      (unsigned char)(CONTENT_Y + row),
-                     tui_ascii_to_screen(ch),
+                     textfile_byte_to_screen(ch),
                      color);
             ++x;
         }

@@ -241,6 +241,7 @@ static int cat_store_text(const char* text,
 static int cat_read_text(unsigned short rec_index, char* out, unsigned short out_cap) {
   unsigned short start;
   unsigned short len;
+  unsigned short i;
 
   if (!out || out_cap == 0u ||
       cat_read_rec(rec_index, &start, &len) != 0 ||
@@ -250,6 +251,11 @@ static int cat_read_text(unsigned short rec_index, char* out, unsigned short out
   if (len != 0u &&
       rs_reu_read(CAT_DATA_OFF + (unsigned long)start, out, len) != 0) {
     return -1;
+  }
+  for (i = 0u; i < len; ++i) {
+    if ((unsigned char)out[i] == CH_VLINE) {
+      out[i] = '|';
+    }
   }
   out[len] = '\0';
   return 0;
