@@ -2,6 +2,11 @@
 #
 # ReadyOS profile-aware run script.
 #
+# ReadyShell CAT debug notes:
+# - default builds use READYSHELL_CAT_DEBUG=0, so CAT emits payload lines only
+# - set READYSHELL_CAT_DEBUG=1 before invoking this script to compile in CAT
+#   DBG:BEGIN / DBG:PARAM / DBG:END output for overlay-paging diagnostics
+#
 
 set -euo pipefail
 cd "$(dirname "$0")"

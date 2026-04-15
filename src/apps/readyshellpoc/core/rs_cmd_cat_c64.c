@@ -11,9 +11,12 @@
 #endif
 
 /*
- * CAT currently always emits the paging/debug lines. We can reintroduce a
- * saner build switch later once the non-debug path has been validated.
+ * DEBUG_RSCAT gates only the CAT debug output path. The file-open/read logic
+ * stays the same; when the flag is off CAT emits only payload lines.
  */
+#if !defined(DEBUG_RSCAT)
+#define DEBUG_RSCAT 0
+#endif
 
 #define CAT_REU_BASE          0x43D800ul
 #define CAT_REU_LEN           0x1800u
@@ -32,9 +35,15 @@
 #define CAT_META_LOCAL_OFF    6u
 #define CAT_META_LINE_OFF     8u
 #define CAT_META_USED_OFF     10u
+#define CAT_PAYLOAD_REC_BASE  1u
 
+#if DEBUG_RSCAT
 #define CAT_DEBUG_ITEM_COUNT  3u
 #define CAT_PAYLOAD_INDEX_BASE 2u
+#else
+#define CAT_DEBUG_ITEM_COUNT  0u
+#define CAT_PAYLOAD_INDEX_BASE 0u
+#endif
 
 static const char g_cat_magic[4] = { 'C', 'A', 'T', '2' };
 static const char g_cat_err_read[] = "READ FAIL";
@@ -48,8 +57,10 @@ static unsigned char g_cat_meta[CAT_META_LEN];
 static unsigned char g_cat_rec[CAT_REC_LEN];
 static unsigned char g_cat_io_buf[CAT_IO_BUF_LEN];
 static char g_cat_open_name[CAT_OPEN_NAME_MAX];
+#if DEBUG_RSCAT
 static char g_cat_line[CAT_LINE_MAX + 1u];
 static unsigned short g_cat_overlay_ram_marker;
+#endif
 static char g_cat_payload[CAT_LINE_MAX + 1u];
 
 static unsigned short cat_meta_get_u16(unsigned char off) {
@@ -121,6 +132,7 @@ static int cat_read_rec(unsigned short index,
   return 0;
 }
 
+#if DEBUG_RSCAT
 static char* cat_append_str(char* dst, unsigned short* rem, const char* src) {
   if (!dst || !rem || !src) {
     return dst;
@@ -198,7 +210,9 @@ static void cat_build_dbg_line(const char* tag,
   dst = cat_append_str(dst, &rem, " arg=");
   (void)cat_append_str(dst, &rem, arg);
 }
+#endif
 
+#if DEBUG_RSCAT
 static int cat_store_text(const char* text,
                           unsigned short* start_out,
                           unsigned short* len_out,
@@ -222,6 +236,7 @@ static int cat_store_text(const char* text,
   *data_used = (unsigned short)(*data_used + len);
   return 0;
 }
+#endif
 
 static int cat_read_text(unsigned short rec_index, char* out, unsigned short out_cap) {
   unsigned short start;
@@ -356,10 +371,10 @@ static int cat_add_line_record(unsigned short start,
   if (len > CAT_LINE_MAX) {
     return -2;
   }
-  if (*line_count >= (unsigned short)(CAT_REC_CAP - 1u)) {
+  if (*line_count >= (unsigned short)(CAT_REC_CAP - CAT_PAYLOAD_REC_BASE)) {
     return -3;
   }
-  if (cat_write_rec((unsigned short)(*line_count + 1u), start, len) != 0) {
+  if (cat_write_rec((unsigned short)(*line_count + CAT_PAYLOAD_REC_BASE), start, len) != 0) {
     return -1;
   }
   ++*line_count;
@@ -462,8 +477,10 @@ static int cat_begin(RSCommandFrame* frame) {
   unsigned short local;
   unsigned short line_count;
   unsigned short data_used;
+#if DEBUG_RSCAT
   unsigned short arg_start;
   unsigned short arg_len;
+#endif
   unsigned short file_len;
   int parse_rc;
 
@@ -489,13 +506,17 @@ static int cat_begin(RSCommandFrame* frame) {
     return -1;
   }
 
+#if DEBUG_RSCAT
   ++g_cat_overlay_ram_marker;
+#endif
 
+#if DEBUG_RSCAT
   if (cat_store_text(arg, &arg_start, &arg_len, &data_used) != 0 ||
       cat_write_rec(0u, arg_start, arg_len) != 0) {
     rs_cmd_file_set_error(frame->err, 255u, g_cat_err_state);
     return -1;
   }
+#endif
 
   if (cat_load_file_bytes(drive, data_used, &file_len, frame->err) != 0) {
     return -1;
@@ -537,7 +558,9 @@ static int cat_item(RSCommandFrame* frame) {
     return -1;
   }
 
+#if DEBUG_RSCAT
   ++g_cat_overlay_ram_marker;
+#endif
 
   if (cat_meta_load(&total, &local, &line_count, &data_used) != 0) {
     total = 0u;
@@ -551,6 +574,7 @@ static int cat_item(RSCommandFrame* frame) {
     return -1;
   }
 
+#if DEBUG_RSCAT
   if (frame->index == 0u) {
     cat_build_dbg_line("BEGIN", 0, total, local);
     rs_cmd_value_free(frame->out);
@@ -571,8 +595,9 @@ static int cat_item(RSCommandFrame* frame) {
     rs_cmd_value_free(frame->out);
     return rs_cmd_value_init_string(frame->out, g_cat_line);
   }
+#endif
 
-  if (cat_read_text((unsigned short)(frame->index - CAT_PAYLOAD_INDEX_BASE),
+  if (cat_read_text((unsigned short)((frame->index - CAT_PAYLOAD_INDEX_BASE) + CAT_PAYLOAD_REC_BASE),
                     g_cat_payload,
                     sizeof(g_cat_payload)) != 0) {
     return -1;
