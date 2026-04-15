@@ -26,7 +26,7 @@
 
 static const char g_putadd_need_value[] = "NEED STRING/ARRAY";
 static const char g_putadd_need_seq[] = "NEED SEQ";
-static const char g_putadd_put_ok[] = "FILE CREATION COMPLETE";
+static const char g_putadd_put_ok[] = "FILE CREATED";
 
 static unsigned char g_putadd_buf[80];
 
@@ -62,15 +62,16 @@ static int putadd_check_write_status(unsigned char drive, RSError* err) {
   return 0;
 }
 
-static int putadd_write_all(unsigned char drive,
-                            const char* name,
-                            unsigned short used,
-                            RSError* err) {
+static int putadd_write_spool(unsigned char drive,
+                              const char* name,
+                              unsigned short used,
+                              char mode,
+                              RSError* err) {
   unsigned short pos;
   unsigned short chunk;
   int wrote;
 
-  if (rs_cmd_file_open_name(RS_CMD_FILE_LFN_DATA, drive, name, CBM_T_SEQ, 'w') != 0) {
+  if (rs_cmd_file_open_name(RS_CMD_FILE_LFN_DATA, drive, name, CBM_T_SEQ, mode) != 0) {
     rs_cmd_file_note_status(err, drive, 255u);
     return -1;
   }
@@ -99,6 +100,41 @@ static int putadd_write_all(unsigned char drive,
   cbm_close(RS_CMD_FILE_LFN_DATA);
   rs_cmd_file_cleanup_io();
   return putadd_check_write_status(drive, err);
+}
+
+static int putadd_check_existing_seq(unsigned char drive,
+                                     const char* name,
+                                     unsigned char* exists_out,
+                                     RSError* err) {
+  unsigned char type;
+
+  if (!name || !exists_out) {
+    return -1;
+  }
+  if (rs_cmd_file_find_entry(drive, name, &type, 0) != 0) {
+    *exists_out = 0u;
+    return 0;
+  }
+  if (type != CBM_T_SEQ) {
+    rs_cmd_file_set_error(err, 255u, g_putadd_need_seq);
+    return -1;
+  }
+  *exists_out = 1u;
+  return 0;
+}
+
+static int putadd_scratch_existing(unsigned char drive,
+                                   const char* name,
+                                   RSError* err) {
+  char cmd[24];
+
+  if (!name) {
+    return -1;
+  }
+  cmd[0] = 's';
+  cmd[1] = ':';
+  strcpy(cmd + 2u, name);
+  return rs_cmd_file_run_command(drive, cmd, err);
 }
 
 static int putadd_append_bytes(const char* text,
@@ -173,12 +209,6 @@ static int putadd_append_text_line(const char* text,
   return putadd_append_line_break(used);
 }
 
-static int putadd_append_bool_line(int truthy, unsigned short* used) {
-  return putadd_append_text_line(truthy ? "TRUE" : "FALSE",
-                                 truthy ? 4u : 5u,
-                                 used);
-}
-
 static unsigned char putadd_u16_text(unsigned short value, char* out) {
   char rev[5];
   unsigned char i;
@@ -205,32 +235,12 @@ static unsigned char putadd_u16_text(unsigned short value, char* out) {
   return n;
 }
 
-static int putadd_append_u16_line(unsigned short value, unsigned short* used) {
-  char text[6];
-  unsigned char digits;
-
-  digits = putadd_u16_text(value, text);
-  return putadd_append_text_line(text, (unsigned short)digits, used);
-}
-
 static int putadd_append_heap_scalar_line(unsigned short off, unsigned short* used) {
   unsigned char rec_type;
   unsigned short len;
 
   if (!used || putadd_heap_read_u8(off, &rec_type) != 0) {
     return -1;
-  }
-  if (rec_type == PUTADD_REC_FALSE) {
-    return putadd_append_bool_line(0, used);
-  }
-  if (rec_type == PUTADD_REC_TRUE) {
-    return putadd_append_bool_line(1, used);
-  }
-  if (rec_type == PUTADD_REC_U16) {
-    if (putadd_heap_read_u16((unsigned short)(off + 1u), &len) != 0) {
-      return -1;
-    }
-    return putadd_append_u16_line(len, used);
   }
   if (rec_type == PUTADD_REC_STR) {
     if (putadd_heap_read_u16((unsigned short)(off + 1u), &len) != 0) {
@@ -260,15 +270,6 @@ static int putadd_append_scalar_line(const RSValue* value, unsigned short* used)
       return -1;
     }
     return putadd_append_line_break(used);
-  }
-  if (value->tag == RS_VAL_TRUE) {
-    return putadd_append_bool_line(1, used);
-  }
-  if (value->tag == RS_VAL_FALSE) {
-    return putadd_append_bool_line(0, used);
-  }
-  if (value->tag == RS_VAL_U16) {
-    return putadd_append_u16_line(value->as.u16, used);
   }
   return -1;
 }
@@ -309,57 +310,6 @@ static int putadd_append_value(const RSValue* value,
   return 0;
 }
 
-static int putadd_load_existing(unsigned char drive,
-                                const char* name,
-                                unsigned short* used,
-                                RSError* err) {
-  unsigned char type;
-  int n;
-
-  if (!used) {
-    return -1;
-  }
-  if (rs_cmd_file_find_entry(drive, name, &type, 0) != 0) {
-    *used = 0u;
-    return 0;
-  }
-  if (type != CBM_T_SEQ) {
-    rs_cmd_file_set_error(err, 255u, g_putadd_need_seq);
-    return -1;
-  }
-  if (rs_cmd_file_open_name(RS_CMD_FILE_LFN_DATA, drive, name, CBM_T_SEQ, 'r') != 0) {
-    rs_cmd_file_note_status(err, drive, 255u);
-    return -1;
-  }
-
-  *used = 0u;
-  for (;;) {
-    n = cbm_read(RS_CMD_FILE_LFN_DATA, g_putadd_buf, sizeof(g_putadd_buf));
-    if (n < 0) {
-      cbm_close(RS_CMD_FILE_LFN_DATA);
-      rs_cmd_file_cleanup_io();
-      rs_cmd_file_note_status(err, drive, 255u);
-      return -1;
-    }
-    if (n == 0) {
-      break;
-    }
-    if ((unsigned long)*used + (unsigned long)n > (unsigned long)PUTADD_DATA_LEN ||
-        rs_reu_write(PUTADD_DATA_OFF + (unsigned long)*used,
-                     g_putadd_buf,
-                     (unsigned short)n) != 0) {
-      cbm_close(RS_CMD_FILE_LFN_DATA);
-      rs_cmd_file_cleanup_io();
-      return -1;
-    }
-    *used = (unsigned short)(*used + (unsigned short)n);
-  }
-
-  cbm_close(RS_CMD_FILE_LFN_DATA);
-  rs_cmd_file_cleanup_io();
-  return 0;
-}
-
 static void putadd_set_success_line(RSCommandFrame* frame,
                                     unsigned char kind,
                                     unsigned short line_count) {
@@ -377,20 +327,22 @@ static void putadd_set_success_line(RSCommandFrame* frame,
 
   len = putadd_u16_text(line_count, frame->line);
   if (line_count == 1u) {
-    memcpy(frame->line + len, " LINE ADDED TO FILE", 20u);
-    frame->line[len + 19u] = '\0';
+    memcpy(frame->line + len, " LINE ADDED", 12u);
+    frame->line[len + 11u] = '\0';
   } else {
-    memcpy(frame->line + len, " LINES ADDED TO FILE", 21u);
-    frame->line[len + 20u] = '\0';
+    memcpy(frame->line + len, " LINES ADDED", 13u);
+    frame->line[len + 12u] = '\0';
   }
   frame->flags |= RS_CMD_FRAME_F_PRT_LINE;
 }
 
 static int putadd_run(RSCommandFrame* frame, unsigned char kind) {
   unsigned char drive;
+  unsigned char exists;
   unsigned short used;
   unsigned short line_count;
   char name[17];
+  int ok;
 
   if (!frame || !frame->out || !frame->args) {
     return -1;
@@ -404,18 +356,33 @@ static int putadd_run(RSCommandFrame* frame, unsigned char kind) {
 
   rs_cmd_value_free(frame->out);
   rs_cmd_value_init_bool(frame->out, 0);
+  exists = 0u;
   used = 0u;
   line_count = 0u;
+  ok = 0;
 
-  if (kind == PUTADD_KIND_ADD &&
-      putadd_load_existing(drive, name, &used, frame->err) != 0) {
-    return 0;
-  }
   if (putadd_append_value(&frame->args[0], &used, &line_count) != 0) {
     rs_cmd_file_set_error(frame->err, 255u, g_putadd_need_value);
     return 0;
   }
-  if (putadd_write_all(drive, name, used, frame->err) == 0) {
+  if (kind == PUTADD_KIND_PUT) {
+    ok = (putadd_write_spool(drive, name, used, 'w', frame->err) == 0);
+    if (!ok && frame->err && frame->err->offset == 63u &&
+        putadd_check_existing_seq(drive, name, &exists, frame->err) == 0 &&
+        exists &&
+        putadd_scratch_existing(drive, name, frame->err) == 0) {
+      ok = (putadd_write_spool(drive, name, used, 'w', frame->err) == 0);
+    }
+  } else {
+    ok = (putadd_write_spool(drive, name, used, 'a', frame->err) == 0);
+    if (!ok && frame->err &&
+        (frame->err->offset == 50u || frame->err->offset == 62u)) {
+      ok = (putadd_write_spool(drive, name, used, 'w', frame->err) == 0);
+    } else if (!ok) {
+      (void)putadd_check_existing_seq(drive, name, &exists, frame->err);
+    }
+  }
+  if (ok) {
     putadd_set_success_line(frame, kind, line_count);
     rs_cmd_value_init_bool(frame->out, 1);
   }

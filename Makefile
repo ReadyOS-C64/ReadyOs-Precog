@@ -71,9 +71,13 @@ XRELCHK = xrelchk.prg
 HARNESS_OUT_DIR = artifacts/dev_harness/xfilechk
 XFILECHK_BOOT = $(HARNESS_OUT_DIR)/xfilechk_boot.prg
 XFILECHK = $(HARNESS_OUT_DIR)/xfilechk.prg
+XSEQCHK_OUT_DIR = artifacts/dev_harness/xseqchk
+XSEQCHK_BOOT = $(XSEQCHK_OUT_DIR)/xseqchk_boot.prg
+XSEQCHK = $(XSEQCHK_OUT_DIR)/xseqchk.prg
 XRELCHK_CASE ?= 0
 XRELCHK_STOP_AFTER ?= 0
 XFILECHK_CASE ?= 0
+XSEQCHK_CASE ?= 0
 XREL_DATA_SA ?= 2
 XREL_POS_SEND_MODE ?= 1
 XREL_POS_CMD_MODE ?= 1
@@ -84,6 +88,8 @@ XREL_POS_POS_MODE ?= 0
 XREL_POS_CR_MODE ?= 1
 XFILECHK_DISK1 = $(HARNESS_OUT_DIR)/xfilechk.d71
 XFILECHK_DISK2 = $(HARNESS_OUT_DIR)/xfilechk_2.d71
+XSEQCHK_DISK1 = $(XSEQCHK_OUT_DIR)/xseqchk.d71
+XSEQCHK_DISK2 = $(XSEQCHK_OUT_DIR)/xseqchk_2.d71
 READYOS_CONFIG_SRC ?= $(PROFILE_CATALOG_SRC)
 READYOS_CONFIG_LOAD_ALL ?=
 READYOS_CONFIG_RUN_FIRST ?=
@@ -97,6 +103,8 @@ XFILECHK_SRC8_TXT = cfg/xfilechk_src8.txt
 XFILECHK_SRC8_SEQ = $(OBJ_DIR)/xfilechk_src8.seq
 XFILECHK_TESTA_TXT = cfg/xfilechk_testa.txt
 XFILECHK_TESTA_SEQ = $(OBJ_DIR)/xfilechk_testa.seq
+XSEQCHK_SEED_TXT = cfg/xseqchk_seed.txt
+XSEQCHK_SEED_SEQ = $(OBJ_DIR)/xseqchk_seed.seq
 REL_SEED_D71 ?=
 REL_SEED_D71_CANDIDATES := readyos0-1-5.d71 ../readyos0-1-5.d71 ../../readyos0-1-5.d71
 ifeq ($(strip $(REL_SEED_D71)),)
@@ -291,6 +299,11 @@ $(XFILECHK_BOOT): $(BOOT_DIR)/xfilechk_boot.bas
 	@mkdir -p "$(dir $@)"
 	$(PETCAT) -w2 -o $@ $<
 
+# C64 BASIC harness boot for standalone SEQ append checks
+$(XSEQCHK_BOOT): $(BOOT_DIR)/xseqchk_boot.bas
+	@mkdir -p "$(dir $@)"
+	$(PETCAT) -w2 -o $@ $<
+
 # C64 BASIC apps.cfg inspector (read-only diagnostics)
 $(SHOWCFG): $(BOOT_DIR)/showcfg.bas
 	$(PETCAT) -w2 -o $@ $<
@@ -311,6 +324,9 @@ $(XFILECHK_SRC8_SEQ): $(XFILECHK_SRC8_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lo
 
 $(XFILECHK_TESTA_SEQ): $(XFILECHK_TESTA_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(XFILECHK_TESTA_TXT) --output $@
+
+$(XSEQCHK_SEED_SEQ): $(XSEQCHK_SEED_TXT) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
+	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(XSEQCHK_SEED_TXT) --output $@
 
 $(TASKLIST_SAMPLE_SEQ): $(TASKLIST_SAMPLE_SRC) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py
 	$(PYTHON) $(BUILD_SUPPORT_DIR)/build_petscii_lower_seq.py --input $(TASKLIST_SAMPLE_SRC) --output $@
@@ -468,6 +484,13 @@ $(XFILECHK): $(APPS_DIR)/xfilechk/xfilechk.c
 		-D XFILECHK_CASE=$(XFILECHK_CASE) \
 		-m $(OBJ_DIR)/xfilechk.map -o $@ $<
 
+# Standalone SEQ append harness ($0801)
+$(XSEQCHK): $(APPS_DIR)/xseqchk/xseqchk.c
+	@mkdir -p "$(dir $@)"
+	$(CC) $(CFLAGS) \
+		-D XSEQCHK_CASE=$(XSEQCHK_CASE) \
+		-m $(OBJ_DIR)/xseqchk.map -o $@ $<
+
 $(XFILECHK_DISK1): FORCE $(XFILECHK_BOOT) $(XFILECHK) $(XFILECHK_SRC8_SEQ)
 	@mkdir -p "$(dir $@)"
 	$(C1541) -format "xfilechk8,ro" d71 $@ \
@@ -479,6 +502,22 @@ $(XFILECHK_DISK2): FORCE $(XFILECHK_TESTA_SEQ)
 	@mkdir -p "$(dir $@)"
 	$(C1541) -format "xfilechk9,ro" d71 $@ \
 		-write $(XFILECHK_TESTA_SEQ) "testa,s"
+
+$(XSEQCHK_DISK1): FORCE $(XSEQCHK_BOOT) $(XSEQCHK) $(XSEQCHK_SEED_SEQ)
+	@mkdir -p "$(dir $@)"
+	$(C1541) -format "xseqchk8,ro" d71 $@ \
+		-write $(XSEQCHK_BOOT) xseqchkboot \
+		-write $(XSEQCHK) xseqchk \
+		-write $(XSEQCHK_SEED_SEQ) "olda,s" \
+		-write $(XSEQCHK_SEED_SEQ) "oldb,s" \
+		-write $(XSEQCHK_SEED_SEQ) "oldc,s"
+
+$(XSEQCHK_DISK2): FORCE $(XSEQCHK_SEED_SEQ)
+	@mkdir -p "$(dir $@)"
+	$(C1541) -format "xseqchk9,ro" d71 $@ \
+		-write $(XSEQCHK_SEED_SEQ) "olda,s" \
+		-write $(XSEQCHK_SEED_SEQ) "oldb,s" \
+		-write $(XSEQCHK_SEED_SEQ) "oldc,s"
 
 # Version preparation shared by direct make and run scripts.
 prepare-version:
@@ -524,6 +563,9 @@ clean:
 	rm -f $(CATALOG_SEQ)
 	rm -f $(VARIANT_ASM_INC)
 	rm -f $(EDITOR_HELP_SEQ)
+	rm -f $(XFILECHK_SRC8_SEQ)
+	rm -f $(XFILECHK_TESTA_SEQ)
+	rm -f $(XSEQCHK_SEED_SEQ)
 	rm -f $(TASKLIST_SAMPLE_SEQ)
 	rm -f *.prg
 	rm -f $(READYSHELL_OVL1_PRG) $(READYSHELL_OVL2_PRG) $(READYSHELL_OVL3_PRG) \
@@ -537,6 +579,8 @@ clean:
 	rm -f *.d64
 	rm -f *.d71
 	rm -f *.d81
+	rm -rf artifacts/dev_harness/xfilechk
+	rm -rf artifacts/dev_harness/xseqchk
 	rm -rf release
 
 # Verify all generated binaries and memory layout constraints
