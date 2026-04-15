@@ -706,49 +706,53 @@ Notes:
 
 Purpose:
 
-- Consume streamed strings and write a new PETASCII text file
+- Write a value to a new PETASCII text file
 
 Syntax:
 
 ```text
-PUT <filename>
+PUT <expr>, <filename>
 ```
 
 Examples:
 
 ```text
-"HELLO" | PUT "notes"
-LST | SEL "NAME" | PUT "dirnames"
+PUT $MSG, "notes"
+PUT $LINES, "9:dirnames"
 ```
 
 Notes:
 
 - `PUT` creates or replaces the target file
-- `PUT` produces no output on success
+- String values write one line
+- Array values write one line per element
+- `PUT` prints a short completion status on success
 
 ### 8.13 `ADD`
 
 Purpose:
 
-- Consume streamed strings and append them to a PETASCII text file
+- Append a value to a PETASCII text file
 
 Syntax:
 
 ```text
-ADD <filename>
+ADD <expr>, <filename>
 ```
 
 Examples:
 
 ```text
-"NEXT LINE" | ADD "notes"
-LST | SEL "NAME" | ADD "dirnames"
+ADD $NEXT, "notes"
+ADD $MORELINES, "9:dirnames"
 ```
 
 Notes:
 
 - `ADD` appends line-terminated PETASCII text
-- `ADD` produces no output on success
+- String values append one line
+- Array values append one line per element
+- `ADD` prints a short completion status on success
 
 ### 8.14 `DEL`
 

@@ -12,65 +12,35 @@
 #pragma bss-name(push, "OVERLAY6")
 #endif
 
-#define RS_CMD_SESSION_EPOCH (*(unsigned char*)0xCFF1)
-
-#define PUTADD_META_OFF  RS_CMD_SCRATCH_OFF
 #define PUTADD_DATA_OFF  (RS_CMD_SCRATCH_OFF + 0x0020ul)
 #define PUTADD_DATA_LEN  (RS_CMD_SCRATCH_LEN - 0x0020u)
+#define PUTADD_REU_BANK_BASE   (RS_CMD_SCRATCH_OFF & 0xFF0000ul)
 #define PUTADD_KIND_PUT  1u
 #define PUTADD_KIND_ADD  2u
+#define PUTADD_REC_FALSE 1u
+#define PUTADD_REC_TRUE  2u
+#define PUTADD_REC_U16   3u
+#define PUTADD_REC_STR   4u
+#define PUTADD_REC_ARRAY 5u
+#define PUTADD_REC_OBJECT 6u
 
-static const char g_putadd_need_string[] = "NEED STRING";
+static const char g_putadd_need_value[] = "NEED STRING/ARRAY";
 static const char g_putadd_need_seq[] = "NEED SEQ";
+static const char g_putadd_put_ok[] = "FILE CREATION COMPLETE";
 
-static unsigned char g_putadd_buf[96];
+static unsigned char g_putadd_buf[80];
 
-static int putadd_meta_write(unsigned char epoch,
-                             unsigned char kind,
-                             unsigned char drive,
-                             const char* name,
-                             unsigned short used) {
-  unsigned char i;
-
-  memset(g_putadd_buf, 0, 24u);
-  g_putadd_buf[0] = 'P';
-  g_putadd_buf[1] = 'A';
-  g_putadd_buf[2] = epoch;
-  g_putadd_buf[3] = kind;
-  g_putadd_buf[4] = drive;
-  g_putadd_buf[5] = (unsigned char)(used & 0xFFu);
-  g_putadd_buf[6] = (unsigned char)((used >> 8u) & 0xFFu);
-  for (i = 0u; i < 16u && name[i] != '\0'; ++i) {
-    g_putadd_buf[7u + i] = (unsigned char)name[i];
-  }
-  return rs_reu_write(PUTADD_META_OFF, g_putadd_buf, 24u);
+static int putadd_heap_read_u8(unsigned short rel_off, unsigned char* out) {
+  return rs_reu_read(PUTADD_REU_BANK_BASE + (unsigned long)rel_off, out, 1u);
 }
 
-static int putadd_meta_read(unsigned char* epoch,
-                            unsigned char* kind,
-                            unsigned char* drive,
-                            char* name,
-                            unsigned short* used) {
-  unsigned char i;
-
-  if (!epoch || !kind || !drive || !name || !used) {
+static int putadd_heap_read_u16(unsigned short rel_off, unsigned short* out) {
+  unsigned char b[2];
+  if (!out ||
+      rs_reu_read(PUTADD_REU_BANK_BASE + (unsigned long)rel_off, b, 2u) != 0) {
     return -1;
   }
-  if (rs_reu_read(PUTADD_META_OFF, g_putadd_buf, 24u) != 0 ||
-      g_putadd_buf[0] != 'P' || g_putadd_buf[1] != 'A') {
-    return -1;
-  }
-  *epoch = g_putadd_buf[2];
-  *kind = g_putadd_buf[3];
-  *drive = g_putadd_buf[4];
-  *used = (unsigned short)(g_putadd_buf[5] | ((unsigned short)g_putadd_buf[6] << 8u));
-  for (i = 0u; i < 16u; ++i) {
-    name[i] = (char)g_putadd_buf[7u + i];
-    if (name[i] == '\0') {
-      break;
-    }
-  }
-  name[16] = '\0';
+  *out = (unsigned short)(b[0] | ((unsigned short)b[1] << 8u));
   return 0;
 }
 
@@ -90,16 +60,6 @@ static int putadd_check_write_status(unsigned char drive, RSError* err) {
     return -1;
   }
   return 0;
-}
-
-static int putadd_touch_file(unsigned char drive, const char* name, RSError* err) {
-  if (rs_cmd_file_open_name(RS_CMD_FILE_LFN_DATA, drive, name, CBM_T_SEQ, 'w') != 0) {
-    rs_cmd_file_note_status(err, drive, 255u);
-    return -1;
-  }
-  cbm_close(RS_CMD_FILE_LFN_DATA);
-  rs_cmd_file_cleanup_io();
-  return putadd_check_write_status(drive, err);
 }
 
 static int putadd_write_all(unsigned char drive,
@@ -141,15 +101,13 @@ static int putadd_write_all(unsigned char drive,
   return putadd_check_write_status(drive, err);
 }
 
-static int putadd_append_line(const char* text, unsigned short* used) {
-  unsigned short len;
-  static const char cr = '\r';
-
+static int putadd_append_bytes(const char* text,
+                               unsigned short len,
+                               unsigned short* used) {
   if (!text || !used) {
     return -1;
   }
-  len = (unsigned short)strlen(text);
-  if ((unsigned long)*used + (unsigned long)len + 1ul > (unsigned long)PUTADD_DATA_LEN) {
+  if ((unsigned long)*used + (unsigned long)len > (unsigned long)PUTADD_DATA_LEN) {
     return -1;
   }
   if (len != 0u &&
@@ -157,10 +115,197 @@ static int putadd_append_line(const char* text, unsigned short* used) {
     return -1;
   }
   *used = (unsigned short)(*used + len);
-  if (rs_reu_write(PUTADD_DATA_OFF + (unsigned long)*used, &cr, 1u) != 0) {
+  return 0;
+}
+
+static int putadd_append_reu_bytes(unsigned short src_rel_off,
+                                   unsigned short len,
+                                   unsigned short* used) {
+  unsigned short copied;
+  unsigned short chunk;
+
+  if (!used) {
+    return -1;
+  }
+  if ((unsigned long)*used + (unsigned long)len > (unsigned long)PUTADD_DATA_LEN) {
+    return -1;
+  }
+  copied = 0u;
+  while (copied < len) {
+    chunk = (unsigned short)(len - copied);
+    if (chunk > (unsigned short)sizeof(g_putadd_buf)) {
+      chunk = (unsigned short)sizeof(g_putadd_buf);
+    }
+    if (rs_reu_read(PUTADD_REU_BANK_BASE +
+                    (unsigned long)src_rel_off +
+                    (unsigned long)copied,
+                    g_putadd_buf,
+                    chunk) != 0 ||
+        rs_reu_write(PUTADD_DATA_OFF + (unsigned long)*used,
+                     g_putadd_buf,
+                     chunk) != 0) {
+      return -1;
+    }
+    *used = (unsigned short)(*used + chunk);
+    copied = (unsigned short)(copied + chunk);
+  }
+  return 0;
+}
+
+static int putadd_append_line_break(unsigned short* used) {
+  static const char cr = '\r';
+
+  if (!used ||
+      (unsigned long)*used + 1ul > (unsigned long)PUTADD_DATA_LEN ||
+      rs_reu_write(PUTADD_DATA_OFF + (unsigned long)*used, &cr, 1u) != 0) {
     return -1;
   }
   ++*used;
+  return 0;
+}
+
+static int putadd_append_text_line(const char* text,
+                                   unsigned short len,
+                                   unsigned short* used) {
+  if (putadd_append_bytes(text, len, used) != 0) {
+    return -1;
+  }
+  return putadd_append_line_break(used);
+}
+
+static int putadd_append_bool_line(int truthy, unsigned short* used) {
+  return putadd_append_text_line(truthy ? "TRUE" : "FALSE",
+                                 truthy ? 4u : 5u,
+                                 used);
+}
+
+static unsigned char putadd_u16_text(unsigned short value, char* out) {
+  char rev[5];
+  unsigned char i;
+  unsigned char n;
+
+  if (!out) {
+    return 0u;
+  }
+  if (value == 0u) {
+    out[0] = '0';
+    out[1] = '\0';
+    return 1u;
+  }
+
+  n = 0u;
+  while (value != 0u && n < (unsigned char)sizeof(rev)) {
+    rev[n++] = (char)('0' + (value % 10u));
+    value = (unsigned short)(value / 10u);
+  }
+  for (i = 0u; i < n; ++i) {
+    out[i] = rev[n - 1u - i];
+  }
+  out[n] = '\0';
+  return n;
+}
+
+static int putadd_append_u16_line(unsigned short value, unsigned short* used) {
+  char text[6];
+  unsigned char digits;
+
+  digits = putadd_u16_text(value, text);
+  return putadd_append_text_line(text, (unsigned short)digits, used);
+}
+
+static int putadd_append_heap_scalar_line(unsigned short off, unsigned short* used) {
+  unsigned char rec_type;
+  unsigned short len;
+
+  if (!used || putadd_heap_read_u8(off, &rec_type) != 0) {
+    return -1;
+  }
+  if (rec_type == PUTADD_REC_FALSE) {
+    return putadd_append_bool_line(0, used);
+  }
+  if (rec_type == PUTADD_REC_TRUE) {
+    return putadd_append_bool_line(1, used);
+  }
+  if (rec_type == PUTADD_REC_U16) {
+    if (putadd_heap_read_u16((unsigned short)(off + 1u), &len) != 0) {
+      return -1;
+    }
+    return putadd_append_u16_line(len, used);
+  }
+  if (rec_type == PUTADD_REC_STR) {
+    if (putadd_heap_read_u16((unsigned short)(off + 1u), &len) != 0) {
+      return -1;
+    }
+    if (putadd_append_reu_bytes((unsigned short)(off + 3u), len, used) != 0) {
+      return -1;
+    }
+    return putadd_append_line_break(used);
+  }
+  return -1;
+}
+
+static int putadd_append_scalar_line(const RSValue* value, unsigned short* used) {
+  if (!value || !used) {
+    return -1;
+  }
+  if (value->tag == RS_VAL_STR) {
+    return putadd_append_text_line(value->as.str.bytes,
+                                   (unsigned short)value->as.str.len,
+                                   used);
+  }
+  if (value->tag == RS_VAL_STR_PTR) {
+    if (putadd_append_reu_bytes((unsigned short)(value->as.ptr.off + 3u),
+                                value->as.ptr.len,
+                                used) != 0) {
+      return -1;
+    }
+    return putadd_append_line_break(used);
+  }
+  if (value->tag == RS_VAL_TRUE) {
+    return putadd_append_bool_line(1, used);
+  }
+  if (value->tag == RS_VAL_FALSE) {
+    return putadd_append_bool_line(0, used);
+  }
+  if (value->tag == RS_VAL_U16) {
+    return putadd_append_u16_line(value->as.u16, used);
+  }
+  return -1;
+}
+
+static int putadd_append_value(const RSValue* value,
+                               unsigned short* used,
+                               unsigned short* line_count) {
+  unsigned short i;
+  unsigned short child_off;
+
+  if (!value || !used || !line_count) {
+    return -1;
+  }
+  if (value->tag == RS_VAL_ARRAY) {
+    for (i = 0u; i < value->as.array.count; ++i) {
+      if (putadd_append_scalar_line(&value->as.array.items[i], used) != 0) {
+        return -1;
+      }
+      ++*line_count;
+    }
+    return 0;
+  }
+  if (value->tag == RS_VAL_ARRAY_PTR) {
+    for (i = 0u; i < value->as.ptr.len; ++i) {
+      if (putadd_heap_read_u16((unsigned short)(value->as.ptr.off + 3u + (i * 2u)),
+                               &child_off) != 0 ||
+          putadd_append_heap_scalar_line(child_off, used) != 0) {
+        return -1;
+      }
+      ++*line_count;
+    }
+    return 0;
+  }
+  if (putadd_append_scalar_line(value, used) != 0) {
+    return -1;
+  }
+  *line_count = (unsigned short)(*line_count + 1u);
   return 0;
 }
 
@@ -215,83 +360,65 @@ static int putadd_load_existing(unsigned char drive,
   return 0;
 }
 
-static int putadd_session_used(unsigned char kind,
-                               unsigned char drive,
-                               const char* name,
-                               unsigned short* used,
-                               RSError* err) {
-  unsigned char epoch;
-  unsigned char saved_kind;
-  unsigned char saved_drive;
-  char saved_name[17];
+static void putadd_set_success_line(RSCommandFrame* frame,
+                                    unsigned char kind,
+                                    unsigned short line_count) {
+  unsigned char len;
 
-  if (!used) {
-    return -1;
+  if (!frame) {
+    return;
   }
-  if (putadd_meta_read(&epoch, &saved_kind, &saved_drive, saved_name, used) == 0 &&
-      epoch == RS_CMD_SESSION_EPOCH &&
-      saved_kind == kind &&
-      saved_drive == drive &&
-      rs_cmd_file_str_eq(saved_name, name)) {
-    return 0;
+  if (kind == PUTADD_KIND_PUT) {
+    strncpy(frame->line, g_putadd_put_ok, RS_CMD_FRAME_LINE_CAP - 1u);
+    frame->line[RS_CMD_FRAME_LINE_CAP - 1u] = '\0';
+    frame->flags |= RS_CMD_FRAME_F_PRT_LINE;
+    return;
   }
 
-  *used = 0u;
-  if (kind == PUTADD_KIND_ADD &&
-      putadd_load_existing(drive, name, used, err) != 0) {
-    return -1;
+  len = putadd_u16_text(line_count, frame->line);
+  if (line_count == 1u) {
+    memcpy(frame->line + len, " LINE ADDED TO FILE", 20u);
+    frame->line[len + 19u] = '\0';
+  } else {
+    memcpy(frame->line + len, " LINES ADDED TO FILE", 21u);
+    frame->line[len + 20u] = '\0';
   }
-  return putadd_meta_write(RS_CMD_SESSION_EPOCH, kind, drive, name, *used);
+  frame->flags |= RS_CMD_FRAME_F_PRT_LINE;
 }
 
 static int putadd_run(RSCommandFrame* frame, unsigned char kind) {
   unsigned char drive;
   unsigned short used;
+  unsigned short line_count;
   char name[17];
-  const char* text;
 
-  if (!frame || !frame->out || !frame->args || frame->arg_count != 1u) {
+  if (!frame || !frame->out || !frame->args) {
     return -1;
   }
-  if (rs_cmd_file_parse_embedded_name(&frame->args[0], &drive, name, sizeof(name)) != 0) {
+  if (frame->arg_count != 2u) {
+    return -2;
+  }
+  if (rs_cmd_file_parse_embedded_name(&frame->args[1], &drive, name, sizeof(name)) != 0) {
     return -2;
   }
 
   rs_cmd_value_free(frame->out);
   rs_cmd_value_init_bool(frame->out, 0);
+  used = 0u;
+  line_count = 0u;
 
-  if (!frame->item) {
-    if (kind == PUTADD_KIND_ADD) {
-      unsigned char type;
-      if (rs_cmd_file_find_entry(drive, name, &type, 0) == 0) {
-        if (type != CBM_T_SEQ) {
-          rs_cmd_file_set_error(frame->err, 255u, g_putadd_need_seq);
-          return 0;
-        }
-        rs_cmd_value_init_bool(frame->out, 1);
-        return 0;
-      }
-    }
-    rs_cmd_value_init_bool(frame->out, putadd_touch_file(drive, name, frame->err) == 0);
+  if (kind == PUTADD_KIND_ADD &&
+      putadd_load_existing(drive, name, &used, frame->err) != 0) {
     return 0;
   }
-
-  text = rs_cmd_value_cstr(frame->item);
-  if (!text) {
-    rs_cmd_file_set_error(frame->err, 255u, g_putadd_need_string);
+  if (putadd_append_value(&frame->args[0], &used, &line_count) != 0) {
+    rs_cmd_file_set_error(frame->err, 255u, g_putadd_need_value);
     return 0;
   }
-
-  if (putadd_session_used(kind, drive, name, &used, frame->err) != 0 ||
-      putadd_append_line(text, &used) != 0 ||
-      putadd_meta_write(RS_CMD_SESSION_EPOCH, kind, drive, name, used) != 0) {
-    if (frame->err && frame->err->code == RS_ERR_NONE) {
-      rs_cmd_file_set_error(frame->err, 255u, rs_cmd_file_err_text);
-    }
-    return 0;
+  if (putadd_write_all(drive, name, used, frame->err) == 0) {
+    putadd_set_success_line(frame, kind, line_count);
+    rs_cmd_value_init_bool(frame->out, 1);
   }
-
-  rs_cmd_value_init_bool(frame->out, putadd_write_all(drive, name, used, frame->err) == 0);
   return 0;
 }
 

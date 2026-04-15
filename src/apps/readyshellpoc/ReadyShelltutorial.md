@@ -363,20 +363,22 @@ CAT "notes" | MORE | PRT @
 
 ### `PUT`
 
-`PUT` consumes streamed strings and writes a new file:
+`PUT` writes a value to a new file. Strings write one line; arrays write one
+line per element:
 
 ```ruby
-"HELLO" | PUT "notes"
-LST | SEL "NAME" | PUT "dirnames"
+PUT $MSG, "notes"
+PUT $LINES, "dirnames"
 ```
 
 ### `ADD`
 
-`ADD` appends streamed strings to an existing text file:
+`ADD` appends a value to an existing text file. Strings append one line; arrays
+append one line per element:
 
 ```ruby
-"NEXT LINE" | ADD "notes"
-LST | SEL "NAME" | ADD "dirnames"
+ADD $NEXT, "notes"
+ADD $MORELINES, "dirnames"
 ```
 
 ### `DEL`
@@ -453,7 +455,8 @@ $A = 3; $B = 5; 1..8 | ?[ @ <> $A ] | ?[ @ <= $B ]
 Build a text snapshot from the directory:
 
 ```ruby
-LST | SEL "NAME" | PUT "dirnames"
+$DIRNAMES = ["READYOS", "README", "LAUNCHER"]
+PUT $DIRNAMES, "dirnames"
 CAT "dirnames" | MORE | PRT @
 ```
 
