@@ -36,6 +36,10 @@ Implemented in this POC:
   - `DEL`
   - `REN`
   - `COPY`
+- Current command groups:
+  - flow/output: `PRT`, `MORE`, `TOP`, `SEL`, `GEN`, `TAP`
+  - disk/value: `DRVI`, `LST`, `LDV`, `STV`
+  - text/file: `CAT`, `PUT`, `ADD`, `DEL`, `REN`, `COPY`
 - REPL built-ins:
   - `HELP`
   - `VER`
@@ -706,7 +710,7 @@ Notes:
 
 Purpose:
 
-- Write a value to a new PETASCII text file
+- Create or replace a PETASCII text file from a string or array of strings
 
 Syntax:
 
@@ -717,6 +721,8 @@ PUT <expr>, <filename>
 Examples:
 
 ```text
+PUT "HELLO", "notes"
+$LINES = "HEY", "THERE"
 PUT $MSG, "notes"
 PUT $LINES, "9:dirnames"
 ```
@@ -724,15 +730,17 @@ PUT $LINES, "9:dirnames"
 Notes:
 
 - `PUT` creates or replaces the target file
-- String values write one line
-- Array values write one line per element
+- String values write one CR-terminated line
+- Array values write one CR-terminated line per element
+- `PUT` currently accepts string values and arrays of strings
+- `PUT` is a direct command form, not a pipeline consumer
 - `PUT` prints a short completion status on success
 
 ### 8.13 `ADD`
 
 Purpose:
 
-- Append a value to a PETASCII text file
+- Append a string or array of strings to a PETASCII text file
 
 Syntax:
 
@@ -743,15 +751,21 @@ ADD <expr>, <filename>
 Examples:
 
 ```text
+$NEXT = "YO"
+$MORELINES = "HEY", "THERE"
 ADD $NEXT, "notes"
 ADD $MORELINES, "9:dirnames"
 ```
 
 Notes:
 
-- `ADD` appends line-terminated PETASCII text
+- `ADD` appends CR-terminated PETASCII text
 - String values append one line
 - Array values append one line per element
+- If the file does not exist, `ADD` creates a new `SEQ` file
+- Existing targets must be `SEQ`
+- `ADD` currently accepts string values and arrays of strings
+- `ADD` is a direct command form, not a pipeline consumer
 - `ADD` prints a short completion status on success
 
 ### 8.14 `DEL`

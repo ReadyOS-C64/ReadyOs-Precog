@@ -181,12 +181,13 @@ How it works:
 | 8 | `cal26` | calendar 26 | 2026 calendar with month, week, day, upcoming, and REL-backed appointments; task reading is currently broken |
 | 8 | `dizzy` | dizzy kanban | Kanban board with REL-backed persistence, search, and reorder |
 | 9 | `readme` | read.me | In-system ReadyOS guide viewer |
-| 8 | `readyshell` | ready shell | Overlay-based shell with pipelines, value save/load, directory queries, and text/file commands including `cat`, `put`, `add`, `del`, `ren`, and `copy` |
+| 8 | `readyshell` | ready shell | Overlay-based shell with expressions, pipelines, value save/load, directory queries, and text/file commands including `cat`, `put`, `add`, `del`, `ren`, and `copy` |
 | 8 | `deminer` | deminer | Minesweeper-style puzzle with suspend/resume |
 
 Notes:
 
 - ReadyShell guide: [src/apps/readyshellpoc/README.md](src/apps/readyshellpoc/README.md)
+- ReadyShell tutorial: [src/apps/readyshellpoc/ReadyShelltutorial.md](src/apps/readyshellpoc/ReadyShelltutorial.md)
 - ReadyShell architecture: [docs/ReadyShellArchitecture.md](docs/ReadyShellArchitecture.md)
 - ReadyShell overlay inventory: [docs/readyshell_overlay_inventory.md](docs/readyshell_overlay_inventory.md)
 - ReadyShell now ships eight overlays: `rsparser`, `rsvm`, `rsdrvilst`,
@@ -194,6 +195,11 @@ Notes:
 - ReadyShell preloads and REU-caches all eight overlays at startup. Bank `$40`
   holds overlays `1`, `2`, `3`, and `5`; bank `$41` holds overlays `4`, `6`,
   `7`, and `8`.
+- Current ReadyShell command set: `PRT`, `MORE`, `TOP`, `SEL`, `GEN`, `TAP`,
+  `DRVI`, `LST`, `LDV`, `STV`, `CAT`, `PUT`, `ADD`, `DEL`, `REN`, and `COPY`.
+- `PUT` and `ADD` use direct `COMMAND <expr>, <filename>` syntax. `PUT`
+  creates or replaces PETASCII text files; `ADD` appends to `SEQ` files and
+  creates them when missing.
 - `cal26` currently has a known regression: task reading is broken.
 - `showcfg.prg` is a BASIC inspector for the generated `apps.cfg` payload on
   drive `8`.

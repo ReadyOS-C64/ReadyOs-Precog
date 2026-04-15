@@ -10,6 +10,8 @@ This tutorial is example-first. Every example is written in ReadyShell syntax.
 
 - Commands and variable names are case-insensitive.
 - On the C64 keyboard, type `!` to enter the pipeline operator `|`.
+- `PUT` and `ADD` use direct `COMMAND <expr>, <filename>` form. They are not
+  pipeline consumer stages.
 - When an assignment captures pipeline output:
   - `0` items becomes `FALSE`
   - `1` item becomes that item directly
@@ -363,23 +365,35 @@ CAT "notes" | MORE | PRT @
 
 ### `PUT`
 
-`PUT` writes a value to a new file. Strings write one line; arrays write one
-line per element:
+`PUT` creates or replaces a PETASCII `SEQ` file. Strings write one line;
+arrays write one line per element:
 
 ```ruby
+PUT "HELLO", "notes"
+$LINES = "HEY", "THERE"
 PUT $MSG, "notes"
 PUT $LINES, "dirnames"
 ```
 
+Notes:
+- each written line is CR-terminated on disk
+- `PUT` currently accepts strings and arrays of strings
+
 ### `ADD`
 
-`ADD` appends a value to an existing text file. Strings append one line; arrays
-append one line per element:
+`ADD` appends to an existing PETASCII `SEQ` file. Strings append one line;
+arrays append one line per element. If the file is missing, `ADD` creates it:
 
 ```ruby
+$MORELINES = "ONE", "TWO"
 ADD $NEXT, "notes"
 ADD $MORELINES, "dirnames"
 ```
+
+Notes:
+- each appended line is CR-terminated on disk
+- existing targets must be `SEQ`
+- `ADD` currently accepts strings and arrays of strings
 
 ### `DEL`
 
@@ -457,6 +471,14 @@ Build a text snapshot from the directory:
 ```ruby
 $DIRNAMES = ["READYOS", "README", "LAUNCHER"]
 PUT $DIRNAMES, "dirnames"
+CAT "dirnames" | MORE | PRT @
+```
+
+Append more lines to the same file:
+
+```ruby
+$MORE = "RSFOPS", "RSCAT"
+ADD $MORE, "dirnames"
 CAT "dirnames" | MORE | PRT @
 ```
 

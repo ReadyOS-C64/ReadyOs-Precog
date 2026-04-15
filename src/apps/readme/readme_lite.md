@@ -192,6 +192,14 @@ Key shell commands:
 - `CAT`, `PUT`, `ADD`
 - `DEL`, `REN`, `COPY`
 
+Current file-command behavior:
+- `CAT` emits one string per text line from a PETASCII `SEQ` file.
+- `PUT <expr>, <file>` creates or replaces a text file from a string or array
+  of strings.
+- `ADD <expr>, <file>` appends strings to an existing `SEQ` file, or creates
+  it if missing.
+- `DEL`, `REN`, and `COPY` cover scratch, rename, and copy workflows.
+
 For a larger walkthrough with worked examples, see the ReadyShell
 tutorial markdown in `src/apps/readyshellpoc/ReadyShelltutorial.md`.
 
