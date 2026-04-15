@@ -26,7 +26,7 @@
 
 static const char g_putadd_need_value[] = "NEED STRING/ARRAY";
 static const char g_putadd_need_seq[] = "NEED SEQ";
-static const char g_putadd_put_ok[] = "FILE CREATED";
+static const char g_putadd_put_ok[] = "CREATED";
 
 static unsigned char g_putadd_buf[80];
 
@@ -189,14 +189,13 @@ static int putadd_append_reu_bytes(unsigned short src_rel_off,
 }
 
 static int putadd_append_line_break(unsigned short* used) {
-  static const char cr = '\r';
-
+  g_putadd_buf[0] = '\r';
   if (!used ||
       (unsigned long)*used + 1ul > (unsigned long)PUTADD_DATA_LEN ||
-      rs_reu_write(PUTADD_DATA_OFF + (unsigned long)*used, &cr, 1u) != 0) {
+      rs_reu_write(PUTADD_DATA_OFF + (unsigned long)*used, g_putadd_buf, 1u) != 0) {
     return -1;
   }
-  ++*used;
+  *used = (unsigned short)(*used + 1u);
   return 0;
 }
 
