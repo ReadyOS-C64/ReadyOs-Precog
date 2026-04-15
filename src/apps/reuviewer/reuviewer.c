@@ -303,7 +303,7 @@ static void reuviewer_loop(void) {
             resume_save_state();
             tui_return_to_launcher();
         }
-        if (nav_action >= 1 && nav_action <= 15) {
+        if (nav_action >= 1 && nav_action <= 23) {
             resume_save_state();
             tui_switch_to_app(nav_action);
             continue;
@@ -366,7 +366,7 @@ int main(void) {
 
     resume_ready = 0;
     bank = *SHIM_CURRENT_BANK;
-    if (bank >= 1 && bank <= 15) {
+    if (bank >= 1 && bank <= 23) {
         resume_init_for_app(bank, bank, RESUME_SCHEMA_V1);
         resume_ready = 1;
     }

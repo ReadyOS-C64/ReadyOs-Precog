@@ -2015,7 +2015,7 @@ static unsigned char handle_global_switch(unsigned char key) {
         return 1;
     }
 
-    if (nav_action >= 1 && nav_action <= 15) {
+    if (nav_action >= 1 && nav_action <= 23) {
         resume_save_state();
         tui_switch_to_app(nav_action);
         return 1;
@@ -2283,7 +2283,7 @@ int main(void) {
     set_status("", TUI_COLOR_GRAY3);
 
     bank = SHIM_CURRENT_BANK;
-    if (bank >= 1 && bank <= 15) {
+    if (bank >= 1 && bank <= 23) {
         resume_init_for_app(bank, bank, RESUME_SCHEMA_V1);
         resume_ready = 1;
     }
