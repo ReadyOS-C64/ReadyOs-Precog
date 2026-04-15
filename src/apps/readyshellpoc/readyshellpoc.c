@@ -177,8 +177,13 @@ static unsigned char ascii_to_screen(unsigned char ascii) {
         case '@': return 0;
         case '[': return 27;
         case ']': return 29;
-        /* Use the known-visible vertical line glyph in ReadyOS screen mode. */
-        case '|': return BOX_V;
+        /*
+         * On cc65/C64 the source literal '|' follows the target charset, while
+         * generated SEQ help files currently carry raw ASCII 124. Accept both.
+         */
+        case 124u:
+        case '|':
+            return BOX_V;
         case '_': return 100;
         default: return 32;
     }
