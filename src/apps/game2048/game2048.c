@@ -22,11 +22,13 @@
 #define GRID_SIZE 4
 #define CELL_COUNT 16
 
-#define TITLE_Y 0
-#define STATUS_Y 1
+#define HEADER_Y 0
+#define HEADER_H 3
+#define SUBTITLE_Y 1
+#define HELP_Y 24
 
 #define BOARD_X 1
-#define BOARD_Y 2
+#define BOARD_Y 3
 #define CELL_W 8
 #define CELL_H 4
 #define BOARD_W 37
@@ -81,6 +83,47 @@ static Game2048ResumeV1 resume_blob;
 /*---------------------------------------------------------------------------
  * Helpers
  *---------------------------------------------------------------------------*/
+
+static void draw_field(unsigned char x, unsigned char y, unsigned char width,
+                       const char *text, unsigned char color) {
+    tui_puts_n(x, y, text, width, color);
+}
+
+static void draw_centered_field(unsigned char x, unsigned char y, unsigned char width,
+                                const char *text, unsigned char color) {
+    unsigned char text_len;
+    unsigned char draw_x;
+
+    text_len = (unsigned char)strlen(text);
+    tui_clear_line(y, x, width, color);
+
+    if (text_len >= width) {
+        draw_x = x;
+        text_len = width;
+    } else {
+        draw_x = (unsigned char)(x + ((width - text_len) / 2));
+    }
+
+    draw_field(draw_x, y, text_len, text, color);
+}
+
+static void draw_right_field(unsigned char x, unsigned char y, unsigned char width,
+                             const char *text, unsigned char color) {
+    unsigned char text_len;
+    unsigned char draw_x;
+
+    text_len = (unsigned char)strlen(text);
+    tui_clear_line(y, x, width, color);
+
+    if (text_len >= width) {
+        draw_x = x;
+        text_len = width;
+    } else {
+        draw_x = (unsigned char)(x + width - text_len);
+    }
+
+    draw_field(draw_x, y, text_len, text, color);
+}
 
 static unsigned char cell_x(unsigned char col) {
     return (unsigned char)(BOARD_X + 1 + col * (CELL_W + 1));
@@ -152,29 +195,40 @@ static unsigned char tile_color(unsigned char exp) {
     }
 }
 
-static void draw_title(void) {
-    tui_puts_n(0, TITLE_Y, "2048  ARROWS/WASD MOVE  SPACE PAUSE", 40, TUI_COLOR_CYAN);
+static void draw_header(void) {
+    TuiRect header = {0, HEADER_Y, 40, HEADER_H};
+
+    tui_window_title(&header, "2048", TUI_COLOR_GRAY3, TUI_COLOR_CYAN);
 }
 
-static void draw_status(void) {
+static void draw_subheader(void) {
     char score_buf[11];
     char best_buf[11];
 
     u32_to_ascii(score, score_buf);
     u32_to_ascii(best_score, best_buf);
 
-    tui_clear_line(STATUS_Y, 0, 40, TUI_COLOR_WHITE);
-    tui_puts(0, STATUS_Y, "SCORE", TUI_COLOR_GRAY3);
-    tui_puts(6, STATUS_Y, score_buf, TUI_COLOR_WHITE);
-    tui_puts(15, STATUS_Y, "BEST", TUI_COLOR_GRAY3);
-    tui_puts(20, STATUS_Y, best_buf, TUI_COLOR_WHITE);
+    tui_clear_line(SUBTITLE_Y, 1, 38, TUI_COLOR_WHITE);
+    draw_field(2, SUBTITLE_Y, 5, "score", TUI_COLOR_GRAY3);
+    draw_right_field(8, SUBTITLE_Y, 5, score_buf, TUI_COLOR_WHITE);
+    draw_field(21, SUBTITLE_Y, 10, "high score", TUI_COLOR_GRAY3);
+    draw_right_field(31, SUBTITLE_Y, 7, best_buf,
+                     won_2048 ? TUI_COLOR_LIGHTGREEN : TUI_COLOR_WHITE);
+}
 
-    if (paused) {
-        tui_puts(29, STATUS_Y, "PAUSED", TUI_COLOR_YELLOW);
-    } else if (game_over) {
-        tui_puts(27, STATUS_Y, "GAME OVER", TUI_COLOR_LIGHTRED);
+static void draw_help_line(void) {
+    if (game_over) {
+        draw_centered_field(0, HELP_Y, 40,
+                            "GAME OVER  R RESTART  F2/F4 APPS",
+                            TUI_COLOR_LIGHTRED);
     } else if (won_2048) {
-        tui_puts(29, STATUS_Y, "2048!", TUI_COLOR_LIGHTGREEN);
+        draw_centered_field(0, HELP_Y, 40,
+                            "2048!  KEEP GOING  F2/F4 APPS",
+                            TUI_COLOR_LIGHTGREEN);
+    } else {
+        draw_centered_field(0, HELP_Y, 40,
+                            "ARROWS/WASD MOVE  SPACE PAUSE  F2/F4 APPS",
+                            TUI_COLOR_GRAY3);
     }
 }
 
@@ -187,19 +241,19 @@ static void draw_board_frame(void) {
 
     for (i = 1; i < GRID_SIZE; ++i) {
         x = (unsigned char)(BOARD_X + i * CELL_W + i);
-        tui_vline(x, BOARD_Y + 1, BOARD_H - 2, TUI_COLOR_GRAY2);
+        tui_vline(x, BOARD_Y + 1, BOARD_H - 2, TUI_COLOR_GRAY3);
     }
 
     for (j = 1; j < GRID_SIZE; ++j) {
         y = (unsigned char)(BOARD_Y + j * CELL_H + j);
-        tui_hline(BOARD_X + 1, y, BOARD_W - 2, TUI_COLOR_GRAY2);
+        tui_hline(BOARD_X + 1, y, BOARD_W - 2, TUI_COLOR_GRAY3);
     }
 
     for (j = 1; j < GRID_SIZE; ++j) {
         y = (unsigned char)(BOARD_Y + j * CELL_H + j);
         for (i = 1; i < GRID_SIZE; ++i) {
             x = (unsigned char)(BOARD_X + i * CELL_W + i);
-            tui_putc(x, y, TUI_CROSS, TUI_COLOR_GRAY2);
+            tui_putc(x, y, TUI_CROSS, TUI_COLOR_GRAY3);
         }
     }
 }
@@ -304,9 +358,9 @@ static void draw_pause_overlay(void) {
     tui_window_title(&popup, "PAUSED", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
     tui_puts(7, PAUSE_Y + 3, "SPACE  RESUME", TUI_COLOR_WHITE);
     tui_puts(7, PAUSE_Y + 5, "R      RESTART", TUI_COLOR_WHITE);
-    tui_puts(7, PAUSE_Y + 8, "ARROWS OR WASD  MOVE", TUI_COLOR_GRAY3);
-    tui_puts(7, PAUSE_Y + 10, "F2/F4           SWITCH APPS", TUI_COLOR_GRAY3);
-    tui_puts(7, PAUSE_Y + 11, "CTRL+B          LAUNCHER", TUI_COLOR_GRAY3);
+    tui_puts(7, PAUSE_Y + 8, "ARROWS/WASD  MOVE", TUI_COLOR_GRAY3);
+    tui_puts(7, PAUSE_Y + 10, "F2/F4        SWITCH APPS", TUI_COLOR_GRAY3);
+    tui_puts(7, PAUSE_Y + 11, "CTRL+B       LAUNCHER", TUI_COLOR_GRAY3);
     tui_puts(7, PAUSE_Y + 13, "GOAL: MAKE 2048", TUI_COLOR_LIGHTGREEN);
 }
 
@@ -611,10 +665,11 @@ static unsigned char handle_app_switch(unsigned char key) {
 static void game_draw_initial(void) {
     tui_clear(TUI_COLOR_BLACK);
     VIC.bordercolor = TUI_COLOR_BLACK;
-    draw_title();
+    draw_header();
+    draw_subheader();
     draw_board_frame();
+    draw_help_line();
     draw_changed_tiles();
-    draw_status();
 }
 
 static void update_keyrepeat_mode(void) {
@@ -645,14 +700,15 @@ static void game_loop(void) {
                 paused = 0;
                 update_keyrepeat_mode();
                 restore_pause_background();
-                draw_status();
+                draw_subheader();
             } else if (key == 'r' || key == 'R') {
                 paused = 0;
                 restore_pause_background();
                 reset_game();
                 update_keyrepeat_mode();
+                draw_subheader();
+                draw_help_line();
                 draw_changed_tiles();
-                draw_status();
             }
             continue;
         }
@@ -660,7 +716,7 @@ static void game_loop(void) {
         if (key == ' ') {
             paused = 1;
             update_keyrepeat_mode();
-            draw_status();
+            draw_subheader();
             draw_pause_overlay();
             continue;
         }
@@ -668,8 +724,9 @@ static void game_loop(void) {
         if (game_over && (key == 'r' || key == 'R')) {
             reset_game();
             update_keyrepeat_mode();
+            draw_subheader();
+            draw_help_line();
             draw_changed_tiles();
-            draw_status();
             continue;
         }
 
@@ -681,8 +738,9 @@ static void game_loop(void) {
         if (dir >= 0) {
             if (apply_move((unsigned char)dir)) {
                 update_keyrepeat_mode();
+                draw_subheader();
+                draw_help_line();
                 draw_changed_tiles();
-                draw_status();
             }
         }
     }
