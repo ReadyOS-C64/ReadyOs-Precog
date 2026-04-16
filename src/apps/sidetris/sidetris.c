@@ -31,7 +31,7 @@
 #define BOARD_Y 6
 #define BOARD_FRAME_W (BOARD_W + 2)
 #define BOARD_FRAME_H (BOARD_H + 2)
-#define PREVIEW_X (BOARD_X + BOARD_FRAME_W + 1)
+#define PREVIEW_X (BOARD_X - PREVIEW_W - 1)
 #define PREVIEW_Y 8
 #define PREVIEW_W 8
 #define PREVIEW_H 6
@@ -54,8 +54,8 @@
 #define MODE_PAUSE 2
 #define MODE_OVER 3
 
-#define SPEED_COUNT 10
-#define SPEED_DEFAULT 4
+#define SPEED_COUNT 100
+#define SPEED_DEFAULT 49
 
 #define PIECE_I 0
 #define PIECE_O 1
@@ -120,32 +120,6 @@ typedef struct {
 
 static SidetrisResumeV1 resume_blob;
 
-static const char *speed_names[SPEED_COUNT] = {
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "10"
-};
-
-static const unsigned char speed_base_ticks[SPEED_COUNT] = {
-    30,
-    27,
-    24,
-    21,
-    18,
-    15,
-    12,
-    10,
-    8,
-    6
-};
-
 static const signed char piece_cells[PIECE_COUNT][ROTATION_COUNT][BLOCK_COORD_COUNT] = {
     {
         {0, 0, 1, 0, 2, 0, 3, 0},
@@ -200,6 +174,8 @@ static void draw_field(unsigned char x, unsigned char y, unsigned char width,
                        const char *text, unsigned char color);
 static void draw_centered_field(unsigned char x, unsigned char y, unsigned char width,
                                 const char *text, unsigned char color);
+static void draw_right_field(unsigned char x, unsigned char y, unsigned char width,
+                             const char *text, unsigned char color);
 static void clear_rect_area(unsigned char x, unsigned char y, unsigned char width,
                             unsigned char height, unsigned char color);
 static void clear_board(void);
@@ -211,6 +187,8 @@ static unsigned char can_place_piece(unsigned char type_id, unsigned char rotati
                                      unsigned char base_x, unsigned char base_y);
 static void refill_bag(void);
 static unsigned char pull_piece(void);
+static unsigned char speed_display_value(void);
+static unsigned char base_drop_ticks(void);
 static unsigned char current_drop_ticks(void);
 static void update_level_from_lines(void);
 static void update_session_best(void);
@@ -359,6 +337,24 @@ static void draw_centered_field(unsigned char x, unsigned char y, unsigned char 
     draw_field(draw_x, y, text_len, text, color);
 }
 
+static void draw_right_field(unsigned char x, unsigned char y, unsigned char width,
+                             const char *text, unsigned char color) {
+    unsigned char text_len;
+    unsigned char draw_x;
+
+    text_len = (unsigned char)strlen(text);
+    tui_clear_line(y, x, width, color);
+
+    if (text_len >= width) {
+        draw_x = x;
+        text_len = width;
+    } else {
+        draw_x = (unsigned char)(x + width - text_len);
+    }
+
+    draw_field(draw_x, y, text_len, text, color);
+}
+
 static void clear_rect_area(unsigned char x, unsigned char y, unsigned char width,
                             unsigned char height, unsigned char color) {
     unsigned char row;
@@ -463,23 +459,42 @@ static unsigned char pull_piece(void) {
     return piece_bag[bag_count];
 }
 
+static unsigned char speed_display_value(void) {
+    return (unsigned char)(speed_id + 1);
+}
+
+static unsigned char base_drop_ticks(void) {
+    unsigned int ticks;
+
+    if (speed_id < 49) {
+        ticks = 240u - (((unsigned int)speed_id * 176u) / 49u);
+    } else {
+        ticks = 64u - (((unsigned int)(speed_id - 49) * 60u) / 50u);
+    }
+
+    if (ticks < 4u) {
+        ticks = 4u;
+    }
+    return (unsigned char)ticks;
+}
+
 static unsigned char current_drop_ticks(void) {
     unsigned char ticks;
     unsigned char reduction;
 
-    ticks = speed_base_ticks[speed_id];
+    ticks = base_drop_ticks();
     if (level <= 1) {
         return ticks;
     }
 
-    reduction = (unsigned char)(level - 1);
-    if (reduction >= (unsigned char)(ticks - 2)) {
-        return 2;
+    reduction = (unsigned char)((((unsigned int)(level - 1)) * 3u) / 4u);
+    if (reduction >= (unsigned char)(ticks - 3)) {
+        return 3;
     }
 
     ticks = (unsigned char)(ticks - reduction);
-    if (ticks < 2) {
-        ticks = 2;
+    if (ticks < 3) {
+        ticks = 3;
     }
     return ticks;
 }
@@ -511,7 +526,7 @@ static void draw_header(void) {
     color = TUI_COLOR_CYAN;
 
     if (mode == MODE_PLAY) {
-        subtitle = "DROP TO THE RIGHT";
+        subtitle = "FLOW FROM THE LEFT";
         color = TUI_COLOR_WHITE;
     } else if (mode == MODE_PAUSE) {
         subtitle = "PAUSED";
@@ -530,26 +545,30 @@ static void draw_info_lines(void) {
     char best_buf[11];
     char lines_buf[6];
     char level_buf[4];
+    char speed_buf[4];
+    char level_text[8];
 
     u32_to_ascii(score, score_buf);
     u32_to_ascii(session_best_score, best_buf);
     u16_to_ascii(lines_cleared, lines_buf);
     u8_to_ascii(level, level_buf);
+    u8_to_ascii(speed_display_value(), speed_buf);
 
     tui_clear_line(INFO_Y, 0, 40, TUI_COLOR_WHITE);
     tui_clear_line((unsigned char)(INFO_Y + 1), 0, 40, TUI_COLOR_WHITE);
 
     draw_field(0, INFO_Y, 5, "SCORE", TUI_COLOR_GRAY3);
     draw_field(6, INFO_Y, 10, score_buf, TUI_COLOR_WHITE);
-    draw_field(18, INFO_Y, 4, "BEST", TUI_COLOR_GRAY3);
-    draw_field(23, INFO_Y, 10, best_buf, TUI_COLOR_LIGHTGREEN);
+    draw_field(24, INFO_Y, 4, "BEST", TUI_COLOR_GRAY3);
+    draw_right_field(29, INFO_Y, 11, best_buf, TUI_COLOR_LIGHTGREEN);
 
     draw_field(0, (unsigned char)(INFO_Y + 1), 5, "LINES", TUI_COLOR_GRAY3);
     draw_field(6, (unsigned char)(INFO_Y + 1), 5, lines_buf, TUI_COLOR_WHITE);
-    draw_field(13, (unsigned char)(INFO_Y + 1), 3, "LVL", TUI_COLOR_GRAY3);
-    draw_field(17, (unsigned char)(INFO_Y + 1), 3, level_buf, TUI_COLOR_WHITE);
-    draw_field(22, (unsigned char)(INFO_Y + 1), 5, "SPEED", TUI_COLOR_GRAY3);
-    draw_field(28, (unsigned char)(INFO_Y + 1), 8, speed_names[speed_id], TUI_COLOR_CYAN);
+    strcpy(level_text, "LVL ");
+    strcpy(level_text + 4, level_buf);
+    draw_centered_field(13, (unsigned char)(INFO_Y + 1), 10, level_text, TUI_COLOR_WHITE);
+    draw_field(24, (unsigned char)(INFO_Y + 1), 5, "SPEED", TUI_COLOR_GRAY3);
+    draw_right_field(35, (unsigned char)(INFO_Y + 1), 5, speed_buf, TUI_COLOR_CYAN);
 }
 
 static void draw_board_frame(void) {
@@ -560,7 +579,7 @@ static void draw_board_frame(void) {
     frame.w = BOARD_FRAME_W;
     frame.h = BOARD_FRAME_H;
 
-    tui_window_title(&frame, "WELL", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
+    tui_window(&frame, TUI_COLOR_LIGHTBLUE);
 }
 
 static void draw_preview_frame(void) {
@@ -676,8 +695,8 @@ static void draw_status_lines(void) {
         draw_field(0, STATUS_Y, 15, "RETURN OR SPACE", TUI_COLOR_WHITE);
         draw_field(16, STATUS_Y, 5, "LAST", TUI_COLOR_GRAY3);
         draw_field(22, STATUS_Y, 10, last_buf, TUI_COLOR_WHITE);
-        draw_field(0, GLOBAL_HELP_Y, 37, "F2/F4 APPS  CTRL+B HOME  RUN/STOP QUIT", TUI_COLOR_GRAY3);
-        draw_field(0, HELP_Y, 39, "W/S OR UP/DN CYCLE SPEED  1-9/0 PICK", TUI_COLOR_GRAY3);
+        draw_field(0, GLOBAL_HELP_Y, 24, "F2/F4 APPS  CTRL+B HOME", TUI_COLOR_GRAY3);
+        draw_field(0, HELP_Y, 36, "W/S OR UP/DN ADJUST SPEED 1-100", TUI_COLOR_GRAY3);
         draw_field(0, HELP2_Y, 31, "RETURN/SPACE START", TUI_COLOR_GRAY3);
         return;
     }
@@ -696,7 +715,7 @@ static void draw_status_lines(void) {
     draw_field(27, STATUS_Y, 3, tick_buf, TUI_COLOR_WHITE);
     draw_field(31, STATUS_Y, 4, "DROP", TUI_COLOR_CYAN);
 
-    draw_field(0, GLOBAL_HELP_Y, 37, "F2/F4 APPS  CTRL+B HOME  RUN/STOP QUIT", TUI_COLOR_GRAY3);
+    draw_field(0, GLOBAL_HELP_Y, 24, "F2/F4 APPS  CTRL+B HOME", TUI_COLOR_GRAY3);
 
     if (mode == MODE_PAUSE) {
         draw_field(0, HELP_Y, 32, "P/RET/SPACE RESUME  R RESTART", TUI_COLOR_GRAY3);
@@ -750,6 +769,7 @@ static void draw_menu_box(void) {
     TuiRect box;
     char best_buf[11];
     char last_buf[11];
+    char speed_buf[4];
 
     box.x = 4;
     box.y = 8;
@@ -758,11 +778,12 @@ static void draw_menu_box(void) {
 
     u32_to_ascii(session_best_score, best_buf);
     u32_to_ascii(last_score, last_buf);
+    u8_to_ascii(speed_display_value(), speed_buf);
 
     tui_window_title(&box, "START", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
     draw_centered_field(6, 10, 28, "ROTATED TETRIS FOR READYOS", TUI_COLOR_WHITE);
     draw_field(8, 12, 7, "SPEED", TUI_COLOR_GRAY3);
-    draw_field(16, 12, 3, speed_names[speed_id], TUI_COLOR_CYAN);
+    draw_field(16, 12, 3, speed_buf, TUI_COLOR_CYAN);
     draw_field(8, 13, 6, "BEST", TUI_COLOR_GRAY3);
     draw_field(15, 13, 10, best_buf, TUI_COLOR_LIGHTGREEN);
     draw_field(8, 14, 6, "LAST", TUI_COLOR_GRAY3);
@@ -1187,7 +1208,7 @@ static unsigned char handle_app_switch(unsigned char key) {
 }
 
 static void handle_menu_key(unsigned char key) {
-    if (key == TUI_KEY_UP || key == 'w' || key == 'W' || key == TUI_KEY_LEFT) {
+    if (key == TUI_KEY_UP || key == 'w' || key == 'W') {
         if (speed_id == 0) {
             speed_id = (unsigned char)(SPEED_COUNT - 1);
         } else {
@@ -1198,21 +1219,8 @@ static void handle_menu_key(unsigned char key) {
         return;
     }
 
-    if (key == TUI_KEY_DOWN || key == 's' || key == 'S' || key == TUI_KEY_RIGHT) {
+    if (key == TUI_KEY_DOWN || key == 's' || key == 'S') {
         speed_id = (unsigned char)((speed_id + 1) % SPEED_COUNT);
-        draw_menu_box();
-        draw_status_lines();
-        return;
-    }
-
-    if (key >= '1' && key <= '9') {
-        speed_id = (unsigned char)(key - '1');
-        draw_menu_box();
-        draw_status_lines();
-        return;
-    }
-    if (key == '0') {
-        speed_id = (unsigned char)(SPEED_COUNT - 1);
         draw_menu_box();
         draw_status_lines();
         return;
