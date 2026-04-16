@@ -13,7 +13,7 @@ Current snapshot:
 - Local artifact filenames may include an internal trailing build letter
   such as `0.2c`; the public release line is still **0.2**
 - New since 0.1.5: **quicknotes**, **simple files**, **simple cells**,
-  and **deminer**
+  **sidetris**, and **deminer**
 
 ---
 
@@ -247,6 +247,10 @@ Spreadsheet-style grid with formulas, colors, and file persistence.
 ### 2048
 
 Keyboard-first PETSCII game with quick pause/resume flow.
+
+### Sidetris
+
+Sideways PETSCII block-drop game with suspend/resume flow.
 
 ### Read.me
 

@@ -67,7 +67,7 @@ Boot sequence:
 - Base release: `0.2`
 - Local builds use the existing rolling suffix flow for artifact filenames only
 - Builds release media per profile
-- Launcher catalog currently contains `15` apps
+- Launcher catalog currently contains `16` apps
 - Runtime reserves `24` app slots in REU
 - ReadyOS runs on its own; UltimateBuddy remains an optional companion concept,
   not a runtime dependency
@@ -89,8 +89,8 @@ drive types and disk capacities are different.
 
 The dual-D64 profile is intentionally smaller. Right now it keeps the core
 productivity path that fits on two `D64`s: `editor`, `quicknotes`,
-`calcplus`, `clipmgr`, `tasklist`, `simplefiles`, `game2048`, `deminer`, and
-`cal26`.
+`calcplus`, `clipmgr`, `tasklist`, `simplefiles`, `game2048`, `sidetris`,
+`deminer`, and `cal26`.
 
 The solo-D64 variants exist for environments that can mount only one `D64`
 at a time, such as some web emulators and simplified media loaders. The split
@@ -178,6 +178,7 @@ How it works:
 | 9 | `simplefiles` | simple files | Dual-pane file manager with copy, rename, delete, and SEQ viewing |
 | 9 | `simplecells` | simple cells (alpha) | Single-sheet spreadsheet with formulas, formatting, and save/load |
 | 9 | `game2048` | 2048 game | 2048 puzzle game with resume/app switching |
+| 9 | `sidetris` | sidetris | Sideways PETSCII block-drop game with suspend/resume |
 | 8 | `cal26` | calendar 26 | 2026 calendar with month, week, day, upcoming, and REL-backed appointments; task reading is currently broken |
 | 8 | `dizzy` | dizzy kanban | Kanban board with REL-backed persistence, search, and reorder |
 | 9 | `readme` | read.me | In-system ReadyOS guide viewer |

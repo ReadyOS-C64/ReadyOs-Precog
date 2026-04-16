@@ -2,11 +2,11 @@
  * sidetris.c - ReadyOS Sidetris game (PETSCII text mode)
  *
  * Controls:
- * - W/S: move piece up/down
- * - UP/DOWN: rotate clockwise/counter-clockwise
- * - A: alternate clockwise rotate
- * - LEFT: pull active piece back one column
- * - RIGHT or SPACE: hard-drop to the lock column
+ * - W/UP: move piece up
+ * - S/DOWN: move piece down
+ * - A/LEFT: rotate counter-clockwise
+ * - D/RIGHT: rotate clockwise
+ * - SPACE: hard-drop to the lock column
  * - P: pause/resume
  * - R: restart run
  * - M: return to main menu
@@ -27,14 +27,14 @@
 #define HEADER_Y 0
 #define HEADER_H 3
 #define INFO_Y 3
-#define BOARD_X 1
+#define BOARD_X ((40 - BOARD_FRAME_W) / 2)
 #define BOARD_Y 6
 #define BOARD_FRAME_W (BOARD_W + 2)
 #define BOARD_FRAME_H (BOARD_H + 2)
-#define PREVIEW_X 25
-#define PREVIEW_Y 6
-#define PREVIEW_W 14
-#define PREVIEW_H 8
+#define PREVIEW_X (BOARD_X + BOARD_FRAME_W + 1)
+#define PREVIEW_Y 8
+#define PREVIEW_W 8
+#define PREVIEW_H 6
 #define STATUS_Y 20
 #define GLOBAL_HELP_Y 21
 #define HELP_Y 23
@@ -54,11 +54,8 @@
 #define MODE_PAUSE 2
 #define MODE_OVER 3
 
-#define SPEED_SLOW 0
-#define SPEED_NORMAL 1
-#define SPEED_FAST 2
-#define SPEED_TURBO 3
-#define SPEED_COUNT 4
+#define SPEED_COUNT 10
+#define SPEED_DEFAULT 4
 
 #define PIECE_I 0
 #define PIECE_O 1
@@ -80,6 +77,7 @@
 
 static unsigned char board_cells[CELL_COUNT];
 static unsigned char rebuild_cells[CELL_COUNT];
+static unsigned char rendered_cells[CELL_COUNT];
 static unsigned char piece_bag[PIECE_COUNT];
 
 static unsigned char mode;
@@ -123,17 +121,29 @@ typedef struct {
 static SidetrisResumeV1 resume_blob;
 
 static const char *speed_names[SPEED_COUNT] = {
-    "SLOW",
-    "NORMAL",
-    "FAST",
-    "TURBO"
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10"
 };
 
 static const unsigned char speed_base_ticks[SPEED_COUNT] = {
+    30,
+    27,
     24,
+    21,
     18,
+    15,
     12,
-    8
+    10,
+    8,
+    6
 };
 
 static const signed char piece_cells[PIECE_COUNT][ROTATION_COUNT][BLOCK_COORD_COUNT] = {
@@ -190,6 +200,8 @@ static void draw_field(unsigned char x, unsigned char y, unsigned char width,
                        const char *text, unsigned char color);
 static void draw_centered_field(unsigned char x, unsigned char y, unsigned char width,
                                 const char *text, unsigned char color);
+static void clear_rect_area(unsigned char x, unsigned char y, unsigned char width,
+                            unsigned char height, unsigned char color);
 static void clear_board(void);
 static unsigned char piece_color(unsigned char type_id);
 static void piece_bounds(unsigned char type_id, unsigned char rotation,
@@ -213,6 +225,8 @@ static void draw_pause_box(void);
 static void draw_game_over_box(void);
 static void draw_menu_box(void);
 static void draw_game_screen(void);
+static void invalidate_board_cache(void);
+static void restore_play_area_after_popup(void);
 static void reset_run_state(void);
 static unsigned char spawn_piece(void);
 static void start_new_game(void);
@@ -222,7 +236,6 @@ static void lock_active_piece(void);
 static void step_gravity(void);
 static void hard_drop_piece(void);
 static void move_piece_vertical(signed char delta);
-static void pull_piece_left(void);
 static void rotate_piece(signed char dir);
 static void prepare_suspend_state(void);
 static void resume_save_state(void);
@@ -346,6 +359,15 @@ static void draw_centered_field(unsigned char x, unsigned char y, unsigned char 
     draw_field(draw_x, y, text_len, text, color);
 }
 
+static void clear_rect_area(unsigned char x, unsigned char y, unsigned char width,
+                            unsigned char height, unsigned char color) {
+    unsigned char row;
+
+    for (row = 0; row < height; ++row) {
+        tui_clear_line((unsigned char)(y + row), x, width, color);
+    }
+}
+
 static void clear_board(void) {
     memset(board_cells, 0, sizeof(board_cells));
 }
@@ -450,8 +472,8 @@ static unsigned char current_drop_ticks(void) {
         return ticks;
     }
 
-    reduction = (unsigned char)((level - 1) * 2);
-    if (reduction >= ticks) {
+    reduction = (unsigned char)(level - 1);
+    if (reduction >= (unsigned char)(ticks - 2)) {
         return 2;
     }
 
@@ -602,31 +624,40 @@ static void draw_board_cells(void) {
     unsigned char cell;
     unsigned char color;
 
+    memcpy(rebuild_cells, board_cells, sizeof(board_cells));
+
+    if (mode == MODE_PLAY || mode == MODE_PAUSE) {
+        color = piece_color((unsigned char)(piece_type + 1));
+        for (i = 0; i < BLOCK_COORD_COUNT; i += 2) {
+            draw_x = (unsigned char)(piece_x + piece_cells[piece_type][piece_rotation][i]);
+            draw_y = (unsigned char)(piece_y + piece_cells[piece_type][piece_rotation][(unsigned char)(i + 1)]);
+            rebuild_cells[board_index(draw_x, draw_y)] = (unsigned char)(piece_type + 1);
+        }
+    }
+
     for (y = 0; y < BOARD_H; ++y) {
         draw_y = (unsigned char)(BOARD_Y + 1 + y);
         for (x = 0; x < BOARD_W; ++x) {
-            draw_x = (unsigned char)(BOARD_X + 1 + x);
             idx = board_index(x, y);
+            cell = rebuild_cells[idx];
+            if (rendered_cells[idx] == cell) {
+                continue;
+            }
+            rendered_cells[idx] = cell;
+            draw_x = (unsigned char)(BOARD_X + 1 + x);
             offset = (unsigned int)draw_y * 40 + draw_x;
-            cell = board_cells[idx];
             if (cell == 0) {
                 TUI_SCREEN[offset] = CHAR_EMPTY;
                 TUI_COLOR_RAM[offset] = TUI_COLOR_GRAY1;
             } else {
                 TUI_SCREEN[offset] = CHAR_BLOCK;
-                TUI_COLOR_RAM[offset] = piece_color(cell);
+                if (mode == MODE_PLAY || mode == MODE_PAUSE) {
+                    color = piece_color(cell);
+                } else {
+                    color = piece_color(cell);
+                }
+                TUI_COLOR_RAM[offset] = color;
             }
-        }
-    }
-
-    if (mode == MODE_PLAY || mode == MODE_PAUSE) {
-        color = piece_color((unsigned char)(piece_type + 1));
-        for (i = 0; i < BLOCK_COORD_COUNT; i += 2) {
-            draw_x = (unsigned char)(BOARD_X + 1 + piece_x + piece_cells[piece_type][piece_rotation][i]);
-            draw_y = (unsigned char)(BOARD_Y + 1 + piece_y + piece_cells[piece_type][piece_rotation][(unsigned char)(i + 1)]);
-            offset = (unsigned int)draw_y * 40 + draw_x;
-            TUI_SCREEN[offset] = CHAR_BLOCK;
-            TUI_COLOR_RAM[offset] = color;
         }
     }
 }
@@ -646,8 +677,8 @@ static void draw_status_lines(void) {
         draw_field(16, STATUS_Y, 5, "LAST", TUI_COLOR_GRAY3);
         draw_field(22, STATUS_Y, 10, last_buf, TUI_COLOR_WHITE);
         draw_field(0, GLOBAL_HELP_Y, 37, "F2/F4 APPS  CTRL+B HOME  RUN/STOP QUIT", TUI_COLOR_GRAY3);
-        draw_field(0, HELP_Y, 37, "W/S OR UP/DOWN CYCLE SPEED  1-4 PICK", TUI_COLOR_GRAY3);
-        draw_field(0, HELP2_Y, 35, "RETURN/SPACE START  M STAYS IN MENU", TUI_COLOR_GRAY3);
+        draw_field(0, HELP_Y, 39, "W/S OR UP/DN CYCLE SPEED  1-9/0 PICK", TUI_COLOR_GRAY3);
+        draw_field(0, HELP2_Y, 31, "RETURN/SPACE START", TUI_COLOR_GRAY3);
         return;
     }
 
@@ -663,7 +694,7 @@ static void draw_status_lines(void) {
 
     draw_field(22, STATUS_Y, 4, "TICK", TUI_COLOR_GRAY3);
     draw_field(27, STATUS_Y, 3, tick_buf, TUI_COLOR_WHITE);
-    draw_field(31, STATUS_Y, 6, "RIGHT", TUI_COLOR_CYAN);
+    draw_field(31, STATUS_Y, 4, "DROP", TUI_COLOR_CYAN);
 
     draw_field(0, GLOBAL_HELP_Y, 37, "F2/F4 APPS  CTRL+B HOME  RUN/STOP QUIT", TUI_COLOR_GRAY3);
 
@@ -673,8 +704,8 @@ static void draw_status_lines(void) {
     } else if (mode == MODE_OVER) {
         draw_field(0, HELP_Y, 36, "R/RET/SPACE RESTART  M MENU", TUI_COLOR_GRAY3);
     } else {
-        draw_field(0, HELP_Y, 39, "W/S MOVE  UP/DN/A ROTATE  LEFT BACK", TUI_COLOR_GRAY3);
-        draw_field(0, HELP2_Y, 39, "RIGHT/SPACE DROP  P PAUSE  R RESET  M MENU", TUI_COLOR_GRAY3);
+        draw_field(0, HELP_Y, 39, "W/UP UP  S/DN DOWN  A/L CCW  D/R CW", TUI_COLOR_GRAY3);
+        draw_field(0, HELP2_Y, 39, "SPACE DROP  P PAUSE  R RESET  M MENU", TUI_COLOR_GRAY3);
     }
 }
 
@@ -731,7 +762,7 @@ static void draw_menu_box(void) {
     tui_window_title(&box, "START", TUI_COLOR_LIGHTBLUE, TUI_COLOR_YELLOW);
     draw_centered_field(6, 10, 28, "ROTATED TETRIS FOR READYOS", TUI_COLOR_WHITE);
     draw_field(8, 12, 7, "SPEED", TUI_COLOR_GRAY3);
-    draw_field(16, 12, 8, speed_names[speed_id], TUI_COLOR_CYAN);
+    draw_field(16, 12, 3, speed_names[speed_id], TUI_COLOR_CYAN);
     draw_field(8, 13, 6, "BEST", TUI_COLOR_GRAY3);
     draw_field(15, 13, 10, best_buf, TUI_COLOR_LIGHTGREEN);
     draw_field(8, 14, 6, "LAST", TUI_COLOR_GRAY3);
@@ -750,6 +781,7 @@ static void draw_game_screen(void) {
     } else {
         draw_board_frame();
         draw_preview_frame();
+        invalidate_board_cache();
         draw_preview_piece();
         draw_board_cells();
         if (mode == MODE_PAUSE) {
@@ -762,6 +794,17 @@ static void draw_game_screen(void) {
     draw_status_lines();
 }
 
+static void invalidate_board_cache(void) {
+    memset(rendered_cells, 0xFF, sizeof(rendered_cells));
+}
+
+static void restore_play_area_after_popup(void) {
+    clear_rect_area(PAUSE_X, PAUSE_Y, PAUSE_W, PAUSE_H, TUI_THEME_BG);
+    draw_board_frame();
+    invalidate_board_cache();
+    draw_board_cells();
+}
+
 static void reset_run_state(void) {
     clear_board();
     score = 0;
@@ -772,6 +815,7 @@ static void reset_run_state(void) {
     piece_x = 0;
     piece_y = 0;
     bag_count = 0;
+    invalidate_board_cache();
 }
 
 static unsigned char spawn_piece(void) {
@@ -899,7 +943,14 @@ static void lock_active_piece(void) {
         mode = MODE_OVER;
     }
     drop_tick = JIFFY_LO;
-    draw_game_screen();
+    draw_board_cells();
+    draw_preview_piece();
+    draw_info_lines();
+    draw_status_lines();
+    if (mode == MODE_OVER) {
+        draw_header();
+        draw_game_over_box();
+    }
 }
 
 static void step_gravity(void) {
@@ -910,7 +961,7 @@ static void step_gravity(void) {
     if (piece_x + 1 < BOARD_W && can_place_piece(piece_type, piece_rotation,
                                                  (unsigned char)(piece_x + 1), piece_y)) {
         ++piece_x;
-        draw_game_screen();
+        draw_board_cells();
         return;
     }
 
@@ -951,18 +1002,7 @@ static void move_piece_vertical(signed char delta) {
 
     if (can_place_piece(piece_type, piece_rotation, piece_x, next_y)) {
         piece_y = next_y;
-        draw_game_screen();
-    }
-}
-
-static void pull_piece_left(void) {
-    if (mode != MODE_PLAY || piece_x == 0) {
-        return;
-    }
-
-    if (can_place_piece(piece_type, piece_rotation, (unsigned char)(piece_x - 1), piece_y)) {
-        --piece_x;
-        draw_game_screen();
+        draw_board_cells();
     }
 }
 
@@ -982,7 +1022,7 @@ static void rotate_piece(signed char dir) {
 
     if (can_place_piece(piece_type, new_rotation, piece_x, piece_y)) {
         piece_rotation = new_rotation;
-        draw_game_screen();
+        draw_board_cells();
         return;
     }
 
@@ -991,7 +1031,7 @@ static void rotate_piece(signed char dir) {
         if (can_place_piece(piece_type, new_rotation, piece_x, try_y)) {
             piece_rotation = new_rotation;
             piece_y = try_y;
-            draw_game_screen();
+            draw_board_cells();
             return;
         }
     }
@@ -1001,7 +1041,7 @@ static void rotate_piece(signed char dir) {
         if (can_place_piece(piece_type, new_rotation, piece_x, try_y)) {
             piece_rotation = new_rotation;
             piece_y = try_y;
-            draw_game_screen();
+            draw_board_cells();
             return;
         }
     }
@@ -1011,7 +1051,7 @@ static void rotate_piece(signed char dir) {
         if (can_place_piece(piece_type, new_rotation, piece_x, try_y)) {
             piece_rotation = new_rotation;
             piece_y = try_y;
-            draw_game_screen();
+            draw_board_cells();
             return;
         }
     }
@@ -1019,7 +1059,7 @@ static void rotate_piece(signed char dir) {
     if (piece_x > 0 && can_place_piece(piece_type, new_rotation, (unsigned char)(piece_x - 1), piece_y)) {
         piece_rotation = new_rotation;
         --piece_x;
-        draw_game_screen();
+        draw_board_cells();
     }
 }
 
@@ -1153,19 +1193,28 @@ static void handle_menu_key(unsigned char key) {
         } else {
             --speed_id;
         }
-        draw_game_screen();
+        draw_menu_box();
+        draw_status_lines();
         return;
     }
 
     if (key == TUI_KEY_DOWN || key == 's' || key == 'S' || key == TUI_KEY_RIGHT) {
         speed_id = (unsigned char)((speed_id + 1) % SPEED_COUNT);
-        draw_game_screen();
+        draw_menu_box();
+        draw_status_lines();
         return;
     }
 
-    if (key >= '1' && key <= '4') {
+    if (key >= '1' && key <= '9') {
         speed_id = (unsigned char)(key - '1');
-        draw_game_screen();
+        draw_menu_box();
+        draw_status_lines();
+        return;
+    }
+    if (key == '0') {
+        speed_id = (unsigned char)(SPEED_COUNT - 1);
+        draw_menu_box();
+        draw_status_lines();
         return;
     }
 
@@ -1177,7 +1226,9 @@ static void handle_menu_key(unsigned char key) {
 static void handle_play_key(unsigned char key) {
     if (key == 'p' || key == 'P') {
         mode = MODE_PAUSE;
-        draw_game_screen();
+        draw_header();
+        draw_status_lines();
+        draw_pause_box();
         return;
     }
     if (key == 'r' || key == 'R') {
@@ -1192,27 +1243,27 @@ static void handle_play_key(unsigned char key) {
         move_piece_vertical(-1);
         return;
     }
+    if (key == TUI_KEY_UP) {
+        move_piece_vertical(-1);
+        return;
+    }
     if (key == 's' || key == 'S') {
         move_piece_vertical(1);
         return;
     }
-    if (key == TUI_KEY_LEFT) {
-        pull_piece_left();
-        return;
-    }
-    if (key == TUI_KEY_UP) {
-        rotate_piece(1);
-        return;
-    }
     if (key == TUI_KEY_DOWN) {
+        move_piece_vertical(1);
+        return;
+    }
+    if (key == 'a' || key == 'A' || key == TUI_KEY_LEFT) {
         rotate_piece(-1);
         return;
     }
-    if (key == 'a' || key == 'A') {
+    if (key == 'd' || key == 'D' || key == TUI_KEY_RIGHT) {
         rotate_piece(1);
         return;
     }
-    if (key == TUI_KEY_RIGHT || key == ' ') {
+    if (key == ' ') {
         hard_drop_piece();
     }
 }
@@ -1221,7 +1272,9 @@ static void handle_pause_key(unsigned char key) {
     if (key == 'p' || key == 'P' || key == TUI_KEY_RETURN || key == ' ') {
         mode = MODE_PLAY;
         drop_tick = JIFFY_LO;
-        draw_game_screen();
+        draw_header();
+        draw_status_lines();
+        restore_play_area_after_popup();
         return;
     }
     if (key == 'r' || key == 'R') {
@@ -1292,7 +1345,7 @@ int main(void) {
     rng_state = (unsigned int)0x51D3 ^ ((unsigned int)RASTER_LINE << 8) ^ JIFFY_LO;
     running = 1;
     resume_ready = 0;
-    speed_id = SPEED_NORMAL;
+    speed_id = SPEED_DEFAULT;
     level = 1;
     score = 0;
     session_best_score = 0;
