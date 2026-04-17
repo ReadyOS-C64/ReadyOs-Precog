@@ -3,9 +3,9 @@
   "display_name": "precog (dual d71, readyshell debug trace)",
   "kind": "dual-d71",
   "variant_boot_name": "precog dual d71",
-  "version_text": "0.2J",
+  "version_text": "0.2P",
   "catalog_source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/cfg/profiles/precog-dual-d71.ini",
-  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2j-dual-d71-preboot.prg",
+  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2p-dual-d71-preboot.prg",
   "autostart_disk_prg": "preboot.prg",
   "preboot_mode": "setd71",
   "disks": [
@@ -15,7 +15,7 @@
       "image_type": "d71",
       "vice_drive_type": "1571",
       "true_drive": true,
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2j-dual-d71_1.d71"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2p-dual-d71_1.d71"
     },
     {
       "index": 2,
@@ -23,7 +23,7 @@
       "image_type": "d71",
       "vice_drive_type": "1571",
       "true_drive": true,
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2j-dual-d71_2.d71"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2p-dual-d71_2.d71"
     }
   ],
   "boot_prgs": [
@@ -31,19 +31,19 @@
       "stem": "preboot",
       "disk_name": "preboot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/preboot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2j-dual-d71-preboot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2p-dual-d71-preboot.prg"
     },
     {
       "stem": "boot",
       "disk_name": "boot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/boot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2j-dual-d71-boot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2p-dual-d71-boot.prg"
     },
     {
       "stem": "setd71",
       "disk_name": "setd71",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/setd71.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2j-dual-d71-setd71.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-dual-d71-rsdebug/readyos-v0.2p-dual-d71-setd71.prg"
     }
   ],
   "apps": [
@@ -52,6 +52,42 @@
       "prg": "editor",
       "label": "editor",
       "desc": "text editor with clipboard"
+    },
+    {
+      "drive": 8,
+      "prg": "readyshell",
+      "label": "readyshell (beta)",
+      "desc": "command shell poc scaffold"
+    },
+    {
+      "drive": 9,
+      "prg": "simplefiles",
+      "label": "simple files",
+      "desc": "dual pane file manager and seq viewer"
+    },
+    {
+      "drive": 9,
+      "prg": "clipmgr",
+      "label": "clipboard",
+      "desc": "manage clipboard items"
+    },
+    {
+      "drive": 8,
+      "prg": "cal26",
+      "label": "calendar 26",
+      "desc": "calendar for 2026 with appointments"
+    },
+    {
+      "drive": 9,
+      "prg": "tasklist",
+      "label": "task list",
+      "desc": "outliner with notes and search"
+    },
+    {
+      "drive": 9,
+      "prg": "reuviewer",
+      "label": "reu viewer",
+      "desc": "view reu memory usage"
     },
     {
       "drive": 8,
@@ -70,30 +106,6 @@
       "prg": "hexview",
       "label": "hex viewer",
       "desc": "browse memory in hex format"
-    },
-    {
-      "drive": 9,
-      "prg": "clipmgr",
-      "label": "clipboard",
-      "desc": "manage clipboard items"
-    },
-    {
-      "drive": 9,
-      "prg": "reuviewer",
-      "label": "reu viewer",
-      "desc": "view reu memory usage"
-    },
-    {
-      "drive": 9,
-      "prg": "tasklist",
-      "label": "task list",
-      "desc": "outliner with notes and search"
-    },
-    {
-      "drive": 9,
-      "prg": "simplefiles",
-      "label": "simple files",
-      "desc": "dual pane file manager and seq viewer"
     },
     {
       "drive": 9,
@@ -121,12 +133,6 @@
     },
     {
       "drive": 8,
-      "prg": "cal26",
-      "label": "calendar 26",
-      "desc": "calendar for 2026 with appointments"
-    },
-    {
-      "drive": 8,
       "prg": "dizzy",
       "label": "dizzy kanban",
       "desc": "fizzy inspired kanban app"
@@ -136,12 +142,6 @@
       "prg": "readme",
       "label": "read.me",
       "desc": "readyos, ultimate buddy, precog poc os"
-    },
-    {
-      "drive": 8,
-      "prg": "readyshell",
-      "label": "readyshell (beta)",
-      "desc": "command shell poc scaffold"
     }
   ]
 }

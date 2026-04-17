@@ -2,7 +2,7 @@
 
 ## 0.2
 
-### ReadyShell, Documentation, Release Sync
+### ReadyShell, Apps, Documentation, Release Sync
 
 - Promoted the public release line to `0.2` and rebuilt the full profile
   matrix, including regenerated `help.md`, `helpme.md`, manifests, boot-chain
@@ -10,14 +10,22 @@
 - Expanded ReadyShell’s documented command set to include the new file
   commands `CAT`, `PUT`, `ADD`, `DEL`, `REN`, and `COPY`, alongside the
   already-shipping `MORE`, `TOP`, and `SEL` pipeline helpers.
+- Added the main ReadyShell runtime work that underpins that command set:
+  REU-backed values for `LDV` / `STV`, dedicated `CAT` and `COPY` overlays,
+  startup preload of all eight overlays into REU, and the rewritten
+  `PUT` / `ADD` text-file write flow.
+- Expanded ReadyShell’s day-to-day shell behavior with paging, projection, and
+  filtering work: `MORE`, `TOP`, `SEL`, wildcard-aware `LST`, file-type
+  filters, aligned drive syntax, reclaimed output space, the `rshelp` quick
+  reference, and documented `RSV1` value-file format coverage.
 - Updated the ReadyShell user guide and tutorial to the current prompt and
-  runtime reality: prompt `>`, seven-overlay layout, current BSS/heap figures,
+  runtime reality: prompt `>`, eight-overlay layout, current BSS/heap figures,
   and example-driven coverage for file commands, value commands, and pipeline
   usage.
 - Refreshed the ReadyShell architecture docs and generated overlay inventory so
   overlays `6` and `7` are documented as `rsfops` (`DEL`, `REN`, `PUT`,
-  `ADD`) and `rscat` (`CAT`, `COPY`) instead of the earlier split-command
-  model.
+  `ADD`) and `rscat` (`CAT`), with overlay `8` documented as `rscopy`
+  (`COPY`) instead of the earlier split-command model.
 - Renamed and refreshed the private shim architecture report to the `0.2`
   versioned artifact, then synced the public report copy and root README links
   to that updated filename.
@@ -27,6 +35,11 @@
 - Fixed stale verification expectations that still referenced the older
   `rsdrvi` / `rslst` split overlays, so the current merged ReadyShell overlay
   layout verifies cleanly again.
+- Added `sidetris` alpha to the `0.2` app catalog and release media, then
+  followed it with control, redraw, HUD, layout, speed, and documentation
+  polish.
+- Polished `game2048` with a reworked header plus cleaner pause and game-over
+  flow.
 
 ## 0.1.8
 

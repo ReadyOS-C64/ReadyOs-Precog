@@ -128,6 +128,28 @@ Future-facing themes:
 
 The current PRECOG catalog is larger than the older 0.1.5 set.
 
+## Global App Hotkeys
+
+ReadyOS supports nine direct app hotkey slots.
+
+- `CTRL+1` through `CTRL+9` launch or switch to the app bound to that slot.
+- `CTRL+SHIFT+1` through `CTRL+SHIFT+9` bind the current app to that slot at
+  runtime in apps that use the shared hotkey handler.
+- The same slot numbers can be assigned at boot in `apps.cfg` by using the
+  optional fourth field in an app record such as
+  `8:readyshell:readyshell (beta):2`.
+- Some apps with custom raw-input loops do not currently support runtime
+  rebinding, but launcher-configured default slots still work for them.
+
+Real C64 versus emulator keys:
+
+- On a real C64, launch is `CTRL` plus the number key.
+- On a real C64, bind is `CTRL+SHIFT` plus the number key, using the same keys
+  that also print `! " # $ % & ' ( )`.
+- In emulators, host keyboard maps vary: you may need `CTRL+SHIFT+<digit>` or
+  the shifted-symbol form such as `CTRL+!` or `CTRL+"`.
+- ReadyOS accepts both forms in apps that support runtime rebinding.
+
 Recent additions:
 - Quicknotes for fast REU-backed notes.
 - Simple Files for dual-pane file browsing and SEQ viewing.

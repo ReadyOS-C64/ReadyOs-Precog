@@ -3,9 +3,9 @@
   "display_name": "precog (solo d64 subset b)",
   "kind": "solo-d64-b",
   "variant_boot_name": "precog solo d64 subset b",
-  "version_text": "0.2J",
+  "version_text": "0.2P",
   "catalog_source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/cfg/profiles/precog-solo-d64-b.ini",
-  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-solo-d64-b/readyos-v0.2j-solo-d64-b-preboot.prg",
+  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-solo-d64-b/readyos-v0.2p-solo-d64-b-preboot.prg",
   "autostart_disk_prg": "preboot.prg",
   "preboot_mode": "boot",
   "disks": [
@@ -15,7 +15,7 @@
       "image_type": "d64",
       "vice_drive_type": "1541",
       "true_drive": true,
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-solo-d64-b/readyos-v0.2j-solo-d64-b.d64"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-solo-d64-b/readyos-v0.2p-solo-d64-b.d64"
     }
   ],
   "boot_prgs": [
@@ -23,16 +23,28 @@
       "stem": "preboot",
       "disk_name": "preboot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/preboot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-solo-d64-b/readyos-v0.2j-solo-d64-b-preboot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-solo-d64-b/readyos-v0.2p-solo-d64-b-preboot.prg"
     },
     {
       "stem": "boot",
       "disk_name": "boot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/boot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-solo-d64-b/readyos-v0.2j-solo-d64-b-boot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-solo-d64-b/readyos-v0.2p-solo-d64-b-boot.prg"
     }
   ],
   "apps": [
+    {
+      "drive": 8,
+      "prg": "simplefiles",
+      "label": "simple files",
+      "desc": "dual pane file manager and seq viewer"
+    },
+    {
+      "drive": 8,
+      "prg": "clipmgr",
+      "label": "clipboard",
+      "desc": "manage clipboard items"
+    },
     {
       "drive": 8,
       "prg": "quicknotes",
@@ -44,18 +56,6 @@
       "prg": "calcplus",
       "label": "calc plus",
       "desc": "keyboard-first expression calculator"
-    },
-    {
-      "drive": 8,
-      "prg": "clipmgr",
-      "label": "clipboard",
-      "desc": "manage clipboard items"
-    },
-    {
-      "drive": 8,
-      "prg": "simplefiles",
-      "label": "simple files",
-      "desc": "dual pane file manager and seq viewer"
     }
   ]
 }

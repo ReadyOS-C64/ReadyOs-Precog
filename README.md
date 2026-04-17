@@ -154,6 +154,9 @@ How it works:
   the second `editor` is the launcher label, and the trailing `1` is the
   default hotkey slot. The parser accepts slot values `1..9`; omitting the
   fourth field means no default slot binding.
+- A catalog entry such as `8:readyshell:readyshell (beta):2` assigns ReadyShell
+  to launcher hotkey slot `2` at boot, even though ReadyShell does not currently
+  support runtime rebinding from inside the shell.
 - `drive` must be numeric and in the range `8..11`.
 - `program` must be lowercase, must not include `.prg`, must not include a
   Commodore file-type suffix such as `,p`, and must be `12` characters or
@@ -165,6 +168,28 @@ How it works:
   generated file from drive `8`.
 - Blank lines and comment lines are allowed in the source profile. App records
   still follow the same alternating entry-line / description-line structure.
+
+## Global App Hotkeys
+
+ReadyOS supports up to nine direct app hotkey slots.
+
+- `CTRL+1` through `CTRL+9` launch or switch to the app bound to that slot.
+- `CTRL+SHIFT+1` through `CTRL+SHIFT+9` bind the current app to that slot at
+  runtime in apps that use the shared hotkey handler.
+- The same slot numbers can be seeded at boot from `cfg/profiles/*.ini` by
+  adding the optional fourth `:slot` field in the `[apps]` section.
+- Apps with their own raw keyboard input loops may not support runtime rebinding
+  even though launcher-configured default slots still work.
+
+Real C64 versus emulator key forms:
+
+- On a real C64, launch uses `CTRL` plus the number key.
+- On a real C64, bind uses `CTRL+SHIFT` plus the number key. Those are the same
+  physical keys that print shifted digit symbols: `! " # $ % & ' ( )`.
+- In emulators, host keymaps vary. Some map cleanly to `CTRL+SHIFT+<digit>`,
+  while others deliver `CTRL+!`, `CTRL+"`, `CTRL+#`, and so on.
+- ReadyOS accepts both forms in apps that support runtime rebinding, so use
+  whichever chord your emulator keymap produces.
 
 | Drive | Program | Display Name | Current Role |
 | --- | --- | --- | --- |

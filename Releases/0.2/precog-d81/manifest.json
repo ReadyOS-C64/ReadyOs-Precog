@@ -3,9 +3,9 @@
   "display_name": "precog (d81)",
   "kind": "d81",
   "variant_boot_name": "precog d81",
-  "version_text": "0.2J",
+  "version_text": "0.2P",
   "catalog_source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/cfg/profiles/precog-d81.ini",
-  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-d81/readyos-v0.2j-d81-preboot.prg",
+  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-d81/readyos-v0.2p-d81-preboot.prg",
   "autostart_disk_prg": "preboot.prg",
   "preboot_mode": "boot",
   "disks": [
@@ -15,7 +15,7 @@
       "image_type": "d81",
       "vice_drive_type": "1581",
       "true_drive": true,
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-d81/readyos-v0.2j-d81.d81"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-d81/readyos-v0.2p-d81.d81"
     }
   ],
   "boot_prgs": [
@@ -23,13 +23,13 @@
       "stem": "preboot",
       "disk_name": "preboot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/preboot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-d81/readyos-v0.2j-d81-preboot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-d81/readyos-v0.2p-d81-preboot.prg"
     },
     {
       "stem": "boot",
       "disk_name": "boot",
       "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/boot.prg",
-      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-d81/readyos-v0.2j-d81-boot.prg"
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.2/precog-d81/readyos-v0.2p-d81-boot.prg"
     }
   ],
   "apps": [
@@ -38,6 +38,42 @@
       "prg": "editor",
       "label": "editor",
       "desc": "text editor with clipboard"
+    },
+    {
+      "drive": 8,
+      "prg": "readyshell",
+      "label": "readyshell (beta)",
+      "desc": "command shell poc scaffold"
+    },
+    {
+      "drive": 8,
+      "prg": "simplefiles",
+      "label": "simple files",
+      "desc": "dual pane file manager and seq viewer"
+    },
+    {
+      "drive": 8,
+      "prg": "clipmgr",
+      "label": "clipboard",
+      "desc": "manage clipboard items"
+    },
+    {
+      "drive": 8,
+      "prg": "cal26",
+      "label": "calendar 26",
+      "desc": "calendar for 2026 with appointments"
+    },
+    {
+      "drive": 8,
+      "prg": "tasklist",
+      "label": "task list",
+      "desc": "outliner with notes and search"
+    },
+    {
+      "drive": 8,
+      "prg": "reuviewer",
+      "label": "reu viewer",
+      "desc": "view reu memory usage"
     },
     {
       "drive": 8,
@@ -56,30 +92,6 @@
       "prg": "hexview",
       "label": "hex viewer",
       "desc": "browse memory in hex format"
-    },
-    {
-      "drive": 8,
-      "prg": "clipmgr",
-      "label": "clipboard",
-      "desc": "manage clipboard items"
-    },
-    {
-      "drive": 8,
-      "prg": "reuviewer",
-      "label": "reu viewer",
-      "desc": "view reu memory usage"
-    },
-    {
-      "drive": 8,
-      "prg": "tasklist",
-      "label": "task list",
-      "desc": "outliner with notes and search"
-    },
-    {
-      "drive": 8,
-      "prg": "simplefiles",
-      "label": "simple files",
-      "desc": "dual pane file manager and seq viewer"
     },
     {
       "drive": 8,
@@ -107,12 +119,6 @@
     },
     {
       "drive": 8,
-      "prg": "cal26",
-      "label": "calendar 26",
-      "desc": "calendar for 2026 with appointments"
-    },
-    {
-      "drive": 8,
       "prg": "dizzy",
       "label": "dizzy kanban",
       "desc": "fizzy inspired kanban app"
@@ -122,12 +128,6 @@
       "prg": "readme",
       "label": "read.me",
       "desc": "readyos, ultimate buddy, precog poc os"
-    },
-    {
-      "drive": 8,
-      "prg": "readyshell",
-      "label": "readyshell (beta)",
-      "desc": "command shell poc scaffold"
     }
   ]
 }
