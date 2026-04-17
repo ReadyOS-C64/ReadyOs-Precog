@@ -46,6 +46,13 @@
     "app": "quicknotes"
   },
   {
+    "disk_name": "quicknotesref",
+    "repo_name": "quicknotesref",
+    "type": "seq",
+    "target_drive": 8,
+    "app": "quicknotes"
+  },
+  {
     "disk_name": "sheet2",
     "repo_name": "sheet2.seq",
     "type": "seq",
