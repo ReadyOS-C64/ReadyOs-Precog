@@ -12,6 +12,7 @@ For the generated overlay/runtime inventory, see [../../docs/readyshell_overlay_
 
 ReadyShell still has host-compiled smoke and unit-style checks that build the
 current `src/apps/readyshell` sources with `clang` on the host machine.
+the host machine `clang` version allows us to effectively put tests and verifications around the language.
 
 - `make verify` runs `readyshell-vm-smoke-host` as part of repo verification.
 - `make readyshell-parse-smoke-host` runs parser-only smoke checks.
@@ -196,7 +197,7 @@ Supported runtime value categories:
 - Number: unsigned 16-bit integer
 - String: `"TEXT"`
 - Array: `[item1,item2,...]` in formatted output
-- Object: formatted as `{KEY:VALUE,...}` (can flow through runtime, but no object literal syntax in this POC)
+- Object: formatted as `{KEY:VALUE,...}` (can flow through runtime, but no object literal syntax currently)
 
 Literal examples:
 
@@ -313,7 +314,7 @@ Supported operators:
 - `<=`
 - `==`
 - `<>` (not-equals)
-- `!=` (alias also accepted)
+- `!=` (technically accepted, but you can't type it because we use ! to for | operator on c64 keyboard)
 
 Examples:
 
@@ -479,7 +480,7 @@ Notes:
 
 Purpose:
 
-- Emit numbers `1..N` into pipeline
+- Emit numbers `1..N` into pipeline. alternatively the language lets you do 1..10 , or 10..1 , or 5..2 etc
 
 Syntax:
 
@@ -502,7 +503,7 @@ Errors:
 
 Purpose:
 
-- Append current item to internal tap log and pass item onward
+- Append current item to internal tap log and pass item onward - for internal debugging only
 
 Syntax:
 
@@ -587,7 +588,7 @@ Notes:
 
 Purpose:
 
-- Project one or more object properties out of each pipeline item
+- "select" - it projects one or more object properties out of each pipeline item. 
 
 Syntax:
 
@@ -621,7 +622,7 @@ Notes:
 
 Purpose:
 
-- Return drive information as an object
+- "Drive Information" - Return drive information as an object
 
 Syntax:
 
@@ -646,7 +647,7 @@ Notes:
 
 Purpose:
 
-- Return a streamed directory listing as objects
+- "List Directory" - Return a streamed directory listing as objects
 
 Syntax:
 
@@ -684,7 +685,7 @@ Notes:
 
 Purpose:
 
-- Load a previously saved ReadyShell value from disk
+- "Load Variable" - Load a previously serialized ReadyShell variable from disk
 
 Syntax:
 
@@ -712,7 +713,7 @@ Notes:
 
 Purpose:
 
-- Save a ReadyShell value to disk
+- "Save Variable" Serialize a ReadyShell variable to disk
 
 Syntax:
 
@@ -919,10 +920,8 @@ Script features:
 Example:
 
 ```text
-GEN 5 | ?[
-  $LAST = @
-  @ >= 3
-] | PRT @
+1..5 | ?[$last = @;@ >= 3] | PRT @
+PRT @last
 ```
 
 ## 10. Worked Pipeline Recipes

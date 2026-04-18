@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ReadyShell Host Version For Mocking, Unit, And Smoke Testing</title>
+  <style>
+    :root {
+      --bg: #0b1115;
+      --panel: rgba(17, 29, 36, 0.88);
+      --panel-2: rgba(13, 22, 28, 0.92);
+      --ink: #e8f3f6;
+      --muted: #a9bec8;
+      --line: #35515d;
+      --accent: #78d3b2;
+      --accent-2: #f0c06e;
+      --alert: #ef9b7d;
+      --mono: "Menlo", "Consolas", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(1000px 720px at 0% -10%, rgba(120, 211, 178, 0.16), transparent 55%),
+        radial-gradient(900px 720px at 100% 0%, rgba(73, 144, 182, 0.18), transparent 48%),
+        linear-gradient(180deg, #0b1115, #0e171d);
+    }
+    header {
+      padding: 30px 24px 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(120,211,178,0.08), rgba(0,0,0,0));
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 4vw, 2.6rem);
+      letter-spacing: .02em;
+    }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 100ch;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.16);
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.02rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    h3 {
+      margin: 0 0 8px;
+      font-size: .98rem;
+      color: var(--accent-2);
+      letter-spacing: .02em;
+    }
+    p, li { line-height: 1.58; }
+    ul {
+      margin: 10px 0 0 18px;
+      padding: 0;
+    }
+    code, pre { font-family: var(--mono); }
+    code {
+      background: rgba(8, 15, 20, .78);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(7, 13, 18, .96);
+      color: #d7eef5;
+      line-height: 1.42;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: .95rem;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      font-size: .8rem;
+    }
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .tri {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .card {
+      padding: 14px 15px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.08)),
+        var(--panel-2);
+    }
+    .card h3 { margin-bottom: 10px; }
+    .callout {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(120, 211, 178, .28);
+      background: rgba(120, 211, 178, .08);
+      color: var(--muted);
+    }
+    .warn {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(239, 155, 125, .26);
+      background: rgba(239, 155, 125, .08);
+      color: var(--muted);
+    }
+    .note { color: var(--muted); }
+    @media (max-width: 980px) {
+      .grid, .tri { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>ReadyShell Host Version For Mocking, Unit, And Smoke Testing</h1>
+  <p class="sub">
+    This document describes the current host-side ReadyShell test harness in
+    ReadyOS. It is a native <code>clang</code> harness around the real parser,
+    VM, value, serialization, and command-protocol code, not a separate
+    productized host port of the shell.
+  </p>
+</header>
+<main>
+  <section>
+    <h2>What It Is</h2>
+    <p>
+      ReadyShell host testing exists to validate logic quickly without booting
+      VICE or running on a real C64. The harness compiles selected ReadyShell
+      sources as normal native code and substitutes only the hardware-facing
+      edges with narrow mocks.
+    </p>
+    <div class="callout">
+      Strongest value: parser, VM, value, serialization, and command-protocol
+      regressions fail fast on the host. Weakest area: real overlay loading,
+      memory banking, IEC behavior, and UI integration are still outside the
+      host harness.
+    </div>
+  </section>
+
+  <section>
+    <h2>Targets</h2>
+    <table>
+      <thead>
+        <tr><th>Target</th><th>Purpose</th><th>Included In <code>make verify</code></th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>readyshell-parse-smoke-host</code></td><td>Parser-only smoke checks</td><td>No</td></tr>
+        <tr><td><code>readyshell-vm-smoke-host</code></td><td>Generic VM smoke plus overlay-aware C64 dispatch smoke</td><td>Yes</td></tr>
+        <tr><td><code>readyshell-reu-tests-host</code></td><td>REU-backed value and serialization tests</td><td>No</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Shape</h2>
+    <pre>native clang build
+    |
+    +--&gt; parser smoke binary
+    |       uses real parser sources
+    |
+    +--&gt; VM smoke binary
+    |       uses real parser + generic VM + value/runtime helpers
+    |       with mocked platform callbacks and mocked REU backing
+    |
+    +--&gt; C64-flavored VM smoke binary
+    |       uses real parser + C64 VM dispatch path
+    |       with mocked REU backing and mocked overlay command entrypoint
+    |
+    `--&gt; REU/value test binary
+            uses real value, serialization, and LDV-side helpers
+            with mocked REU backing</pre>
+  </section>
+
+  <section class="tri">
+    <div class="card">
+      <h3>Parser Smoke</h3>
+      <p>Compiles the real parser and checks a few valid and invalid programs.</p>
+      <ul>
+        <li>Valid expressions and statements</li>
+        <li>Simple pipelines</li>
+        <li>Error code and position reporting</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>VM Smoke</h3>
+      <p>Runs the real VM with mocked platform edges.</p>
+      <ul>
+        <li>Assignments, filters, foreach, `PRT`</li>
+        <li>`GEN`, `TOP`, `MORE`, `SEL`</li>
+        <li>Array/object access</li>
+        <li>`LST` and `DRVI` behavior</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>REU Tests</h3>
+      <p>Validates REU-backed value persistence and round-trips.</p>
+      <ul>
+        <li>String, array, and object cloning</li>
+        <li>Serialization and deserialization</li>
+        <li>`LDV` heap reconstruction path</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>What Gets Mocked</h2>
+      <ul>
+        <li>REU becomes a 16 MB in-process byte array.</li>
+        <li>`LST` sees a synthetic fixed directory.</li>
+        <li>`DRVI` sees synthetic drive metadata.</li>
+        <li>`rs_overlay_command_call()` is stubbed in the overlay-aware host pass.</li>
+        <li>Overlay debug marking becomes a no-op.</li>
+        <li>Fixed C64 high-RAM flags become ordinary host globals.</li>
+      </ul>
+      <div class="callout">
+        The host harness preserves the logical REU offsets, scratch layout, and
+        heap metadata model. It does not preserve DMA behavior or true hardware
+        probing.
+      </div>
+    </div>
+    <div>
+      <h2>What Runs Real Code</h2>
+      <ul>
+        <li>The real lexer and parser</li>
+        <li>The real generic VM</li>
+        <li>The real C64-oriented VM dispatch path in the overlay-aware pass</li>
+        <li>The real value model and formatting logic</li>
+        <li>The real serialization logic</li>
+        <li>The real REU-backed value reconstruction helpers</li>
+        <li>The real external-command capability model</li>
+      </ul>
+      <div class="callout">
+        The harness is valuable specifically because it executes the real core
+        logic and only fakes the hardware boundary.
+      </div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>How It Handles C64 Differences</h2>
+      <ul>
+        <li>REU access is abstracted behind <code>rs_reu_available</code>, <code>rs_reu_read</code>, and <code>rs_reu_write</code>.</li>
+        <li>Platform services are abstracted behind <code>RSVMPlatform</code> callbacks.</li>
+        <li>Fixed-address state is replaced with ordinary host globals when not compiling under <code>__CC65__</code>.</li>
+        <li>The host path tests the overlay command ABI rather than emulating PRG loading and ROM banking.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>What It Does Not Cover</h2>
+      <ul>
+        <li>The text UI and prompt editor</li>
+        <li>PETSCII and keyboard quirks in the live shell</li>
+        <li>Real IEC or KERNAL file I/O</li>
+        <li>Actual overlay PRG loading from disk</li>
+        <li>REU cache restore and verification failures</li>
+        <li>BASIC ROM banking and IRQ-state bugs</li>
+        <li>cc65 memory pressure and stack behavior</li>
+        <li>Timing-sensitive issues</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Coverage Notes</h2>
+    <table>
+      <thead>
+        <tr><th>Area</th><th>Host Coverage</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Parser, expressions, pipeline semantics</td><td>Strong</td></tr>
+        <tr><td>`PRT`, `GEN`, `MORE`, `TOP`, `SEL`</td><td>Strong</td></tr>
+        <tr><td>`LST`, `DRVI` formatting and downstream behavior</td><td>Strong, but mocked</td></tr>
+        <tr><td>REU-backed value persistence and `LDV` reconstruction</td><td>Strong</td></tr>
+        <tr><td>`LDV` / `STV` real media behavior</td><td>Partial</td></tr>
+        <tr><td>`CAT`, `PUT`, `ADD`, `DEL`, `REN`, `COPY` media behavior</td><td>Weak to none</td></tr>
+        <tr><td>Overlay loading and REU cache restore</td><td>Not covered</td></tr>
+        <tr><td>UI loop and real C64 integration</td><td>Not covered</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="grid">
+    <div>
+      <h2>How To Read Failures</h2>
+      <ul>
+        <li>If parser smoke fails, suspect lexer/parser changes first.</li>
+        <li>If generic VM smoke fails, suspect evaluation or pipeline logic.</li>
+        <li>If only the overlay-aware VM pass fails, suspect external-command protocol handling.</li>
+        <li>If REU tests fail, suspect serialization or REU-backed value layout.</li>
+        <li>If host tests pass but C64 behavior fails, suspect overlays, banking, REU DMA, or disk integration.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Recommended Workflow</h2>
+      <ol>
+        <li>Run the host checks while iterating on parser, VM, or value logic.</li>
+        <li>Run <code>make verify</code> for the normal repo verification path.</li>
+        <li>Run ReadyOS through the supported <code>run.sh</code> workflow for actual C64/VICE validation.</li>
+      </ol>
+      <div class="warn">
+        Host success is useful evidence, not final proof. The harness stops at
+        the hardware boundary by design.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Bottom Line</h2>
+    <p>
+      ReadyShell host testing is intentionally a logic harness, not a hardware
+      emulator. Its strength is fast execution of the real parser, VM, value,
+      and REU-data-path code. Its weakness is that it cannot validate the real
+      C64 overlay loader, memory map, disk environment, or UI loop.
+    </p>
+  </section>
+</main>
+</body>
+</html>

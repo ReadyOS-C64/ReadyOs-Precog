@@ -60,6 +60,7 @@ $A = 10,20,30
 PRT $A
 PRT $A(0)
 PRT $A(2)
+$A(2)
 ```
 
 ### Ranges
@@ -78,7 +79,7 @@ $A = 1..5
 $B = "HEAD","TAIL",$A
 PRT $B(0)
 PRT $B(2)
-PRT $B(2)(4)
+$B(2)(4)
 ```
 
 ## Comparisons
@@ -96,7 +97,7 @@ String equality is case-insensitive:
 
 ```ruby
 PRT "yo" == "YO"
-PRT "PRG" != "SEQ"
+PRT "PRG" <> "SEQ"
 ```
 
 Comparison-driven filtering:
@@ -165,10 +166,7 @@ GEN 10 | ?[ @ > 7 ]
 Filter with multiple statements:
 
 ```ruby
-GEN 5 | ?[
-  $LAST = @
-  @ >= 3
-]
+GEN 5 | ?[ $LAST = @; @ >= 3]
 ```
 
 Filter on object properties:
@@ -191,18 +189,13 @@ Per-item logging:
 Side effects plus later filtering:
 
 ```ruby
-1..5 | %[
-  $LAST = @
-  PRT "SEEN ", @
-] | ?[ @ > 3 ]
+1..5 | %[ $LAST = @; PRT "SEEN ", @] | ?[ @ > 3 ]
 ```
 
 Directory walk with inspection:
 
 ```ruby
-LST | %[
-  PRT "NAME=", @.NAME, " BLOCKS=", @.BLOCKS
-] | ?[ @.TYPE == "PRG" ] | SEL "NAME"
+LST | %[ PRT "NAME=", @.NAME, " BLOCKS=", @.BLOCKS] | ?[ @.TYPE == "PRG" ] | SEL "NAME"
 ```
 
 ## Arrays, Indexing, and Properties
@@ -212,7 +205,7 @@ Index arrays with parentheses:
 ```ruby
 $A = 100,200,300
 PRT $A(1)
-PRT $A(9)
+$A(9)
 ```
 
 Objects come from shell commands:
@@ -220,7 +213,7 @@ Objects come from shell commands:
 ```ruby
 $INFO = DRVI
 PRT $INFO.DRIVE
-PRT $INFO.DISKNAME
+$INFO.DISKNAME
 ```
 
 Directory entries are objects inside arrays:
@@ -229,7 +222,7 @@ Directory entries are objects inside arrays:
 $DIR = LST
 PRT $DIR(0).NAME
 PRT $DIR(1).TYPE
-PRT $DIR(2).BLOCKS
+$DIR(2).BLOCKS
 ```
 
 Chaining index and property access:
@@ -471,9 +464,7 @@ PRT $WORK(0).NAME
 Inspect and save the same stream:
 
 ```ruby
-$SNAP = LST | %[
-  PRT "SEEN ", @.NAME
-] | ?[ @.TYPE == "PRG" ] | TOP 8
+$SNAP = LST | %[PRT "SEEN ", @.NAME] | ?[ @.TYPE == "PRG" ] | TOP 8
 STV $SNAP, "seenprgs"
 ```
 
