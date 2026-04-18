@@ -299,15 +299,17 @@ Main entry points:
   extract packaged `SEQ`/`REL` files from every built image and compare them
   against the source of truth
 - `make verify`
-  run the repo verification, app host smoke checks, and
-  `readyshell-vm-smoke-host`
+  run the repo verification, app host smoke checks, and the full
+  `readyshell-host-tests` suite
+- `make readyshell-host-tests`
+  run the full host-side ReadyShell parser, VM, overlay-command, and REU tests
 - `make readyshell-parse-smoke-host`
   run the fast host-side ReadyShell parser smoke checks
 - `make readyshell-vm-smoke-host`
   run the host-side ReadyShell VM smoke checks, including the overlay-aware
-  C64-flavored harness build
+  C64-flavored harness build and mocked file-command coverage
 - `make readyshell-reu-tests-host`
-  run the host-side ReadyShell REU heap/value tests
+  run the host-side ReadyShell REU heap/value and RSV1 serialization tests
 
 Notes:
 
@@ -321,8 +323,8 @@ Notes:
 - `--vice-fast` only changes the VICE launch configuration. It does not affect
   build outputs or the packaged release images.
 - Manual launch should match the setup in the Getting Started section.
-- `make verify` currently runs `readyshell-vm-smoke-host`, but not the
-  parser-only or REU-only ReadyShell host targets.
+- `make verify` now runs the full `readyshell-host-tests` aggregate target,
+  which includes the parser, VM/overlay, and REU ReadyShell host checks.
 - Windows support is still less exercised than the Unix shell path.
 
 ## Generated Assets And Public Docs

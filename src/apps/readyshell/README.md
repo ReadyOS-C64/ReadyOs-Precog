@@ -14,14 +14,22 @@ ReadyShell still has host-compiled smoke and unit-style checks that build the
 current `src/apps/readyshell` sources with `clang` on the host machine.
 the host machine `clang` version allows us to effectively put tests and verifications around the language.
 
-- `make verify` runs `readyshell-vm-smoke-host` as part of repo verification.
+- `make readyshell-host-tests` runs the full host-side ReadyShell suite.
+- `make verify` runs `readyshell-host-tests` as part of repo verification.
 - `make readyshell-parse-smoke-host` runs parser-only smoke checks.
 - `make readyshell-vm-smoke-host` runs VM/pipeline smoke checks and an
-  overlay-aware C64-flavored host harness.
+  overlay-aware C64-flavored host harness with mocked text-file and snapshot
+  command coverage.
 - `make readyshell-reu-tests-host` runs REU heap/value and serialization
-  round-trip tests.
-- `make verify` does not currently run the parser-only or REU-only host
-  targets.
+  round-trip tests, including nested values and malformed RSV1 rejection.
+
+Current host coverage includes:
+
+- parser coverage for the documented statement and command shapes
+- VM coverage for language semantics, pipeline capture rules, and `SEL`
+  scalar-vs-object projection behavior
+- mocked file I/O coverage for `LDV` / `STV` binary snapshots
+- overlay-command coverage for `CAT`, `PUT`, `ADD`, `DEL`, `REN`, and `COPY`
 
 ## 1. Scope: What Is Implemented
 

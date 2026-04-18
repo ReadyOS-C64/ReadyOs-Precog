@@ -40,17 +40,19 @@ It is not:
 
 The current host-side targets are:
 
+- `make readyshell-host-tests`
 - `make readyshell-parse-smoke-host`
 - `make readyshell-vm-smoke-host`
 - `make readyshell-reu-tests-host`
 
-`make verify` currently runs:
+`make verify` now runs:
 
-- `readyshell-vm-smoke-host`
+- `readyshell-host-tests`
 
-`make verify` does not currently run:
+That aggregate target runs:
 
 - `readyshell-parse-smoke-host`
+- `readyshell-vm-smoke-host`
 - `readyshell-reu-tests-host`
 
 ## 3. End-To-End Shape
@@ -83,8 +85,9 @@ directly.
 
 What it covers:
 
-- parsing valid expressions and statements
-- parsing simple pipelines
+- parsing the documented expression, statement, and command forms
+- parsing command, expression, filter, and foreach pipeline stages
+- parsing multi-statement lines, array literals, ranges, indexing, and property access
 - parser rejection paths
 - error code, message, line, and column reporting
 
@@ -101,12 +104,13 @@ What it does not cover:
 This target has two passes.
 
 The first pass links the generic VM path and injects platform callbacks for
-directory listing and drive info.
+directory listing, drive info, and mocked snapshot file I/O.
 
 What it covers:
 
 - expression evaluation
 - assignments
+- pipeline capture shape rules (`0 -> FALSE`, `1 -> scalar`, `2+ -> array`)
 - filters
 - foreach stages
 - `PRT`
@@ -114,9 +118,12 @@ What it covers:
 - `TOP`
 - `MORE`
 - `SEL`
+- nested arrays, indexing, and property access through variables
+- `SEL` single-property scalar projection vs multi-property object projection
 - array and object access
 - `LST` through a mocked directory listing provider
 - `DRVI` through a mocked drive-info provider
+- `LDV` / `STV` through mocked binary file read/write callbacks
 - pause-flag behavior stored in REU metadata
 
 The second pass links the C64-oriented VM dispatch path and exercises the
@@ -131,6 +138,10 @@ What that second pass adds:
 - C64-side external command dispatch shape
 - `DRVI` and `LST` through the overlay command ABI instead of the generic
   `RSVMPlatform` callbacks
+- mocked `CAT`, `PUT`, `ADD`, `DEL`, `REN`, and `COPY` flows through the
+  overlay command ABI
+- mocked overlay-side `LDV` / `STV` argument handling, including explicit
+  drive forms
 
 What this target still does not cover:
 
@@ -138,7 +149,7 @@ What this target still does not cover:
 - REU overlay cache restore and verification
 - ROM banking under BASIC
 - the actual shell UI loop
-- actual file commands like `PUT`, `ADD`, `CAT`, `COPY`, `DEL`, `REN`
+- IEC/KERNAL disk transport or true-drive timing
 
 ### 4.3 `readyshell-reu-tests-host`
 
@@ -151,11 +162,14 @@ What it covers:
 - cloning strings into REU-backed storage
 - cloning arrays into REU-backed storage
 - cloning objects into REU-backed storage
+- cloning nested array/object graphs into REU-backed storage
 - reading arrays and objects back out
 - file-payload serialization
 - file-payload deserialization
+- exact representative `RSV1` byte-shape checks for scalar, array, and object files
 - equality after round-trip
 - the `LDV`-side loader that reconstructs values from the REU scratch area
+- malformed `RSV1` rejection paths
 
 What it does not cover:
 

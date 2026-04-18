@@ -185,9 +185,10 @@
         <tr><th>Target</th><th>Purpose</th><th>Included In <code>make verify</code></th></tr>
       </thead>
       <tbody>
-        <tr><td><code>readyshell-parse-smoke-host</code></td><td>Parser-only smoke checks</td><td>No</td></tr>
-        <tr><td><code>readyshell-vm-smoke-host</code></td><td>Generic VM smoke plus overlay-aware C64 dispatch smoke</td><td>Yes</td></tr>
-        <tr><td><code>readyshell-reu-tests-host</code></td><td>REU-backed value and serialization tests</td><td>No</td></tr>
+        <tr><td><code>readyshell-host-tests</code></td><td>Aggregate parser + VM/overlay + REU suite</td><td>Yes</td></tr>
+        <tr><td><code>readyshell-parse-smoke-host</code></td><td>Parser-only smoke checks</td><td>Via aggregate</td></tr>
+        <tr><td><code>readyshell-vm-smoke-host</code></td><td>Generic VM smoke plus overlay-aware C64 dispatch and mocked file-command smoke</td><td>Via aggregate</td></tr>
+        <tr><td><code>readyshell-reu-tests-host</code></td><td>REU-backed value and serialization tests</td><td>Via aggregate</td></tr>
       </tbody>
     </table>
   </section>
@@ -215,29 +216,31 @@
   <section class="tri">
     <div class="card">
       <h3>Parser Smoke</h3>
-      <p>Compiles the real parser and checks a few valid and invalid programs.</p>
+      <p>Compiles the real parser and checks the documented syntax surface plus malformed-input rejection.</p>
       <ul>
-        <li>Valid expressions and statements</li>
-        <li>Simple pipelines</li>
+        <li>Expressions, statements, and command forms</li>
+        <li>Command, expression, filter, and foreach pipeline stages</li>
+        <li>Arrays, ranges, indexing, and property access</li>
         <li>Error code and position reporting</li>
       </ul>
     </div>
     <div class="card">
       <h3>VM Smoke</h3>
-      <p>Runs the real VM with mocked platform edges.</p>
+      <p>Runs the real VM with mocked platform edges and a mocked overlay-command layer.</p>
       <ul>
-        <li>Assignments, filters, foreach, `PRT`</li>
-        <li>`GEN`, `TOP`, `MORE`, `SEL`</li>
-        <li>Array/object access</li>
-        <li>`LST` and `DRVI` behavior</li>
+        <li>Assignments, filters, foreach, `PRT`, `GEN`, `TOP`, `MORE`, `SEL`</li>
+        <li>Pipeline capture shape rules and nested array/object access</li>
+        <li>`LST`, `DRVI`, `LDV`, and `STV` with mocked platform/file I/O</li>
+        <li>Overlay-side `CAT`, `PUT`, `ADD`, `DEL`, `REN`, and `COPY`</li>
       </ul>
     </div>
     <div class="card">
       <h3>REU Tests</h3>
-      <p>Validates REU-backed value persistence and round-trips.</p>
+      <p>Validates REU-backed value persistence, nested graph round-trips, and malformed RSV1 rejection.</p>
       <ul>
-        <li>String, array, and object cloning</li>
-        <li>Serialization and deserialization</li>
+        <li>String, array, object, and nested graph cloning</li>
+        <li>Representative scalar, array, and object file-byte checks</li>
+        <li>Serialization, deserialization, and loader rejection paths</li>
         <li>`LDV` heap reconstruction path</li>
       </ul>
     </div>

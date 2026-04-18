@@ -27,6 +27,22 @@ static int expect_string_value(const char* label, const RSValue* v, const char* 
   return 0;
 }
 
+static int expect_bytes(const char* label,
+                        const unsigned char* got,
+                        unsigned short got_len,
+                        const unsigned char* expect,
+                        unsigned short expect_len) {
+  if (got_len != expect_len || memcmp(got, expect, expect_len) != 0) {
+    printf("FAIL %s len=%u expected=%u\n",
+           label,
+           (unsigned)got_len,
+           (unsigned)expect_len);
+    return 1;
+  }
+  printf("OK   %s len=%u\n", label, (unsigned)got_len);
+  return 0;
+}
+
 int main(void) {
   RSValue str;
   RSValue stored_str;
@@ -37,6 +53,10 @@ int main(void) {
   RSValue stored_obj;
   RSValue roundtrip;
   RSValue loaded;
+  RSValue nested;
+  RSValue stored_nested;
+  RSValue nested_meta;
+  RSValue nested_items;
   unsigned char bytes[2048];
   unsigned short used;
   unsigned short payload_used;
@@ -44,6 +64,33 @@ int main(void) {
   const char* name;
   char fmt[256];
   int fail;
+  static const unsigned char expect_array_file[] = {
+    'R', 'S', 'V', '1', 0x0Fu, 0x00u,
+    0x06u, 0x03u, 0x00u,
+    0x09u, 0x07u, 0x00u,
+    0x02u, 0x04u, 'b', 'e', 't', 'a',
+    0x09u, 0x09u, 0x00u
+  };
+  static const unsigned char expect_object_file[] = {
+    'R', 'S', 'V', '1', 0x1Au, 0x00u,
+    0x08u, 0x02u,
+    0x02u, 0x04u, 'n', 'a', 'm', 'e',
+    0x02u, 0x05u, 'g', 'a', 'm', 'm', 'a',
+    0x02u, 0x06u, 'b', 'l', 'o', 'c', 'k', 's',
+    0x09u, 0x1Eu, 0x00u
+  };
+  static const unsigned char bad_magic[] = {
+    'B', 'A', 'D', '1', 0x03u, 0x00u, 0x09u, 0x2Au, 0x00u
+  };
+  static const unsigned char bad_truncated[] = {
+    'R', 'S', 'V', '1', 0x03u, 0x00u, 0x09u, 0x2Au
+  };
+  static const unsigned char bad_len[] = {
+    'R', 'S', 'V', '1', 0x04u, 0x00u, 0x09u, 0x2Au, 0x00u
+  };
+  static const unsigned char bad_nested[] = {
+    'R', 'S', 'V', '1', 0x02u, 0x00u, 0x06u, 0x01u
+  };
 
   fail = 0;
   readyshell_reu_host_reset();
@@ -115,6 +162,11 @@ int main(void) {
   rs_value_free(&tmp);
   fail |= expect_true("serialize array payload",
                       rs_serialize_file_payload(&stored_array, bytes, sizeof(bytes), &used) == 0);
+  fail |= expect_bytes("serialize array bytes",
+                       bytes,
+                       used,
+                       expect_array_file,
+                       (unsigned short)sizeof(expect_array_file));
   rs_value_init_false(&loaded);
   fail |= expect_true("write array payload to scratch",
                       rs_reu_write(RS_CMD_SCRATCH_OFF + 6ul,
@@ -147,6 +199,11 @@ int main(void) {
   rs_value_free(&tmp);
   fail |= expect_true("format object", rs_format_value(&stored_obj, fmt, sizeof(fmt)) > 0 && strcmp(fmt, "{name:gamma,blocks:30}") == 0);
   fail |= expect_true("serialize file payload", rs_serialize_file_payload(&stored_obj, bytes, sizeof(bytes), &used) == 0);
+  fail |= expect_bytes("serialize object bytes",
+                       bytes,
+                       used,
+                       expect_object_file,
+                       (unsigned short)sizeof(expect_object_file));
   rs_value_init_false(&roundtrip);
   payload_used = 0u;
   fail |= expect_true("deserialize file payload",
@@ -170,6 +227,59 @@ int main(void) {
                                            tmp.as.u16 == 30u);
   rs_value_free(&tmp);
 
+  rs_value_init_false(&nested);
+  rs_value_init_false(&stored_nested);
+  rs_value_init_false(&nested_meta);
+  rs_value_init_false(&nested_items);
+  fail |= expect_true("nested object new", rs_value_object_new(&nested) == 0);
+  fail |= expect_true("nested kind", rs_value_init_string(&tmp, "SNAP") == 0);
+  fail |= expect_true("nested set kind", rs_value_object_set(&nested, "kind", &tmp) == 0);
+  rs_value_free(&tmp);
+  fail |= expect_true("nested items array", rs_value_array_new(&nested_items, 2u) == 0);
+  fail |= expect_true("nested item a", rs_value_init_string(&nested_items.as.array.items[0], "A") == 0);
+  fail |= expect_true("nested item b", rs_value_init_string(&nested_items.as.array.items[1], "B") == 0);
+  fail |= expect_true("nested set items", rs_value_object_set(&nested, "items", &nested_items) == 0);
+  fail |= expect_true("nested meta object", rs_value_object_new(&nested_meta) == 0);
+  rs_value_init_u16(&tmp, 2u);
+  fail |= expect_true("nested meta count", rs_value_object_set(&nested_meta, "count", &tmp) == 0);
+  rs_value_init_true(&tmp);
+  fail |= expect_true("nested meta ok", rs_value_object_set(&nested_meta, "ok", &tmp) == 0);
+  fail |= expect_true("nested set meta", rs_value_object_set(&nested, "meta", &nested_meta) == 0);
+  fail |= expect_true("clone nested to reu", rs_value_clone(&stored_nested, &nested) == 0);
+  fail |= expect_true("nested serialize", rs_serialize_file_payload(&stored_nested, bytes, sizeof(bytes), &used) == 0);
+  fail |= expect_true("nested root tag", used > 6u && bytes[6] == (unsigned char)RS_VAL_OBJECT);
+  rs_value_init_false(&roundtrip);
+  fail |= expect_true("nested deserialize",
+                      rs_deserialize_file_payload(bytes, used, &roundtrip) == 0);
+  fail |= expect_true("nested equality", rs_value_eq(&stored_nested, &roundtrip));
+  rs_value_free(&loaded);
+  rs_value_init_false(&loaded);
+  fail |= expect_true("nested write payload to scratch",
+                      rs_reu_write(RS_CMD_SCRATCH_OFF + 6ul,
+                                   bytes + 6u,
+                                   (unsigned short)(used - 6u)) == 0);
+  fail |= expect_true("nested overlay ldv loader",
+                      rs_cmd_load_rsv1_value_to_heap(RS_CMD_SCRATCH_OFF + 6ul,
+                                                     (unsigned short)(used - 6u),
+                                                     &loaded) == 0);
+  fail |= expect_true("nested overlay equality", rs_value_eq(&stored_nested, &loaded));
+  fail |= expect_true("reject bad magic",
+                      rs_deserialize_file_payload(bad_magic,
+                                                  (unsigned short)sizeof(bad_magic),
+                                                  &roundtrip) != 0);
+  fail |= expect_true("reject truncated payload",
+                      rs_deserialize_file_payload(bad_truncated,
+                                                  (unsigned short)sizeof(bad_truncated),
+                                                  &roundtrip) != 0);
+  fail |= expect_true("reject payload length mismatch",
+                      rs_deserialize_file_payload(bad_len,
+                                                  (unsigned short)sizeof(bad_len),
+                                                  &roundtrip) != 0);
+  fail |= expect_true("reject malformed nested payload",
+                      rs_deserialize_file_payload(bad_nested,
+                                                  (unsigned short)sizeof(bad_nested),
+                                                  &roundtrip) != 0);
+
   rs_value_free(&str);
   rs_value_free(&stored_str);
   rs_value_free(&array);
@@ -179,5 +289,9 @@ int main(void) {
   rs_value_free(&stored_obj);
   rs_value_free(&roundtrip);
   rs_value_free(&loaded);
+  rs_value_free(&nested);
+  rs_value_free(&stored_nested);
+  rs_value_free(&nested_meta);
+  rs_value_free(&nested_items);
   return fail;
 }

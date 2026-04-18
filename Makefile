@@ -646,7 +646,7 @@ verify: profile
 	python3 $(BUILD_SUPPORT_DIR)/editor_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/tasklist_host_smoke.py
 	python3 $(BUILD_SUPPORT_DIR)/simplefiles_host_smoke.py
-	$(MAKE) readyshell-vm-smoke-host
+	$(MAKE) readyshell-host-tests
 	python3 $(BUILD_SUPPORT_DIR)/verify_resume_contract.py
 	python3 $(BUILD_SUPPORT_DIR)/verify_memory_map.py
 
@@ -656,6 +656,9 @@ fullcheck: clean verify
 # Warm-resume contract checks only
 verify-resume:
 	python3 $(BUILD_SUPPORT_DIR)/verify_resume_contract.py
+
+# Full host-side ReadyShell parser/VM/REU coverage.
+readyshell-host-tests: readyshell-parse-smoke-host readyshell-vm-smoke-host readyshell-reu-tests-host
 
 # Fast host-side parser smoke checks (no VICE, no C64 memory mapping).
 readyshell-parse-smoke-host:
@@ -673,6 +676,7 @@ readyshell-parse-smoke-host:
 readyshell-vm-smoke-host:
 	$(CLANG) -std=c99 -Wall -Wextra -I. -I$(READYSHELL_CORE_DIR) \
 		$(BUILD_SUPPORT_DIR)/readyshell_reu_host.c \
+		$(BUILD_SUPPORT_DIR)/readyshell_host_fs.c \
 		$(BUILD_SUPPORT_DIR)/readyshell_vm_smoke.c \
 		$(READYSHELL_CORE_DIR)/rs_vm.c \
 		$(READYSHELL_CORE_DIR)/rs_parse.c \
@@ -692,6 +696,7 @@ readyshell-vm-smoke-host:
 	$(CLANG) -std=c99 -Wall -Wextra -DREADYSHELL_VM_SMOKE_OVERLAY=1 -I. -I$(READYSHELL_CORE_DIR) \
 		-I$(READYSHELL_PLATFORM_DIR) -I$(READYSHELL_PLATFORM_C64_DIR) \
 		$(BUILD_SUPPORT_DIR)/readyshell_reu_host.c \
+		$(BUILD_SUPPORT_DIR)/readyshell_host_fs.c \
 		$(BUILD_SUPPORT_DIR)/readyshell_vm_smoke.c \
 		$(BUILD_SUPPORT_DIR)/readyshell_overlay_host_stub.c \
 		$(READYSHELL_CORE_DIR)/rs_vm_c64.c \
@@ -759,6 +764,7 @@ help:
 	@echo "  fullcheck   - Clean rebuild and deep binary verification"
 	@echo "  editor-smoke-host - Run Editor host-side smoke checks"
 	@echo "  tasklist-smoke-host - Run Tasklist host-side smoke checks"
+	@echo "  readyshell-host-tests - Run the full ReadyShell host parser/VM/REU suite"
 	@echo "  readyshell-vm-smoke-host - Run ReadyShell VM/pipeline host smoke checks"
 	@echo "  readyshell-reu-tests-host - Run ReadyShell REU heap/value host tests"
 	@echo "  readyshell-overlay-report - Generate ReadyShell overlay Markdown + HTML docs"
@@ -811,4 +817,4 @@ probe-rel:
 launcher-verbose:
 	$(MAKE) LAUNCHER_CFG_VERBOSE=1 $(LAUNCHER)
 
-.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-parse-smoke-host readyshell-vm-smoke-host readyshell-reu-tests-host editor-smoke-host tasklist-smoke-host programs prepare-version profile profiles release-all FORCE
+.PHONY: all clean verify verify-resume fullcheck help run run-test seed-cal26 probe-rel launcher-verbose readyshell-host-tests readyshell-parse-smoke-host readyshell-vm-smoke-host readyshell-reu-tests-host editor-smoke-host tasklist-smoke-host programs prepare-version profile profiles release-all FORCE
