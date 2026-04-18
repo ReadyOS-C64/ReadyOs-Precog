@@ -8,6 +8,20 @@ For a broader recipe-style walkthrough, see [ReadyShelltutorial.md](./ReadyShell
 For the implementation architecture, see [../../docs/ReadyShellArchitecture.md](../../docs/ReadyShellArchitecture.md).
 For the generated overlay/runtime inventory, see [../../docs/readyshell_overlay_inventory.md](../../docs/readyshell_overlay_inventory.md).
 
+## Host-Side Checks
+
+ReadyShell still has host-compiled smoke and unit-style checks that build the
+current `src/apps/readyshell` sources with `clang` on the host machine.
+
+- `make verify` runs `readyshell-vm-smoke-host` as part of repo verification.
+- `make readyshell-parse-smoke-host` runs parser-only smoke checks.
+- `make readyshell-vm-smoke-host` runs VM/pipeline smoke checks and an
+  overlay-aware C64-flavored host harness.
+- `make readyshell-reu-tests-host` runs REU heap/value and serialization
+  round-trip tests.
+- `make verify` does not currently run the parser-only or REU-only host
+  targets.
+
 ## 1. Scope: What Is Implemented
 
 Implemented in this POC:

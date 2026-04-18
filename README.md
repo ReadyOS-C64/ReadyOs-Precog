@@ -299,7 +299,15 @@ Main entry points:
   extract packaged `SEQ`/`REL` files from every built image and compare them
   against the source of truth
 - `make verify`
-  run the repo verification and host smoke checks
+  run the repo verification, app host smoke checks, and
+  `readyshell-vm-smoke-host`
+- `make readyshell-parse-smoke-host`
+  run the fast host-side ReadyShell parser smoke checks
+- `make readyshell-vm-smoke-host`
+  run the host-side ReadyShell VM smoke checks, including the overlay-aware
+  C64-flavored harness build
+- `make readyshell-reu-tests-host`
+  run the host-side ReadyShell REU heap/value tests
 
 Notes:
 
@@ -313,6 +321,8 @@ Notes:
 - `--vice-fast` only changes the VICE launch configuration. It does not affect
   build outputs or the packaged release images.
 - Manual launch should match the setup in the Getting Started section.
+- `make verify` currently runs `readyshell-vm-smoke-host`, but not the
+  parser-only or REU-only ReadyShell host targets.
 - Windows support is still less exercised than the Unix shell path.
 
 ## Generated Assets And Public Docs
