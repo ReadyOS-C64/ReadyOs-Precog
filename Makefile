@@ -15,6 +15,7 @@ PWSH ?= pwsh
 # Directories
 SRC_DIR = src
 OBJ_DIR = obj
+BIN_DIR = bin
 CFG_DIR = cfg
 LIB_DIR = src/lib
 SHIM_DIR = src/shim
@@ -41,34 +42,34 @@ LAUNCHER_CFG_VERBOSE ?= 0
 LAUNCHER_CFLAGS = $(APP_CFLAGS) -DLAUNCHER_CFG_VERBOSE=$(LAUNCHER_CFG_VERBOSE)
 
 # Output files
-BOOT = boot.prg
-PREBOOT = preboot.prg
-SETD71 = setd71.prg
-SHOWCFG = showcfg.prg
-TEST_REU = test_reu.prg
-LAUNCHER = launcher.prg
-EDITOR = editor.prg
-QUICKNOTES = quicknotes.prg
-CALCPLUS = calcplus.prg
-HEXVIEW = hexview.prg
-CLIPMGR = clipmgr.prg
-REUVIEWER = reuviewer.prg
-TASKLIST = tasklist.prg
-SIMPLEFILES = simplefiles.prg
-SIMPLECELLS = simplecells.prg
-GAME2048 = game2048.prg
-DEMINER = deminer.prg
-SIDETRIS = sidetris.prg
-CAL26 = cal26.prg
-DIZZY = dizzy.prg
-READMEAPP = readme.prg
-READYSHELL = readyshell.prg
+BOOT = $(BIN_DIR)/boot.prg
+PREBOOT = $(BIN_DIR)/preboot.prg
+SETD71 = $(BIN_DIR)/setd71.prg
+SHOWCFG = $(BIN_DIR)/showcfg.prg
+TEST_REU = $(BIN_DIR)/test_reu.prg
+LAUNCHER = $(BIN_DIR)/launcher.prg
+EDITOR = $(BIN_DIR)/editor.prg
+QUICKNOTES = $(BIN_DIR)/quicknotes.prg
+CALCPLUS = $(BIN_DIR)/calcplus.prg
+HEXVIEW = $(BIN_DIR)/hexview.prg
+CLIPMGR = $(BIN_DIR)/clipmgr.prg
+REUVIEWER = $(BIN_DIR)/reuviewer.prg
+TASKLIST = $(BIN_DIR)/tasklist.prg
+SIMPLEFILES = $(BIN_DIR)/simplefiles.prg
+SIMPLECELLS = $(BIN_DIR)/simplecells.prg
+GAME2048 = $(BIN_DIR)/game2048.prg
+DEMINER = $(BIN_DIR)/deminer.prg
+SIDETRIS = $(BIN_DIR)/sidetris.prg
+CAL26 = $(BIN_DIR)/cal26.prg
+DIZZY = $(BIN_DIR)/dizzy.prg
+READMEAPP = $(BIN_DIR)/readme.prg
+READYSHELL = $(BIN_DIR)/readyshell.prg
 VERSION_HEADER = $(GEN_DIR)/build_version.h
 VERSION_ASM_INC = $(GEN_DIR)/msg_version.inc
 VARIANT_ASM_INC = $(GEN_DIR)/msg_variant.inc
 README_DATA_C = $(GEN_DIR)/readme_pages.c
 README_DATA_H = $(GEN_DIR)/readme_pages.h
-XRELCHK = xrelchk.prg
+XRELCHK = $(BIN_DIR)/xrelchk.prg
 HARNESS_OUT_DIR = artifacts/dev_harness/xfilechk
 XFILECHK_BOOT = $(HARNESS_OUT_DIR)/xfilechk_boot.prg
 XFILECHK = $(HARNESS_OUT_DIR)/xfilechk.prg
@@ -170,14 +171,14 @@ READYSHELL_OVL8_CFLAGS = $(READYSHELL_CCFLAGS) --code-name OVERLAY8 --rodata-nam
 READYSHELL_OVERLAYSIZE ?= $(if $(filter 1,$(READYSHELL_PARSE_TRACE_DEBUG)),0x3B00,0x3800)
 READYSHELL_STACKSIZE ?= 0x0800
 READYSHELL_OBJ_DIR = $(OBJ_DIR)/readyshell
-READYSHELL_OVL1_PRG = rsparser.prg
-READYSHELL_OVL2_PRG = rsvm.prg
-READYSHELL_OVL3_PRG = rsdrvilst.prg
-READYSHELL_OVL4_PRG = rsldv.prg
-READYSHELL_OVL5_PRG = rsstv.prg
-READYSHELL_OVL6_PRG = rsfops.prg
-READYSHELL_OVL7_PRG = rscat.prg
-READYSHELL_OVL8_PRG = rscopy.prg
+READYSHELL_OVL1_PRG = $(BIN_DIR)/rsparser.prg
+READYSHELL_OVL2_PRG = $(BIN_DIR)/rsvm.prg
+READYSHELL_OVL3_PRG = $(BIN_DIR)/rsdrvilst.prg
+READYSHELL_OVL4_PRG = $(BIN_DIR)/rsldv.prg
+READYSHELL_OVL5_PRG = $(BIN_DIR)/rsstv.prg
+READYSHELL_OVL6_PRG = $(BIN_DIR)/rsfops.prg
+READYSHELL_OVL7_PRG = $(BIN_DIR)/rscat.prg
+READYSHELL_OVL8_PRG = $(BIN_DIR)/rscopy.prg
 READYSHELL_OVL1_DISK = $(OBJ_DIR)/rsparser.prg
 READYSHELL_OVL2_DISK = $(OBJ_DIR)/rsvm.prg
 READYSHELL_OVL3_DISK = $(OBJ_DIR)/rsdrvilst.prg
@@ -281,6 +282,11 @@ LIB_READYSHELL = $(REU_DMA_SRC) $(RESUME_STATE_SIMPLE_SRCS)
 
 # Primary binaries shared across profiles
 PROGRAMS = $(BOOT) $(PREBOOT) $(SETD71) $(SHOWCFG) $(TEST_REU) $(LAUNCHER) $(EDITOR) $(QUICKNOTES) $(CALCPLUS) $(HEXVIEW) $(CLIPMGR) $(REUVIEWER) $(TASKLIST) $(SIMPLEFILES) $(SIMPLECELLS) $(GAME2048) $(DEMINER) $(SIDETRIS) $(CAL26) $(DIZZY) $(READMEAPP) $(READYSHELL)
+
+$(BIN_DIR):
+	@mkdir -p "$@"
+
+$(PROGRAMS): | $(BIN_DIR)
 
 # Default target
 all: profile
@@ -615,6 +621,7 @@ clean:
 	rm -f $(XSEQCHK_SEED_SEQ)
 	rm -f $(XTEXTCHK_BANG_SEQ) $(XTEXTCHK_PIPE_SEQ) $(XTEXTCHK_VLINE_SEQ)
 	rm -f $(TASKLIST_SAMPLE_SEQ)
+	rm -rf $(BIN_DIR)
 	rm -f *.prg
 	rm -f $(READYSHELL_OVL1_PRG) $(READYSHELL_OVL2_PRG) $(READYSHELL_OVL3_PRG) \
 		$(READYSHELL_OVL4_PRG) $(READYSHELL_OVL5_PRG) $(READYSHELL_OVL6_PRG) \
@@ -764,24 +771,24 @@ help:
 	@echo "  $(XFILECHK_DISK2) - Build standalone IEC harness fixture disk"
 	@echo ""
 	@echo "Programs built:"
-	@echo "  preboot.prg  - BASIC preboot (sets D71 mode, runs boot)"
-	@echo "  setd71.prg   - BASIC helper (sends U0>M1 only)"
-	@echo "  showcfg.prg  - BASIC APPS.CFG inspector (shows text + byte codes)"
-	@echo "  boot.prg     - Boot loader (installs shim, loads launcher)"
-	@echo "  launcher.prg - App launcher (loads at \$$1000)"
-	@echo "  editor.prg   - Text editor (loads at \$$1000)"
-	@echo "  quicknotes.prg - REU-backed note editor (loads at \$$1000)"
-	@echo "  calcplus.prg - Calculator Plus (loads at \$$1000)"
-	@echo "  hexview.prg  - Hex memory viewer (loads at \$$1000)"
-	@echo "  clipmgr.prg  - Clipboard manager (loads at \$$1000)"
-	@echo "  reuviewer.prg- REU memory viewer (loads at \$$1000)"
-	@echo "  game2048.prg - 2048 puzzle game (loads at \$$1000)"
-	@echo "  deminer.prg  - PETSCII minesweeper game (loads at \$$1000)"
-	@echo "  sidetris.prg - Sideways PETSCII Tetris game (loads at \$$1000)"
-	@echo "  cal26.prg    - Calendar 2026 app (loads at \$$1000)"
-	@echo "  dizzy.prg    - Kanban task board app (loads at \$$1000)"
-	@echo "  readme.prg   - Project README app (loads at \$$1000)"
-	@echo "  readyshell.prg - ReadyShell app (loads at \$$1000, overlays rsparser/rsvm/rsdrvilst/rsldv/rsstv on disk 1)"
+	@echo "  $(PREBOOT)  - BASIC preboot (sets D71 mode, runs boot)"
+	@echo "  $(SETD71)   - BASIC helper (sends U0>M1 only)"
+	@echo "  $(SHOWCFG)  - BASIC APPS.CFG inspector (shows text + byte codes)"
+	@echo "  $(BOOT)     - Boot loader (installs shim, loads launcher)"
+	@echo "  $(LAUNCHER) - App launcher (loads at \$$1000)"
+	@echo "  $(EDITOR)   - Text editor (loads at \$$1000)"
+	@echo "  $(QUICKNOTES) - REU-backed note editor (loads at \$$1000)"
+	@echo "  $(CALCPLUS) - Calculator Plus (loads at \$$1000)"
+	@echo "  $(HEXVIEW)  - Hex memory viewer (loads at \$$1000)"
+	@echo "  $(CLIPMGR)  - Clipboard manager (loads at \$$1000)"
+	@echo "  $(REUVIEWER)- REU memory viewer (loads at \$$1000)"
+	@echo "  $(GAME2048) - 2048 puzzle game (loads at \$$1000)"
+	@echo "  $(DEMINER)  - PETSCII minesweeper game (loads at \$$1000)"
+	@echo "  $(SIDETRIS) - Sideways PETSCII Tetris game (loads at \$$1000)"
+	@echo "  $(CAL26)    - Calendar 2026 app (loads at \$$1000)"
+	@echo "  $(DIZZY)    - Kanban task board app (loads at \$$1000)"
+	@echo "  $(READMEAPP) - Project README app (loads at \$$1000)"
+	@echo "  $(READYSHELL) - ReadyShell app (loads at \$$1000, overlays rsparser/rsvm/rsdrvilst/rsldv/rsstv on disk 1)"
 	@echo "  $(XFILECHK) - Standalone IEC file-operation harness (loads at \$$0801)"
 	@echo "  releases/<version>/<profile>/readyos-v<version>-<kind>[_n].<ext>"
 	@echo "              - Versioned disk images for the selected profile"

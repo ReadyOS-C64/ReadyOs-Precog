@@ -1555,7 +1555,7 @@ def main() -> int:
     parser.add_argument("--disk", type=Path)
     parser.add_argument("--makefile", type=Path, default=ROOT / "Makefile")
     parser.add_argument("--map", type=Path, default=ROOT / "obj" / "readyshell.map")
-    parser.add_argument("--readyshell-prg", type=Path, default=ROOT / "readyshell.prg")
+    parser.add_argument("--readyshell-prg", type=Path, default=ROOT / "bin" / "readyshell.prg")
     parser.add_argument("--build-version", type=Path, default=ROOT / "src" / "generated" / "build_version.h")
     parser.add_argument(
         "--cmd-overlay-header",

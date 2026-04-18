@@ -38,7 +38,7 @@ def main() -> int:
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     required = [
-        "SIMPLEFILES = simplefiles.prg",
+        "SIMPLEFILES = $(BIN_DIR)/simplefiles.prg",
         "$(SIMPLEFILES): $(APPS_DIR)/simplefiles/simplefiles.c $(LIB_SIMPLEFILES)",
     ]
     for marker in required:

@@ -60,16 +60,16 @@ try {
     switch ($Mode) {
         'disk1' {
             $mappings = @(
-                @((Assert-RepoFile 'preboot.prg'), 'preboot'),
-                @((Assert-RepoFile 'setd71.prg'), 'setd71'),
-                @((Assert-RepoFile 'showcfg.prg'), 'showcfg'),
-                @((Assert-RepoFile 'boot.prg'), 'boot'),
-                @((Assert-RepoFile 'launcher.prg'), 'launcher'),
-                @((Assert-RepoFile 'quicknotes.prg'), 'quicknotes'),
-                @((Assert-RepoFile 'deminer.prg'), 'deminer'),
-                @((Assert-RepoFile 'cal26.prg'), 'cal26'),
-                @((Assert-RepoFile 'dizzy.prg'), 'dizzy'),
-                @((Assert-RepoFile 'readyshell.prg'), 'readyshell'),
+                @((Assert-RepoFile 'bin/preboot.prg'), 'preboot'),
+                @((Assert-RepoFile 'bin/setd71.prg'), 'setd71'),
+                @((Assert-RepoFile 'bin/showcfg.prg'), 'showcfg'),
+                @((Assert-RepoFile 'bin/boot.prg'), 'boot'),
+                @((Assert-RepoFile 'bin/launcher.prg'), 'launcher'),
+                @((Assert-RepoFile 'bin/quicknotes.prg'), 'quicknotes'),
+                @((Assert-RepoFile 'bin/deminer.prg'), 'deminer'),
+                @((Assert-RepoFile 'bin/cal26.prg'), 'cal26'),
+                @((Assert-RepoFile 'bin/dizzy.prg'), 'dizzy'),
+                @((Assert-RepoFile 'bin/readyshell.prg'), 'readyshell'),
                 @((Assert-RepoFile 'obj/rsparser.prg'), 'rsparser'),
                 @((Assert-RepoFile 'obj/rsvm.prg'), 'rsvm'),
                 @((Assert-RepoFile 'obj/rsdrvilst.prg'), 'rsdrvilst'),
@@ -103,16 +103,16 @@ try {
 
         'disk2' {
             $mappings = @(
-                @((Assert-RepoFile 'editor.prg'), 'editor'),
-                @((Assert-RepoFile 'calcplus.prg'), 'calcplus'),
-                @((Assert-RepoFile 'hexview.prg'), 'hexview'),
-                @((Assert-RepoFile 'clipmgr.prg'), 'clipmgr'),
-                @((Assert-RepoFile 'reuviewer.prg'), 'reuviewer'),
-                @((Assert-RepoFile 'tasklist.prg'), 'tasklist'),
-                @((Assert-RepoFile 'simplefiles.prg'), 'simplefiles'),
-                @((Assert-RepoFile 'simplecells.prg'), 'simplecells'),
-                @((Assert-RepoFile 'game2048.prg'), 'game2048'),
-                @((Assert-RepoFile 'readme.prg'), 'readme')
+                @((Assert-RepoFile 'bin/editor.prg'), 'editor'),
+                @((Assert-RepoFile 'bin/calcplus.prg'), 'calcplus'),
+                @((Assert-RepoFile 'bin/hexview.prg'), 'hexview'),
+                @((Assert-RepoFile 'bin/clipmgr.prg'), 'clipmgr'),
+                @((Assert-RepoFile 'bin/reuviewer.prg'), 'reuviewer'),
+                @((Assert-RepoFile 'bin/tasklist.prg'), 'tasklist'),
+                @((Assert-RepoFile 'bin/simplefiles.prg'), 'simplefiles'),
+                @((Assert-RepoFile 'bin/simplecells.prg'), 'simplecells'),
+                @((Assert-RepoFile 'bin/game2048.prg'), 'game2048'),
+                @((Assert-RepoFile 'bin/readme.prg'), 'readme')
             )
 
             Invoke-C1541WriteBatch -DiskLabel 'readyos2,ro' -Mappings $mappings

@@ -113,16 +113,16 @@ Modes:
   test           Run REU test program standalone
   debug          Run with VICE monitor breakpoints
   warp           Run in warp mode
-  launcher       Run launcher.prg directly
-  editor         Run editor.prg directly
-  calcplus       Run calcplus.prg directly
-  hexview        Run hexview.prg directly
-  2048           Run game2048.prg directly
-  sidetris       Run sidetris.prg directly
-  deminer        Run deminer.prg directly
-  cal26          Run cal26.prg directly
-  dizzy          Run dizzy.prg directly
-  readme         Run readme.prg directly
+  launcher       Run bin/launcher.prg directly
+  editor         Run bin/editor.prg directly
+  calcplus       Run bin/calcplus.prg directly
+  hexview        Run bin/hexview.prg directly
+  2048           Run bin/game2048.prg directly
+  sidetris       Run bin/sidetris.prg directly
+  deminer        Run bin/deminer.prg directly
+  cal26          Run bin/cal26.prg directly
+  dizzy          Run bin/dizzy.prg directly
+  readme         Run bin/readme.prg directly
   showcfg        Run BASIC APPS.CFG inspector
   xfilechk       Run standalone IEC file-operation harness
   monitor        Start with VICE monitor open
@@ -318,20 +318,21 @@ $script:ProfileId = $script:DefaultProfile
 $script:ViceExe = Resolve-CommandPath -Candidates @('x64sc', 'x64') -ErrorMessage 'Error: VICE emulator not found (tried x64sc, x64)'
 $script:ViceName = Split-Path -Leaf $script:ViceExe
 $script:MakeExe = Resolve-CommandPath -Candidates @('make', 'gmake') -ErrorMessage 'Error: make/gmake not found in PATH'
+$script:BinDir = 'bin'
 
-$script:PrebootPrg = 'preboot.prg'
-$script:TestPrg = 'test_reu.prg'
-$script:LauncherPrg = 'launcher.prg'
-$script:EditorPrg = 'editor.prg'
-$script:CalcplusPrg = 'calcplus.prg'
-$script:HexviewPrg = 'hexview.prg'
-$script:Game2048Prg = 'game2048.prg'
-$script:SidetrisPrg = 'sidetris.prg'
-$script:DeminerPrg = 'deminer.prg'
-$script:Cal26Prg = 'cal26.prg'
-$script:DizzyPrg = 'dizzy.prg'
-$script:ReadmePrg = 'readme.prg'
-$script:ShowcfgPrg = 'showcfg.prg'
+$script:PrebootPrg = Join-Path $script:BinDir 'preboot.prg'
+$script:TestPrg = Join-Path $script:BinDir 'test_reu.prg'
+$script:LauncherPrg = Join-Path $script:BinDir 'launcher.prg'
+$script:EditorPrg = Join-Path $script:BinDir 'editor.prg'
+$script:CalcplusPrg = Join-Path $script:BinDir 'calcplus.prg'
+$script:HexviewPrg = Join-Path $script:BinDir 'hexview.prg'
+$script:Game2048Prg = Join-Path $script:BinDir 'game2048.prg'
+$script:SidetrisPrg = Join-Path $script:BinDir 'sidetris.prg'
+$script:DeminerPrg = Join-Path $script:BinDir 'deminer.prg'
+$script:Cal26Prg = Join-Path $script:BinDir 'cal26.prg'
+$script:DizzyPrg = Join-Path $script:BinDir 'dizzy.prg'
+$script:ReadmePrg = Join-Path $script:BinDir 'readme.prg'
+$script:ShowcfgPrg = Join-Path $script:BinDir 'showcfg.prg'
 $script:XFilechkBootPrg = 'xfilechk_boot.prg'
 $script:XFilechkPrg = 'xfilechk.prg'
 $script:XFilechkDisk1 = 'xfilechk.d71'

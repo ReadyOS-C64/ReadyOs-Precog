@@ -9,7 +9,7 @@ real-world C64 environments without pretending every machine, cartridge,
 loader, or emulator mounts the same media.
 
 - Public release line: `0.2`
-- Current artifact build in this tree: `0.2B`
+- Current artifact build in this tree: `0.2C`
 - Main site: [readyos64.com](https://readyos64.com)
 - Wiki / working knowledge base: [readyos.notion.site](https://readyos.notion.site)
 - GitHub source and issues: [ReadyOS-C64/ReadyOs](https://github.com/ReadyOS-C64/ReadyOs)

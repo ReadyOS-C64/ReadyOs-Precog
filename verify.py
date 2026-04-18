@@ -21,6 +21,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+BIN_DIR = ROOT / "bin"
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT / "build_support"))
 
@@ -78,6 +79,10 @@ def parse_env_int(name, default):
 
 
 APP_HEADROOM_FAIL = parse_env_int("READYOS_MIN_HEADROOM_FAIL", 0)
+
+
+def local_prg_path(filename: str) -> Path:
+    return BIN_DIR / filename
 
 
 def check(name, condition, detail=""):
@@ -475,11 +480,12 @@ def main():
 
     # --- Boot.prg ---
     print("=== boot.prg Structure ===")
+    boot_path = local_prg_path("boot.prg")
     try:
-        with open("boot.prg", "rb") as f:
+        with boot_path.open("rb") as f:
             boot = f.read()
     except FileNotFoundError:
-        print("  [FAIL] boot.prg not found. Run 'make' first.")
+        print(f"  [FAIL] boot.prg not found at {boot_path}. Run 'make' first.")
         return 1
 
     all_ok &= check("File size", 734 <= len(boot) <= 2050, f"{len(boot)} bytes (expect 734-2050)")
@@ -633,8 +639,9 @@ def main():
     # --- App Binaries ---
     print("\n=== App Binary Load Ranges ===")
     for app_name, prg in APP_PRGS:
+        prg_path = local_prg_path(prg)
         try:
-            load, end, payload = parse_prg_range(prg)
+            load, end, payload = parse_prg_range(prg_path)
             all_ok &= check(f"{prg} load", load == APP_LOAD_START,
                             f"${load:04X} (expect ${APP_LOAD_START:04X})")
             all_ok &= check(f"{prg} end<=snapshot", end <= APP_SNAPSHOT_END,
@@ -648,20 +655,21 @@ def main():
                 all_ok &= check(f"{prg} min headroom", file_headroom >= APP_HEADROOM_FAIL,
                                 f"{file_headroom} bytes (threshold={APP_HEADROOM_FAIL})")
         except FileNotFoundError:
-            all_ok &= check(prg, False, "NOT FOUND")
+            all_ok &= check(prg, False, f"NOT FOUND at {prg_path}")
         except ValueError as ex:
             all_ok &= check(prg, False, str(ex))
 
     print("\n=== ReadyShell Overlay Payloads ===")
     for label, prg in READYSHELL_OVERLAY_PRGS:
+        prg_path = local_prg_path(prg)
         try:
-            load, end, payload = parse_prg_range(prg)
+            load, end, payload = parse_prg_range(prg_path)
             all_ok &= check(f"{prg} load>=app", load >= APP_LOAD_START,
                             f"${load:04X} (expect >= ${APP_LOAD_START:04X})")
             all_ok &= check(f"{prg} end<=snapshot", end <= APP_SNAPSHOT_END,
                             f"${load:04X}-${end:04X}, payload={payload} bytes")
         except FileNotFoundError:
-            all_ok &= check(prg, False, "NOT FOUND")
+            all_ok &= check(prg, False, f"NOT FOUND at {prg_path}")
         except ValueError as ex:
             all_ok &= check(prg, False, str(ex))
 

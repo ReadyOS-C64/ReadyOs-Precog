@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROFILES_DIR = ROOT / "cfg" / "profiles"
 RELEASES_DIR = ROOT / "releases"
 LEGACY_RELEASE_DIR = ROOT / "release"
+BIN_DIR = ROOT / "bin"
 RELEASE_ROOT_README_TEMPLATE = ROOT / "docs" / "release_root_readme_template.md"
 AUTHORITATIVE_PROFILE_ID = "precog-dual-d71"
 AUTHORITATIVE_DATA_DIR = ROOT / "cfg" / "authoritative"
@@ -594,18 +595,25 @@ def build_boot_prg_filename(profile: Dict[str, object], version_text: str, stem:
     return f"readyos-v{version_text.lower()}-{str(profile['kind'])}-{stem}.prg"
 
 
+def repo_artifact_path(rel_path: str) -> Path:
+    rel = Path(rel_path)
+    if rel.suffix.lower() == ".prg" and len(rel.parts) == 1:
+        return BIN_DIR / rel
+    return ROOT / rel
+
+
 def boot_prg_specs(profile: Dict[str, object], version_text: str, output_dir: Path) -> List[Dict[str, str]]:
     specs = [
         {
             "stem": "preboot",
             "disk_name": "preboot",
-            "source": str(ROOT / "preboot.prg"),
+            "source": str(BIN_DIR / "preboot.prg"),
             "path": str(output_dir / build_boot_prg_filename(profile, version_text, "preboot")),
         },
         {
             "stem": "boot",
             "disk_name": "boot",
-            "source": str(ROOT / "boot.prg"),
+            "source": str(BIN_DIR / "boot.prg"),
             "path": str(output_dir / build_boot_prg_filename(profile, version_text, "boot")),
         },
     ]
@@ -614,7 +622,7 @@ def boot_prg_specs(profile: Dict[str, object], version_text: str, output_dir: Pa
             {
                 "stem": "setd71",
                 "disk_name": "setd71",
-                "source": str(ROOT / "setd71.prg"),
+                "source": str(BIN_DIR / "setd71.prg"),
                 "path": str(output_dir / build_boot_prg_filename(profile, version_text, "setd71")),
             }
         )
@@ -713,9 +721,9 @@ def write_preboot(preboot_mode: str, out_path: Path) -> None:
 
 def rebuild_profile_boot_chain(profile: Dict[str, object], version_text: str) -> None:
     run([sys.executable, str(ROOT / "build_support" / "update_build_version.py"), "--write", version_text])
-    targets = ["boot.prg", "preboot.prg"]
+    targets = ["bin/boot.prg", "bin/preboot.prg"]
     if str(profile["boot"]["preboot_mode"]) == "setd71":
-        targets.append("setd71.prg")
+        targets.append("bin/setd71.prg")
     run(["make", "-B", f"PROFILE={profile['id']}", f"READYOS_VERSION_TEXT={version_text}", *targets])
 
 
@@ -725,6 +733,7 @@ def ensure_generated_assets(profile: Dict[str, object],
                             override_run_first: str | None) -> None:
     obj_dir = ROOT / "obj"
     ensure_dir(obj_dir)
+    ensure_dir(BIN_DIR)
 
     run([
         sys.executable,
@@ -755,9 +764,9 @@ def ensure_generated_assets(profile: Dict[str, object],
         "--output", str(obj_dir / "tasklist_sample.seq"),
     ])
 
-    write_preboot(str(profile["boot"]["preboot_mode"]), ROOT / "preboot.prg")
+    write_preboot(str(profile["boot"]["preboot_mode"]), BIN_DIR / "preboot.prg")
     if str(profile["boot"]["preboot_mode"]) == "setd71":
-        run(["petcat", "-w2", "-o", str(ROOT / "setd71.prg"), str(ROOT / "src" / "boot" / "setd71.bas")])
+        run(["petcat", "-w2", "-o", str(BIN_DIR / "setd71.prg"), str(ROOT / "src" / "boot" / "setd71.bas")])
 
 
 def managed_build_names(profile: Dict[str, object], apps_set: set[str]) -> set[str]:
@@ -1221,7 +1230,7 @@ def build_release(profile_id: str,
             app_name = entry.get("app")
             if app_name and str(app_name) not in apps_set:
                 continue
-            host_path = ROOT / str(entry["artifact"])
+            host_path = repo_artifact_path(str(entry["artifact"]))
             if not host_path.exists():
                 fail(f"missing artifact for {profile_id}: {host_path}")
             write_spec = str(entry["name"])
