@@ -22,6 +22,7 @@
         { "artifact": "boot.prg", "name": "boot", "type": "prg" },
         { "artifact": "launcher.prg", "name": "launcher", "type": "prg" },
         { "artifact": "simplecells.prg", "name": "simplecells", "type": "prg" },
+        { "artifact": "calcplus.prg", "name": "calcplus", "type": "prg" },
         { "artifact": "game2048.prg", "name": "game2048", "type": "prg" },
         { "artifact": "deminer.prg", "name": "deminer", "type": "prg" },
         { "artifact": "obj/apps_cfg_petscii.seq", "name": "apps.cfg", "type": "seq" }

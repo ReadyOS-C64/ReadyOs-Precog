@@ -22,7 +22,6 @@
         { "artifact": "boot.prg", "name": "boot", "type": "prg" },
         { "artifact": "launcher.prg", "name": "launcher", "type": "prg" },
         { "artifact": "quicknotes.prg", "name": "quicknotes", "type": "prg" },
-        { "artifact": "calcplus.prg", "name": "calcplus", "type": "prg" },
         { "artifact": "clipmgr.prg", "name": "clipmgr", "type": "prg" },
         { "artifact": "simplefiles.prg", "name": "simplefiles", "type": "prg" },
         { "artifact": "obj/apps_cfg_petscii.seq", "name": "apps.cfg", "type": "seq" }

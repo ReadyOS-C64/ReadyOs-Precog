@@ -1,0 +1,18 @@
+[
+  {
+    "disk_name": "clipset3",
+    "type": "seq"
+  },
+  {
+    "disk_name": "ktemp10",
+    "type": "seq"
+  },
+  {
+    "disk_name": "mylines",
+    "type": "seq"
+  },
+  {
+    "disk_name": "myquicknotes",
+    "type": "seq"
+  }
+]

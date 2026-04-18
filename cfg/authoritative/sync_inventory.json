@@ -32,18 +32,18 @@
     "record_length": 32
   },
   {
-    "disk_name": "clipset3",
-    "repo_name": "clipset3.seq",
+    "disk_name": "clipboardexample",
+    "repo_name": "clipboardexample.seq",
     "type": "seq",
     "target_drive": 8,
     "app": "clipmgr"
   },
   {
-    "disk_name": "myquicknotes",
-    "repo_name": "myquicknotes.seq",
+    "disk_name": "exampletxt",
+    "repo_name": "exampletxt.seq",
     "type": "seq",
     "target_drive": 8,
-    "app": "quicknotes"
+    "app": "simplefiles"
   },
   {
     "disk_name": "quicknotesref",

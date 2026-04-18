@@ -26,6 +26,7 @@ LEGACY_RELEASE_DIR = ROOT / "release"
 AUTHORITATIVE_PROFILE_ID = "precog-dual-d71"
 AUTHORITATIVE_DATA_DIR = ROOT / "cfg" / "authoritative"
 SYNCABLE_AUTHORITATIVE_INDEX = AUTHORITATIVE_DATA_DIR / "sync_inventory.json"
+SYNCABLE_PURGE_INDEX = AUTHORITATIVE_DATA_DIR / "sync_purge_inventory.json"
 REL_SEED_D71_CANDIDATES = [
     ROOT / "readyos0-1-5.d71",
     ROOT.parent / "readyos0-1-5.d71",
@@ -205,6 +206,37 @@ def write_syncable_authoritative_inventory(entries: List[Dict[str, object]]) -> 
     tmp_path = SYNCABLE_AUTHORITATIVE_INDEX.with_suffix(".json.tmp")
     tmp_path.write_text(json.dumps(ordered, indent=2) + "\n", encoding="utf-8")
     tmp_path.replace(SYNCABLE_AUTHORITATIVE_INDEX)
+
+
+def normalize_syncable_purge_entry(entry: Dict[str, object]) -> Dict[str, object]:
+    normalized = {
+        "disk_name": str(entry["disk_name"]),
+        "type": str(entry["type"]).lower(),
+    }
+    if normalized["type"] not in {"seq", "rel", "usr"}:
+        fail(f"unsupported syncable purge file type: {normalized['type']}")
+    return normalized
+
+
+def load_syncable_purge_entries() -> List[Dict[str, object]]:
+    if not SYNCABLE_PURGE_INDEX.exists():
+        return []
+
+    payload = json.loads(SYNCABLE_PURGE_INDEX.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        fail(f"syncable purge inventory must be a JSON list: {SYNCABLE_PURGE_INDEX}")
+    return [normalize_syncable_purge_entry(entry) for entry in payload]
+
+
+def write_syncable_purge_inventory(entries: List[Dict[str, object]]) -> None:
+    ensure_dir(AUTHORITATIVE_DATA_DIR)
+    ordered = sorted(
+        (normalize_syncable_purge_entry(entry) for entry in entries),
+        key=lambda item: (str(item["type"]), str(item["disk_name"]).lower()),
+    )
+    tmp_path = SYNCABLE_PURGE_INDEX.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(ordered, indent=2) + "\n", encoding="utf-8")
+    tmp_path.replace(SYNCABLE_PURGE_INDEX)
 
 
 def build_owned_support_entries(apps_set: set[str] | None = None) -> List[Dict[str, object]]:
@@ -565,7 +597,11 @@ def ensure_generated_assets(profile: Dict[str, object],
 
 def managed_build_names(profile: Dict[str, object], apps_set: set[str]) -> set[str]:
     managed = {"apps.cfg"}
-    for entry in authoritative_support_entries(apps_set):
+    for entry in build_owned_support_entries(None):
+        managed.add(str(entry["disk_name"]))
+    for entry in syncable_authoritative_entries(None):
+        managed.add(str(entry["disk_name"]))
+    for entry in load_syncable_purge_entries():
         managed.add(str(entry["disk_name"]))
     return {name.lower() for name in managed}
 
@@ -757,6 +793,7 @@ def write_authoritative_support_file(entry: Dict[str, object], target_disk: Path
 def sync_authoritative_from_d71() -> None:
     manifest = resolve_profile(AUTHORITATIVE_PROFILE_ID, None, latest=True)
     sync_entries = load_syncable_authoritative_entries()
+    purge_entries = load_syncable_purge_entries()
     existing_by_disk_name = {
         (str(entry["disk_name"]).lower(), str(entry["type"]).lower()): entry
         for entry in sync_entries
@@ -828,11 +865,29 @@ def sync_authoritative_from_d71() -> None:
         previous_repo_names = {str(entry["repo_name"]) for entry in sync_entries}
         next_repo_names = {str(entry["repo_name"]) for entry in new_entries}
         removed_repo_names = sorted(previous_repo_names - next_repo_names)
+        current_name_types = {
+            (str(entry["disk_name"]).lower(), str(entry["type"]).lower())
+            for entry in new_entries
+        }
+        next_purge_by_key = {
+            (str(entry["disk_name"]).lower(), str(entry["type"]).lower()): normalize_syncable_purge_entry(entry)
+            for entry in purge_entries
+            if (str(entry["disk_name"]).lower(), str(entry["type"]).lower()) not in current_name_types
+        }
+        for entry in sync_entries:
+            key = (str(entry["disk_name"]).lower(), str(entry["type"]).lower())
+            if key in current_name_types:
+                continue
+            next_purge_by_key[key] = {
+                "disk_name": str(entry["disk_name"]),
+                "type": str(entry["type"]).lower(),
+            }
 
         for repo_name in removed_repo_names:
             (AUTHORITATIVE_DATA_DIR / repo_name).unlink(missing_ok=True)
 
         write_syncable_authoritative_inventory(new_entries)
+        write_syncable_purge_inventory(list(next_purge_by_key.values()))
 
         print(f"Synced authoritative support assets from {AUTHORITATIVE_PROFILE_ID}")
         print(f"  Source version: {manifest['version_text']}")
