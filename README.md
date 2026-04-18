@@ -36,6 +36,15 @@ Project links:
 - Homepage: https://readyos64.com
 - Wiki: https://readyos.notion.site/
 
+<img width="1430" height="1080" alt="image" src="https://github.com/user-attachments/assets/2053305a-46fe-4335-8394-9cb949982788" />
+
+<img width="1430" height="1080" alt="image" src="https://github.com/user-attachments/assets/c2b38cf6-803e-4c57-bbe4-67f4a9413fef" />
+<img width="1428" height="1086" alt="image" src="https://github.com/user-attachments/assets/8bcc8e00-8b6c-4de6-a0cd-b03b740b6a11" />
+<img width="1436" height="1076" alt="image" src="https://github.com/user-attachments/assets/d403df2f-0aa8-4dd3-aa71-495bbd41a638" />
+<img width="1436" height="1076" alt="image" src="https://github.com/user-attachments/assets/943470cc-10ef-483e-8edd-770c00407cbb" />
+<img width="1424" height="1070" alt="image (7)" src="https://github.com/user-attachments/assets/741b1a49-8d95-43c7-aaa3-e752fb5933a6" />
+
+
 ## Getting Started
 
 The canonical release layout is:
