@@ -14,8 +14,13 @@ CART_CONTROL = $DE02
 KERNAL_CINT  = $FF81
 KERNAL_IOINIT = $FF84
 KERNAL_RESTOR = $FF8A
+KERNAL_SETLFS = $FFBA
+KERNAL_SETNAM = $FFBD
+KERNAL_OPEN = $FFC0
+KERNAL_CLOSE = $FFC3
 KERNAL_CLRCHN = $FFCC
 KERNAL_BSOUT = $FFD2
+KERNAL_CLALL = $FFE7
 KERNAL_GETIN = $FFE4
 BASIC_COLD_START = $FCE2
 KERNAL_KEYLOG = $0289
@@ -221,6 +226,7 @@ easyflash_preload_verify_done:
     ; for keyboard IRQ scanning before the launcher enables interrupts.
     jsr KERNAL_RESTOR
     jsr restore_kernal_keyboard_state
+    jsr warm_storage_drive
 easyflash_after_kernal_init:
     lda #'T'
     jsr dbg_put
@@ -326,6 +332,26 @@ restore_kernal_keyboard_state:
     sta KERNAL_CURSOR_COLOR
     lda #$00
     sta KERNAL_PNTR
+    rts
+
+warm_storage_drive:
+    jsr KERNAL_CLRCHN
+    jsr KERNAL_CLALL
+    lda #$00
+    ldx #$00
+    ldy #$00
+    jsr KERNAL_SETNAM
+    lda #$0F
+    ldx SHIM_STORAGE_DRIVE
+    ldy #$0F
+    jsr KERNAL_SETLFS
+    jsr KERNAL_OPEN
+    bcs @cleanup
+    lda #$0F
+    jsr KERNAL_CLOSE
+@cleanup:
+    jsr KERNAL_CLRCHN
+    jsr KERNAL_CLALL
     rts
 
 clear_screen:
