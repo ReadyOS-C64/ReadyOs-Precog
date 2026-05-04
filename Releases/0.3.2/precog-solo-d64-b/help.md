@@ -1,0 +1,50 @@
+# precog (solo d64 subset b)
+
+- Release Line: `0.3.2`
+- Artifact Build: `0.3.2J`
+- Kind: `solo-d64-b`
+
+## Why This Variant Exists
+
+- Single-D64 productivity subset centered on quicknotes, clipboard, calculator, and files.
+
+## Artifacts
+
+- Drive 8: `readyos-v0.3.2j-solo-d64-b.d64`
+- Host-Side Boot PRG: `readyos-v0.3.2j-solo-d64-b-preboot.prg`
+- Host-Side Boot PRG: `readyos-v0.3.2j-solo-d64-b-boot.prg`
+
+## Included Apps
+
+- Drive 8: `simplefiles` - simple files
+- Drive 8: `clipmgr` - clipboard
+- Drive 8: `quicknotes` - quicknotes
+
+## VICE Setup
+
+- Enable REU with `16MB`.
+- The host-side boot PRGs are convenience autostart files. The disk copy of `PREBOOT` is still the normal disk-side bootstrap.
+- Configure drive 8 as `1541` with true drive enabled and attach `readyos-v0.3.2j-solo-d64-b.d64`.
+
+### VICE Command Example
+
+- Autostart target: `readyos-v0.3.2j-solo-d64-b-preboot.prg`
+
+```sh
+x64sc -reu -reusize 16384 -drive8type 1541 -drive8truedrive -devicebackend8 0 +busdevice8 -8 readyos-v0.3.2j-solo-d64-b.d64 -autostart readyos-v0.3.2j-solo-d64-b-preboot.prg
+```
+
+## Boot
+
+- This profile uses the direct boot chain `PREBOOT -> BOOT`.
+- There is no `SETD71` stage for this variant.
+- Attach the single disk on drive `8`, then autostart `readyos-v0.3.2j-solo-d64-b-preboot.prg` or run `LOAD "PREBOOT",8` then `RUN`.
+
+## C64 Ultimate
+
+- Copy the listed disk image files to the target storage.
+- Enable the REU and set it to `16MB`.
+- The host-side boot PRGs are optional convenience files for emulator launching; the disk-side `PREBOOT` entry is the standard hardware boot path.
+- Attach the single disk image on drive `8`, then boot with `LOAD "PREBOOT",8` and `RUN`.
+- This variant boots directly from `PREBOOT` into `BOOT` and does not use `SETD71`.
+

@@ -1,0 +1,111 @@
+{
+  "id": "precog-dual-d64",
+  "display_name": "precog (dual d64)",
+  "kind": "dual-d64",
+  "variant_boot_name": "precog dual d64",
+  "version_text": "0.3.2J",
+  "catalog_source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/cfg/profiles/precog-dual-d64.ini",
+  "autostart_prg": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.3.2/precog-dual-d64/readyos-v0.3.2j-dual-d64-preboot.prg",
+  "autostart_disk_prg": "preboot.prg",
+  "preboot_mode": "boot",
+  "disks": [
+    {
+      "index": 1,
+      "drive": 8,
+      "image_type": "d64",
+      "vice_drive_type": "1541",
+      "true_drive": true,
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.3.2/precog-dual-d64/readyos-v0.3.2j-dual-d64_1.d64"
+    },
+    {
+      "index": 2,
+      "drive": 9,
+      "image_type": "d64",
+      "vice_drive_type": "1541",
+      "true_drive": true,
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.3.2/precog-dual-d64/readyos-v0.3.2j-dual-d64_2.d64"
+    }
+  ],
+  "boot_prgs": [
+    {
+      "stem": "preboot",
+      "disk_name": "preboot",
+      "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/bin/preboot.prg",
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.3.2/precog-dual-d64/readyos-v0.3.2j-dual-d64-preboot.prg"
+    },
+    {
+      "stem": "boot",
+      "disk_name": "boot",
+      "source": "/Users/karlprosserpp/dev/c64projects/readyosprecog/bin/boot.prg",
+      "path": "/Users/karlprosserpp/dev/c64projects/readyosprecog/releases/0.3.2/precog-dual-d64/readyos-v0.3.2j-dual-d64-boot.prg"
+    }
+  ],
+  "apps": [
+    {
+      "drive": 9,
+      "prg": "editor",
+      "label": "editor",
+      "desc": "text editor with clipboard"
+    },
+    {
+      "drive": 8,
+      "prg": "readyshell",
+      "label": "readyshell (beta)",
+      "desc": "command shell poc scaffold"
+    },
+    {
+      "drive": 9,
+      "prg": "simplefiles",
+      "label": "simple files",
+      "desc": "dual pane file manager and seq viewer"
+    },
+    {
+      "drive": 8,
+      "prg": "clipmgr",
+      "label": "clipboard",
+      "desc": "manage clipboard items"
+    },
+    {
+      "drive": 8,
+      "prg": "cal26",
+      "label": "calendar 26",
+      "desc": "calendar for 2026 with appointments"
+    },
+    {
+      "drive": 9,
+      "prg": "tasklist",
+      "label": "task list",
+      "desc": "outliner with notes and search"
+    },
+    {
+      "drive": 9,
+      "prg": "sysinfo",
+      "label": "system info",
+      "desc": "system, reu, and ultimate status"
+    },
+    {
+      "drive": 8,
+      "prg": "quicknotes",
+      "label": "quicknotes",
+      "desc": "reu-backed note editor"
+    },
+    {
+      "drive": 9,
+      "prg": "calcplus",
+      "label": "calc plus",
+      "desc": "keyboard-first expression calculator"
+    },
+    {
+      "drive": 9,
+      "prg": "game2048",
+      "label": "2048 game",
+      "desc": "2048 tile puzzle"
+    },
+    {
+      "drive": 9,
+      "prg": "sidetris",
+      "label": "sidetris",
+      "desc": "sideways tetris"
+    }
+  ]
+}

@@ -41,6 +41,7 @@
         { "artifact": "editor.prg", "name": "editor", "type": "prg" },
         { "artifact": "calcplus.prg", "name": "calcplus", "type": "prg" },
         { "artifact": "tasklist.prg", "name": "tasklist", "type": "prg" },
+        { "artifact": "sysinfo.prg", "name": "sysinfo", "type": "prg" },
         { "artifact": "simplefiles.prg", "name": "simplefiles", "type": "prg" },
         { "artifact": "game2048.prg", "name": "game2048", "type": "prg" },
         { "artifact": "sidetris.prg", "name": "sidetris", "type": "prg" }

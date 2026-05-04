@@ -174,6 +174,7 @@ KNOWN_APP_NAMES = {
     "hexview",
     "clipmgr",
     "reuviewer",
+    "sysinfo",
     "tasklist",
     "simplefiles",
     "simplecells",

@@ -1,0 +1,240 @@
+{
+  "id": "precog-easyflash",
+  "display_name": "precog easyflash",
+  "kind": "easyflash",
+  "version_text": "0.3.2K",
+  "catalog_source": "cfg/flavors/readyos_easyflash.ini",
+  "artifacts": {
+    "crt": "releases/0.3.2/precog-easyflash/readyos_easyflash.crt",
+    "data_disk": "releases/0.3.2/precog-easyflash/readyos_data.d64",
+    "raw_bin": "releases/0.3.2/precog-easyflash/readyos_easyflash.bin",
+    "layout": "releases/0.3.2/precog-easyflash/layout.json"
+  },
+  "apps": [
+    {
+      "bank": 1,
+      "prg": "editor",
+      "label": "editor",
+      "desc": "text editor with clipboard",
+      "default_slot": 1
+    },
+    {
+      "bank": 2,
+      "prg": "readyshell",
+      "label": "readyshell (beta)",
+      "desc": "command shell poc scaffold",
+      "default_slot": 2
+    },
+    {
+      "bank": 3,
+      "prg": "simplefiles",
+      "label": "simple files",
+      "desc": "dual pane file manager and seq viewer",
+      "default_slot": 0
+    },
+    {
+      "bank": 4,
+      "prg": "clipmgr",
+      "label": "clipboard",
+      "desc": "manage clipboard items",
+      "default_slot": 0
+    },
+    {
+      "bank": 5,
+      "prg": "cal26",
+      "label": "calendar 26",
+      "desc": "calendar for 2026 with appointments",
+      "default_slot": 0
+    },
+    {
+      "bank": 6,
+      "prg": "tasklist",
+      "label": "task list",
+      "desc": "outliner with notes and search",
+      "default_slot": 0
+    },
+    {
+      "bank": 7,
+      "prg": "reuviewer",
+      "label": "reu viewer",
+      "desc": "view reu memory usage",
+      "default_slot": 0
+    },
+    {
+      "bank": 8,
+      "prg": "sysinfo",
+      "label": "system info",
+      "desc": "system, reu, and ultimate status",
+      "default_slot": 0
+    },
+    {
+      "bank": 9,
+      "prg": "quicknotes",
+      "label": "quicknotes",
+      "desc": "reu-backed note editor",
+      "default_slot": 0
+    },
+    {
+      "bank": 10,
+      "prg": "calcplus",
+      "label": "calc plus",
+      "desc": "keyboard-first expression calculator",
+      "default_slot": 0
+    },
+    {
+      "bank": 11,
+      "prg": "hexview",
+      "label": "hex viewer",
+      "desc": "browse memory in hex format",
+      "default_slot": 0
+    },
+    {
+      "bank": 12,
+      "prg": "simplecells",
+      "label": "simple cells (alpha)",
+      "desc": "spreadsheet with formulas and colors",
+      "default_slot": 0
+    },
+    {
+      "bank": 13,
+      "prg": "game2048",
+      "label": "2048 game",
+      "desc": "2048 tile puzzle",
+      "default_slot": 0
+    },
+    {
+      "bank": 14,
+      "prg": "sidetris",
+      "label": "sidetris",
+      "desc": "sideways tetris",
+      "default_slot": 0
+    },
+    {
+      "bank": 15,
+      "prg": "deminer",
+      "label": "deminer",
+      "desc": "minesweeper-style puzzle",
+      "default_slot": 0
+    },
+    {
+      "bank": 16,
+      "prg": "dizzy",
+      "label": "dizzy kanban",
+      "desc": "fizzy inspired kanban app",
+      "default_slot": 0
+    },
+    {
+      "bank": 17,
+      "prg": "readme",
+      "label": "read.me",
+      "desc": "readyos, ultimate buddy, precog poc os",
+      "default_slot": 0
+    }
+  ],
+  "launcher": {
+    "artifact": "bin/launcher_easyflash.prg",
+    "start_bank": 1,
+    "bank_span": 2,
+    "load_addr": 4096,
+    "payload_len": 31060,
+    "checksum16": 5968
+  },
+  "overlays": [
+    {
+      "name": "rsparser",
+      "artifact": "bin/rsparser.prg",
+      "start_bank": 36,
+      "bank_span": 1,
+      "load_addr": 36352,
+      "payload_len": 13005,
+      "checksum16": 20290,
+      "reu_bank": 64,
+      "reu_off": 0,
+      "valid_bit": 1
+    },
+    {
+      "name": "rsvm",
+      "artifact": "bin/rsvm.prg",
+      "start_bank": 37,
+      "bank_span": 1,
+      "load_addr": 36352,
+      "payload_len": 14033,
+      "checksum16": 19005,
+      "reu_bank": 64,
+      "reu_off": 14336,
+      "valid_bit": 2
+    },
+    {
+      "name": "rsdrvilst",
+      "artifact": "bin/rsdrvilst.prg",
+      "start_bank": 38,
+      "bank_span": 1,
+      "load_addr": 36352,
+      "payload_len": 11272,
+      "checksum16": 4429,
+      "reu_bank": 64,
+      "reu_off": 28672,
+      "valid_bit": 4
+    },
+    {
+      "name": "rsldv",
+      "artifact": "bin/rsldv.prg",
+      "start_bank": 39,
+      "bank_span": 1,
+      "load_addr": 36352,
+      "payload_len": 11884,
+      "checksum16": 24109,
+      "reu_bank": 65,
+      "reu_off": 0,
+      "valid_bit": 8
+    },
+    {
+      "name": "rsstv",
+      "artifact": "bin/rsstv.prg",
+      "start_bank": 40,
+      "bank_span": 1,
+      "load_addr": 36352,
+      "payload_len": 10205,
+      "checksum16": 37609,
+      "reu_bank": 64,
+      "reu_off": 43008,
+      "valid_bit": 16
+    },
+    {
+      "name": "rsfops",
+      "artifact": "bin/rsfops.prg",
+      "start_bank": 41,
+      "bank_span": 1,
+      "load_addr": 36352,
+      "payload_len": 14333,
+      "checksum16": 50495,
+      "reu_bank": 65,
+      "reu_off": 14336,
+      "valid_bit": 32
+    },
+    {
+      "name": "rscat",
+      "artifact": "bin/rscat.prg",
+      "start_bank": 42,
+      "bank_span": 1,
+      "load_addr": 36352,
+      "payload_len": 8078,
+      "checksum16": 46542,
+      "reu_bank": 65,
+      "reu_off": 28672,
+      "valid_bit": 64
+    },
+    {
+      "name": "rscopy",
+      "artifact": "bin/rscopy.prg",
+      "start_bank": 43,
+      "bank_span": 1,
+      "load_addr": 36352,
+      "payload_len": 6599,
+      "checksum16": 62993,
+      "reu_bank": 65,
+      "reu_off": 43008,
+      "valid_bit": 128
+    }
+  ]
+}

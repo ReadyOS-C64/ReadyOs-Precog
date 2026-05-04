@@ -3,14 +3,14 @@
 #define READYOS_EASYFLASH_VARIANT_NAME "precog easyflash"
 #define READYOS_EASYFLASH_VARIANT_BOOT_NAME "precog cartridge (beta)"
 #define READYOS_EASYFLASH_RUNAPPFIRST ""
-#define READYOS_EASYFLASH_APP_COUNT 16
+#define READYOS_EASYFLASH_APP_COUNT 17
 
 static const unsigned char readyos_easyflash_app_banks[READYOS_EASYFLASH_APP_COUNT] = {
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
 };
 
 static const unsigned char readyos_easyflash_default_slots[READYOS_EASYFLASH_APP_COUNT] = {
-    1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
 static const char *const readyos_easyflash_prgs[READYOS_EASYFLASH_APP_COUNT] = {
@@ -21,6 +21,7 @@ static const char *const readyos_easyflash_prgs[READYOS_EASYFLASH_APP_COUNT] = {
     "cal26",
     "tasklist",
     "reuviewer",
+    "sysinfo",
     "quicknotes",
     "calcplus",
     "hexview",
@@ -40,6 +41,7 @@ static const char *const readyos_easyflash_labels[READYOS_EASYFLASH_APP_COUNT] =
     "calendar 26",
     "task list",
     "reu viewer",
+    "system info",
     "quicknotes",
     "calc plus",
     "hex viewer",
@@ -59,6 +61,7 @@ static const char *const readyos_easyflash_descs[READYOS_EASYFLASH_APP_COUNT] = 
     "calendar for 2026 with appointments",
     "outliner with notes and search",
     "view reu memory usage",
+    "system, reu, and ultimate status",
     "reu-backed note editor",
     "keyboard-first expression calculator",
     "browse memory in hex format",

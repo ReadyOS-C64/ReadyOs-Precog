@@ -55,6 +55,7 @@
         { "artifact": "hexview.prg", "name": "hexview", "type": "prg" },
         { "artifact": "clipmgr.prg", "name": "clipmgr", "type": "prg" },
         { "artifact": "reuviewer.prg", "name": "reuviewer", "type": "prg" },
+        { "artifact": "sysinfo.prg", "name": "sysinfo", "type": "prg" },
         { "artifact": "tasklist.prg", "name": "tasklist", "type": "prg" },
         { "artifact": "simplefiles.prg", "name": "simplefiles", "type": "prg" },
         { "artifact": "simplecells.prg", "name": "simplecells", "type": "prg" },
