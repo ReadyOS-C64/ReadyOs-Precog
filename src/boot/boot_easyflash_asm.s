@@ -16,6 +16,8 @@ KERNAL_IOINIT = $FF84
 KERNAL_RESTOR = $FF8A
 KERNAL_CLRCHN = $FFCC
 KERNAL_BSOUT = $FFD2
+KERNAL_GETIN = $FFE4
+BASIC_COLD_START = $FCE2
 KERNAL_KEYLOG = $0289
 KERNAL_DELAY = $028B
 KERNAL_KOUNT = $028C
@@ -67,12 +69,14 @@ BOOT_LINE0        = SCREEN_RAM + (40 * 0)
 BOOT_LINE1        = SCREEN_RAM + (40 * 1)
 BOOT_STATUS_LINE  = SCREEN_RAM + (40 * 3)
 BOOT_DETAIL_LINE  = SCREEN_RAM + (40 * 5)
+BOOT_PROMPT_LINE  = SCREEN_RAM + (40 * 6)
 BOOT_BG_COLOR     = $06
 BOOT_BORDER_LOADER = $0E
 BOOT_BORDER_SHIM   = $05
 BOOT_BORDER_CART   = $07
 BOOT_BORDER_REU    = $08
 BOOT_BORDER_HANDOFF = $0D
+BOOT_BORDER_ERROR  = $02
 REU_MAGIC_VALUE   = $A5
 SHIM_STORAGE_DRIVE = $C839
 READYSHELL_OVL_META_VERSION = 2
@@ -97,6 +101,9 @@ DIAG_ACTUAL_LO = $CA0D
 DIAG_ACTUAL_HI = $CA0E
 DIAG_MISMATCH_LO = $CA0F
 DIAG_MISMATCH_HI = $CA10
+REU_PROBE_SRC = $CA11
+REU_PROBE_DST = $CA12
+REU_PROBE_BANK = $FE
 APP_TABLE_RAM = $CC00
 OVERLAY_TABLE_RAM = $CC90
 APP_TABLE_BYTES = EASYFLASH_APP_COUNT * 9
@@ -140,6 +147,10 @@ start:
     jsr dbg_put
     jsr clear_screen
     jsr draw_boot_header
+    jsr reu_probe_present
+    bcc @reu_ok
+    jmp reu_required_exit_to_basic
+@reu_ok:
     lda #'C'
     jsr dbg_put
     jsr show_stage_shim
@@ -266,6 +277,11 @@ set_stage_border_reu:
 
 set_stage_border_handoff:
     lda #BOOT_BORDER_HANDOFF
+    sta $D020
+    rts
+
+set_stage_border_error:
+    lda #BOOT_BORDER_ERROR
     sta $D020
     rts
 
@@ -445,6 +461,36 @@ show_stage_handoff:
     sta src_hi
     jmp show_status_literal
 
+show_reu_required_message:
+    jsr set_stage_border_error
+    lda #<msg_stage_reu_missing
+    sta src_lo
+    lda #>msg_stage_reu_missing
+    sta src_hi
+    lda #<BOOT_STATUS_LINE
+    sta dst_lo
+    lda #>BOOT_STATUS_LINE
+    sta dst_hi
+    jsr print_row_from_src
+    lda #<msg_detail_reu_missing
+    sta src_lo
+    lda #>msg_detail_reu_missing
+    sta src_hi
+    lda #<BOOT_DETAIL_LINE
+    sta dst_lo
+    lda #>BOOT_DETAIL_LINE
+    sta dst_hi
+    jsr print_row_from_src
+    lda #<msg_detail_reu_prompt
+    sta src_lo
+    lda #>msg_detail_reu_prompt
+    sta src_hi
+    lda #<BOOT_PROMPT_LINE
+    sta dst_lo
+    lda #>BOOT_PROMPT_LINE
+    sta dst_hi
+    jmp print_row_from_src
+
 write_two_digits_at:
     sty chunk_hi
     ldx #'0'
@@ -579,6 +625,93 @@ copy_loader_tail_from_cart:
     dec pages_left
     bne @tail_page_loop
     jmp cart_disable_for_reu
+
+reu_probe_present:
+    lda #$A5
+    sta REU_PROBE_SRC
+    lda #$00
+    sta REU_PROBE_DST
+    lda #<REU_PROBE_SRC
+    sta dst_lo
+    lda #>REU_PROBE_SRC
+    sta dst_hi
+    lda #REU_PROBE_BANK
+    sta reu_bank_zp
+    lda #$00
+    sta reu_off_lo
+    sta reu_off_hi
+    lda #$01
+    sta rem_lo
+    lda #$00
+    sta rem_hi
+    jsr reu_stash_window
+    lda #<REU_PROBE_DST
+    sta dst_lo
+    lda #>REU_PROBE_DST
+    sta dst_hi
+    lda #REU_PROBE_BANK
+    sta reu_bank_zp
+    lda #$00
+    sta reu_off_lo
+    sta reu_off_hi
+    lda #$01
+    sta rem_lo
+    lda #$00
+    sta rem_hi
+    jsr reu_fetch_window
+    lda REU_PROBE_DST
+    cmp REU_PROBE_SRC
+    beq @present
+    sec
+    rts
+@present:
+    clc
+    rts
+
+reu_required_exit_to_basic:
+    jsr cart_disable_for_reu
+    lda #$37
+    sta $01
+    lda #$2F
+    sta $00
+    jsr KERNAL_IOINIT
+    jsr KERNAL_RESTOR
+    lda CIA2_DDRA
+    ora #$03
+    sta CIA2_DDRA
+    lda CIA2_PRA
+    and #$FC
+    ora #$03
+    sta CIA2_PRA
+    lda #$1B
+    sta VIC_CTRL1
+    lda #$08
+    sta VIC_CTRL2
+    lda #$14
+    sta VIC_MEM
+    lda #$04
+    sta KERNAL_HIBASE
+    jsr KERNAL_CINT
+    jsr KERNAL_CLRCHN
+    lda #VIC_MEM_LOWERCASE
+    sta VIC_MEM
+    lda #CH_FONT_LOWER
+    jsr KERNAL_BSOUT
+    jsr KERNAL_RESTOR
+    jsr restore_kernal_keyboard_state
+    jsr clear_screen
+    jsr draw_boot_header
+    jsr show_reu_required_message
+    lda CIA1_ICR
+    lda CIA2_ICR
+    cli
+@wait_key:
+    jsr KERNAL_GETIN
+    beq @wait_key
+    sei
+    lda CIA1_ICR
+    lda CIA2_ICR
+    jmp BASIC_COLD_START
 
 init_reu_state:
     ldx #$00
@@ -1070,6 +1203,12 @@ msg_stage_verify:
     .asciiz "VERIFYING PRELOADS"
 msg_stage_handoff:
     .asciiz "HANDOFF TO LAUNCHER"
+msg_stage_reu_missing:
+    .asciiz "REU NOT DETECTED"
+msg_detail_reu_missing:
+    .asciiz "EASYFLASH REQUIRES REU"
+msg_detail_reu_prompt:
+    .asciiz "PRESS ANY KEY TO RETURN TO BASIC"
 msg_app_template:
     .asciiz "APP 00/00 REU 00"
 msg_overlay_template:
