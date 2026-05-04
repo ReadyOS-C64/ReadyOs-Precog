@@ -1374,6 +1374,7 @@ static unsigned char load_all_to_reu_internal(unsigned char interactive) {
     unsigned char bitmap_complete;
     unsigned char status_x;
     unsigned char done_x;
+    unsigned char separator_x;
     unsigned char success;
     static unsigned char missing_slots[MAX_APPS];
 
@@ -1465,8 +1466,16 @@ static unsigned char load_all_to_reu_internal(unsigned char interactive) {
                          TUI_COLOR_LIGHTGREEN, TUI_COLOR_GRAY2);
         tui_puts_n(4, counter_y, "", 8, TUI_COLOR_WHITE);  /* Clear counter */
         tui_print_uint(4, counter_y, loaded_count, TUI_COLOR_WHITE);
-        tui_puts(5, counter_y, "/", TUI_COLOR_WHITE);
-        tui_print_uint(6, counter_y, total_to_load, TUI_COLOR_WHITE);
+        separator_x = 5;
+        if (loaded_count >= 10) {
+            ++separator_x;
+        }
+        if (loaded_count >= 100) {
+            ++separator_x;
+        }
+        tui_puts(separator_x, counter_y, "/", TUI_COLOR_WHITE);
+        tui_print_uint((unsigned char)(separator_x + 1), counter_y,
+                       total_to_load, TUI_COLOR_WHITE);
     }
 
     /* Final authoritative check: all catalog-assigned banks must be present. */
