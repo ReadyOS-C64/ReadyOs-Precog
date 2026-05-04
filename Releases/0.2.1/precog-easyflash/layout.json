@@ -4,8 +4,8 @@
     "start_bank": 1,
     "bank_span": 2,
     "load_addr": 4096,
-    "payload_len": 30922,
-    "checksum16": 35526
+    "payload_len": 30998,
+    "checksum16": 62081
   },
   "apps": [
     {
@@ -196,8 +196,8 @@
       "start_bank": 33,
       "bank_span": 2,
       "load_addr": 4096,
-      "payload_len": 22641,
-      "checksum16": 37650,
+      "payload_len": 23452,
+      "checksum16": 5359,
       "default_slot": 0
     }
   ],

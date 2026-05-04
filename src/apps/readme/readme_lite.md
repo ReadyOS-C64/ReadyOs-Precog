@@ -164,6 +164,25 @@ Disk layout:
   - `precog-dual-d71`: full app set on two `1571` disks
   - `precog-d81`: full app set on one `1581` disk
   - `precog-dual-d64`: reduced app set on two `1541` disks
+  - `precog-easyflash`: EasyFlash `CRT` plus companion `D64` on drive `8`
+
+### Cartridge Variant
+
+The EasyFlash cartridge build still expects a companion data disk on
+drive `8`.
+
+Cold boot notes:
+- Mount `readyos_data.d64` on drive `8`, attach `readyos_easyflash.crt`,
+  then reset.
+- The long preload is normal. The cartridge is filling launcher, app,
+  and overlay snapshots into the REU before the launcher appears.
+- Yellow border means the current launcher, app, or overlay payload is
+  being copied from cartridge into RAM.
+- Brown or orange border means that staged RAM image is being copied
+  into the REU.
+- When yellow and brown/orange alternate back and forth, one app or
+  overlay is being processed as a pair: cartridge to RAM first, then
+  RAM to REU.
 
 ### Boot-Side Apps
 

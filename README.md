@@ -85,6 +85,24 @@ Boot note:
 - Builds release media per profile
 - Currently includes `16` apps with `24` app slots reserved in the REU
 
+## What's New In 0.2.1
+
+- New `precog-easyflash` cartridge SKU for VICE and Ultimate-family setups.
+  It boots from an EasyFlash `CRT`, keeps a companion `D64` on drive `8`, and
+  preloads the launcher, app snapshots, and ReadyShell overlays into the REU.
+- The cartridge path now has a supporting build and verification stack rather
+  than being a one-off artifact. The release flow generates the `CRT`, raw
+  EasyFlash image, layout metadata, companion disk, cartridge docs, and the
+  EasyFlash smoke verification path used by local release checks.
+- Cartridge boot visibility is better than it was in the `0.2` line. The
+  border colors now indicate loader setup, shim setup, cartridge-to-RAM copy,
+  RAM-to-REU transfer, final handoff, and the explicit REU-missing error path.
+- The EasyFlash loader now checks for REU early and returns to BASIC on a key
+  press if REU is missing instead of trying to continue in a broken state.
+- A small launcher progress-display bug was fixed in the normal load-all-to-REU
+  path so the on-screen X/Y preload counter stays correct while the standard
+  disk variants are filling app snapshots into the REU.
+
 ## Release Variants
 
 ReadyOS now ships the same runtime in `9` public media variants because the

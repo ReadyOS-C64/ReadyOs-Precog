@@ -4,9 +4,9 @@ ReadyOS PRECOG is an experimental REU-first environment for a modern Commodore
 64 setup. Its long-term center of gravity is the new Commodore 64 Ultimate and
 related Ultimate-family hardware, but it is intended to support a wide range of
 C64 setups that have a reasonably large REU. This release line is organized as
-multiple media variants so the same ReadyOS runtime can fit different real-world
-C64 environments without pretending every machine, cartridge, loader, or
-emulator mounts the same media.
+multiple media variants so the same ReadyOS runtime can fit different
+real-world C64 environments without pretending every machine, cartridge,
+loader, or emulator mounts the same media.
 
 - Public release line: `0.2.1`
 - Current artifact build in this tree: `0.2.1`
@@ -19,10 +19,10 @@ README is the landing page for the whole release line. The profile folders next
 to it are the actual ReadyOS SKUs for different disk, drive, and cartridge
 constraints.
 
-The current public `0.2.1` release is still comparatively generic rather than
-being explicitly tailored to the new C64 Ultimate. The next release is expected
-to push further in that Ultimate-first direction while still trying to stay
-usable on other REU-capable C64 setups.
+The current public `0.2.1` release is still comparatively generic
+rather than being explicitly tailored to the new C64 Ultimate. The next release
+is expected to push further in that Ultimate-first direction while still trying
+to stay usable on other REU-capable C64 setups.
 
 ## What ReadyOS Is
 
@@ -37,9 +37,43 @@ C64 workflow should feel immediate once the machine is up:
 - REU-backed state so the machine can behave more like a ready workspace than a
   single-program-at-a-time disk menu
 
-The current public release line is `0.2.1`. Full-content ReadyOS profiles
-currently expose `16` launcher-visible apps, with the exact app mix depending
-on the variant you choose.
+The current public release line is `0.2.1`. Full-content ReadyOS
+profiles currently expose `16` launcher-visible apps, with
+the exact app mix depending on the variant you choose.
+
+## What's New In 0.2.1
+
+- `0.2.1` adds `precog-easyflash`, a cartridge-oriented SKU for VICE and
+  Ultimate-family setups that can boot an EasyFlash `CRT` while keeping a
+  companion `D64` mounted on drive `8`.
+- The cartridge path now has a proper release workflow around it: EasyFlash
+  image generation, layout metadata, companion disk packaging, release docs,
+  and smoke verification are part of the same build and verification stack as
+  the disk profiles.
+- Cartridge cold boot now exposes its progress more clearly. Border colors show
+  loader control flow, shim setup, cartridge-to-RAM copy, RAM-to-REU transfer,
+  final handoff, and the explicit REU-missing path.
+- The EasyFlash loader now checks for REU early and returns to BASIC on a key
+  press when REU is missing instead of continuing into a broken runtime.
+- The normal launcher preload path also picked up a small X/Y progress-counter
+  fix so the load-all-to-REU display stays correct on the regular disk SKUs.
+
+## What's New In 0.2.1
+
+- `0.2.1` adds `precog-easyflash`, a cartridge-oriented SKU for VICE and
+  Ultimate-family setups that can boot an EasyFlash `CRT` while keeping a
+  companion `D64` mounted on drive `8`.
+- The cartridge path now has a proper release workflow around it: EasyFlash
+  image generation, layout metadata, companion disk packaging, release docs,
+  and smoke verification are part of the same build and verification stack as
+  the disk profiles.
+- Cartridge cold boot now exposes its progress more clearly. Border colors show
+  loader control flow, shim setup, cartridge-to-RAM copy, RAM-to-REU transfer,
+  final handoff, and the explicit REU-missing path.
+- The EasyFlash loader now checks for REU early and returns to BASIC on a key
+  press when REU is missing instead of continuing into a broken runtime.
+- The normal launcher preload path also picked up a small X/Y progress-counter
+  fix so the load-all-to-REU display stays correct on the regular disk SKUs.
 
 ## Why There Are Multiple Variants
 
@@ -53,7 +87,7 @@ ReadyOS wants to run on:
 - THEC64 Mini and Maxi style workflows
 - web C64 emulators and simplified loaders that may only mount a single `D64`
 
-Those environments differ in four important ways:
+Those environments differ in three important ways:
 
 1. Drive type support.
    Some setups are happy with `1571` or `1581` style media, while others are
@@ -64,11 +98,7 @@ Those environments differ in four important ways:
    mount one disk image at once, which forces ReadyOS into smaller curated
    subsets.
 
-3. Cartridge support.
-   Some setups, especially VICE and Ultimate-family hardware, can boot a
-   cartridge image cleanly and still keep a companion disk mounted.
-
-4. REU path and convenience model.
+3. REU path and convenience model.
    ReadyOS is designed for an REU-capable path. VICE can emulate that cleanly,
    Ultimate-family hardware can provide it directly, and some other modern
    setups can approximate it well enough to be practical. But the storage SKU
@@ -82,10 +112,10 @@ changes to match the target.
 
 - If you are on C64 Ultimate, Ultimate 64, or VICE and want the cartridge boot
   path with the fullest current preload behavior: start with `precog-easyflash`.
-- If your setup prefers a full-content disk-only path and is comfortable with
+- If your setup wants the main local verification target and is comfortable with
   two mounted `1571` drives: use `precog-dual-d71`.
-- If your setup prefers one full-content image on a `1581` / `D81` path: use
-  `precog-d81`.
+- If your setup prefers one full-content image on a `1581` / `D81` path and not
+  the cartridge flow: use `precog-d81`.
 - If you only have `1541`-class compatibility but can mount two disks: use
   `precog-dual-d64`.
 - If you can only mount one `D64` at a time, especially in simpler emulators,
@@ -123,35 +153,10 @@ The release line is centered on these public folders:
 - `precog-solo-d64-e/`
 
 Depending on whether a local workflow built one profile or all profiles, a
-working tree may not contain every folder until the full multi-profile build
-has been run. The intended GitHub release layout is this shared root README
-plus the variant folders that carry the actual images, boot PRGs, `manifest.json`,
-and per-variant `help.md` / `helpme.md`.
-
-## The Cartridge SKU
-
-`precog-easyflash` is the cartridge-oriented member of the same release family.
-
-- The cartridge contains the EasyFlash boot code plus the launcher, app
-  payloads, and ReadyShell overlays used during cold boot preload.
-- The companion `readyos_data.d64` stays on drive `8` and provides the normal
-  disk-backed runtime target for docs, user files, and app data.
-- The on-screen boot label now reads `precog cartridge (beta)`, even though the
-  release folder and artifact names still use `precog-easyflash`.
-- Cold boot is longer than the disk variants because the loader prebuilds the
-  launcher, app, and overlay REU snapshots up front.
-- The boot loader now checks for REU very early. If REU is missing, it shows an
-  explicit error, waits for a keypress, and then returns to BASIC cold start.
-- The border colors now act as a progress signal during that preload.
-- light blue: loader control flow
-- green: shim setup
-- yellow: cartridge-to-RAM copy
-- orange: RAM-to-REU stash or REU restore
-- light green: final launcher handoff
-- red: REU missing, waiting for keypress to return to BASIC
-
-If you want the closest thing to a console-like ReadyOS boot path on VICE or
-Ultimate-family hardware, this is the SKU to start with.
+working tree may not contain every folder until the full multi-profile build has
+been run. The intended GitHub release layout is this shared root README plus the
+variant folders that carry the actual images, boot PRGs, `manifest.json`, and
+per-variant `help.md` / `helpme.md`.
 
 ## How To Think About The Variants
 
@@ -160,9 +165,8 @@ question: "What is the best ReadyOS shape for this storage environment?"
 
 - `precog-easyflash` is the cartridge-plus-disk option for setups that can boot
   an EasyFlash image and still keep drive `8` online.
-- `precog-dual-d71` is the broadest disk-only "mainline" profile when two
-  `1571`-class drives are available. It remains the primary local verification
-  target.
+- `precog-dual-d71` is the broadest "mainline" profile when two `1571`-class
+  drives are available. It remains the primary local verification target.
 - `precog-d81` is the cleanest single-image full-content option when `1581`
   support is available.
 - `precog-dual-d64` exists because many C64-adjacent environments still top out
@@ -191,28 +195,23 @@ Recommended baseline:
 On real C64 hardware, the exact cartridge or expansion path can vary. The main
 question is not the brand of REU-capable device, but whether the setup can
 deliver the REU behavior the runtime expects and whether the chosen media SKU
-matches the drive or cartridge constraints of that setup.
+matches the drive constraints of that setup.
 
 ## Debug Variants
 
-This release line also ships debug-trace variants for ReadyShell development:
-`precog-d81-rsdebug`, `precog-dual-d71-rsdebug`, `precog-solo-d64-e-rsdebug`.
-They are intended for debugging and instrumentation, not as the default end-user
-choice.
+This release line also ships debug-trace variants for ReadyShell development: `precog-d81-rsdebug`, `precog-dual-d71-rsdebug`, `precog-solo-d64-e-rsdebug`. They are intended for debugging and instrumentation, not as the default end-user choice.
 
 If you are just trying to run ReadyOS, prefer the non-debug variants first.
 
 ## Where To Go Next
 
 - Start with the variant folder that matches your environment.
-- Read that folder's `helpme.md` for exact boot and setup details.
+- Read that folder's `helpme.md` for exact boot and VICE setup details.
 - Use [readyos64.com](https://readyos64.com) as the public front door.
-- Use [readyos.notion.site](https://readyos.notion.site) for the more wiki-like
-  working docs.
-- Use [GitHub](https://github.com/ReadyOS-C64/ReadyOs) for source, issues, and
-  future packaged releases.
+- Use [readyos.notion.site](https://readyos.notion.site) for the more wiki-like working docs.
+- Use [GitHub](https://github.com/ReadyOS-C64/ReadyOs) for source, issues, and future packaged releases.
 
-ReadyOS `0.2.1` is still explicitly experimental, but the purpose of this
-release layout is simple: make it easier to pick the right image for the
+ReadyOS `0.2.1` is still explicitly experimental, but the purpose
+of this release layout is simple: make it easier to pick the right image for the
 hardware or emulator in front of you, instead of assuming every C64 environment
 looks the same.
