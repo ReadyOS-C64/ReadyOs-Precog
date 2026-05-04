@@ -76,6 +76,7 @@ Boot note:
 - disk SKUs boot with the documented `PREBOOT` chain for that profile
 - `precog-easyflash` boots by mounting `readyos_data.d64` on drive `8`,
   attaching `readyos_easyflash.crt`, and resetting into the cartridge
+- during that boot, the on-screen cartridge label reads `precog cartridge (beta)`
 
 ## Current Status
 
@@ -106,6 +107,10 @@ the expected runtime. The cartridge contains the EasyFlash boot code and the
 preloaded payloads, while drive `8` remains the normal disk-backed place for
 runtime files, help content, and app data.
 
+The cartridge SKU also now performs an explicit early REU check. If REU is not
+present, the boot loader shows a clear error, waits for a keypress, and returns
+to BASIC cold start instead of trying to continue.
+
 The dual-D64 profile is intentionally smaller. Right now it keeps the core
 productivity path that fits on two `D64`s: `editor`, `quicknotes`,
 `calcplus`, `clipmgr`, `tasklist`, `simplefiles`, `game2048`, `sidetris`,
@@ -125,6 +130,7 @@ visibly doing work.
 - yellow border: cartridge-to-RAM copy
 - orange border: RAM-to-REU stash or REU restore
 - light green border: final launcher handoff
+- red border: REU missing, waiting for keypress to return to BASIC
 
 The blue background remains constant. Long yellow or orange phases are expected
 and mean the machine is still preloading launcher, app, and overlay snapshots.

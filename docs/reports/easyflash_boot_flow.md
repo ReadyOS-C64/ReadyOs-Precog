@@ -1,8 +1,12 @@
 # ReadyOS EasyFlash Boot Flow
 
-This document describes how the current ReadyOS EasyFlash cartridge flavor boots, what executes where, when cartridge banking happens, when it does not, how REU preload works, and why the machine appears to sit on a blue screen for a long time before the launcher appears.
+This document describes how the current ReadyOS EasyFlash cartridge flavor boots, what executes where, when cartridge banking happens, when it does not, how REU preload works, how the early REU-required guard behaves, and why the machine appears to sit on a blue screen for a long time before the launcher appears.
 
 The description is based on the current source and generated layout in this repository, not on a hypothetical design.
+
+On screen, this SKU now identifies itself during boot as `precog cartridge (beta)`.
+The release folder, artifact names, and flavor name still remain `precog-easyflash`
+for packaging and build purposes.
 
 ## Scope
 
@@ -104,6 +108,7 @@ preload.
 | yellow border | `$D020` | copying payload from cartridge into RAM | launcher, app, and overlay payload reads |
 | orange border | `$D020` | moving staged RAM into REU or restoring from REU | snapshot stash and final launcher restore |
 | light green border | `$D020` | final handoff into the launcher | just before `jmp $1000` |
+| red border | `$D020` | REU-missing error path | REU check failed, waiting for keypress |
 
 Important nuance:
 
@@ -192,6 +197,41 @@ This explains why the user can see a long blue pause with no readable text even 
 
 At this stage the user-visible progress signal is mainly the border-color
 changes, not the screen text.
+
+## Stage 3A: Early REU Requirement Probe
+
+Before shim install or any preload work, the loader now does a minimal REU
+presence test.
+
+How it works:
+
+1. It writes a known byte to RAM scratch at `$CA11`.
+2. It clears RAM scratch at `$CA12`.
+3. It performs a one-byte REU stash to REU bank `$FE`.
+4. It immediately fetches that byte back into `$CA12`.
+5. It compares `$CA12` to the original source byte.
+
+If the compare succeeds:
+
+- boot continues normally into shim install and preload.
+
+If the compare fails:
+
+- the border switches to the error color
+- the loader reinitializes the machine into a stable text-screen state
+- it shows:
+  - `REU NOT DETECTED`
+  - `EASYFLASH REQUIRES REU`
+  - `PRESS ANY KEY TO RETURN TO BASIC`
+- it waits in a KERNAL `GETIN` loop for any key
+- after keypress, it jumps to BASIC cold start at `$FCE2`
+
+Important nuance:
+
+- this is no longer a silent failure or a lock-up path
+- the cartridge SKU now makes the REU requirement explicit before any expensive
+  preload work begins
+- the failure path still runs entirely in early boot asm
 
 ## Stage 4: Historical Shim Install
 

@@ -136,14 +136,19 @@ and per-variant `help.md` / `helpme.md`.
   payloads, and ReadyShell overlays used during cold boot preload.
 - The companion `readyos_data.d64` stays on drive `8` and provides the normal
   disk-backed runtime target for docs, user files, and app data.
+- The on-screen boot label now reads `precog cartridge (beta)`, even though the
+  release folder and artifact names still use `precog-easyflash`.
 - Cold boot is longer than the disk variants because the loader prebuilds the
   launcher, app, and overlay REU snapshots up front.
+- The boot loader now checks for REU very early. If REU is missing, it shows an
+  explicit error, waits for a keypress, and then returns to BASIC cold start.
 - The border colors now act as a progress signal during that preload.
 - light blue: loader control flow
 - green: shim setup
 - yellow: cartridge-to-RAM copy
 - orange: RAM-to-REU stash or REU restore
 - light green: final launcher handoff
+- red: REU missing, waiting for keypress to return to BASIC
 
 If you want the closest thing to a console-like ReadyOS boot path on VICE or
 Ultimate-family hardware, this is the SKU to start with.

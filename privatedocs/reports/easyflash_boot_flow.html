@@ -178,6 +178,7 @@
     .chip-cart { background: #f0c865; color: #2f2200; }
     .chip-reu { background: #f19a55; color: #311400; }
     .chip-handoff { background: #9deb8d; color: #103000; }
+    .chip-error { background: #db6a6a; color: #300707; }
     @media (max-width: 960px) {
       .cards, .grid-2 {
         grid-template-columns: 1fr;
@@ -206,6 +207,10 @@
       <div class="note">
         This EasyFlash flavor is not a permanent execute-from-cartridge design. The cartridge is primarily a cold-boot
         source. After preload, the launcher and apps are restored from REU into RAM and run from RAM.
+      </div>
+      <div class="note">
+        On screen, this SKU now identifies itself during boot as <code>precog cartridge (beta)</code>. The release
+        folder and artifact names still remain <code>precog-easyflash</code>.
       </div>
     </section>
 
@@ -271,6 +276,7 @@
           <tr><td><span class="chip chip-cart">yellow border</span></td><td><code>$D020</code></td><td>Copying payload from cartridge into RAM</td><td>Launcher, app, and overlay payload reads</td></tr>
           <tr><td><span class="chip chip-reu">orange border</span></td><td><code>$D020</code></td><td>Moving staged RAM into REU or restoring from REU</td><td>Snapshot stash and final launcher restore</td></tr>
           <tr><td><span class="chip chip-handoff">light green border</span></td><td><code>$D020</code></td><td>Final handoff into the launcher</td><td>Just before <code>jmp $1000</code></td></tr>
+          <tr><td><span class="chip chip-error">red border</span></td><td><code>$D020</code></td><td>REU-missing error path</td><td>REU check failed, waiting for keypress</td></tr>
         </tbody>
       </table>
       <div class="note">
@@ -306,6 +312,17 @@
           <p>The loader clears screen RAM at <code>$0400</code>, writes boot text, and updates colors. However,
           the VIC may not yet be pointed at that screen RAM, so messages may exist logically without being visible.</p>
           <p>The user-visible progress signal at this point is mainly the border-color change, not the screen text.</p>
+        </div>
+
+        <div class="step">
+          <h3>Stage 3A: Early REU requirement probe</h3>
+          <p>Before shim install or any preload work, the loader performs a one-byte REU stash/fetch probe using
+          RAM scratch at <code>$CA11-$CA12</code> and REU bank <code>$FE</code>. If the byte comes back correctly,
+          boot continues normally.</p>
+          <p>If the probe fails, the border switches to red, the loader reinitializes the machine into a stable text
+          state, shows <code>REU NOT DETECTED</code>, <code>EASYFLASH REQUIRES REU</code>, and
+          <code>PRESS ANY KEY TO RETURN TO BASIC</code>, then waits in a KERNAL <code>GETIN</code> loop and jumps
+          to BASIC cold start at <code>$FCE2</code> after keypress.</p>
         </div>
 
         <div class="step">
